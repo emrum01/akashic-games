@@ -559,6 +559,7 @@ let eventTriggered = false;
 let DEBUG_HUD = false;   // ?debug=1 で on-screen HUD を表示（URLフラグ・URL固定）
 let talkCount = 0;
 let jukeOn = false; // #Phase2: ジュークボックスで BGM を一時上書き中か（切替/リトライで必ず false へ戻す）
+let jukeGlowMat = null; // #修正2: ジュークボックスの発光帯マテリアル（jukeOn で emissiveIntensity を変化させる）
 let tableGroup = null, interiorMeshes = [];
 
 const keys = {};
@@ -903,16 +904,24 @@ function teardownBaseShell(){
 function buildRoom(){
   buildBaseShell();
 
-  // Register counter (front-left area)
+  // #修正1: レジカウンターを開始視界(−Z)に入りアクセスしやすい左壁沿い中央へ移設。
+  // 長辺を Z 方向に向け（BoxGeometry の X↔Z を入替）、前面(+X)を室内へ向ける。
+  // 裏側(−X)に店員が立てる幅（壁 x=-11 まで約1.3）を確保している（後続の店員NPC配置用）。
   const counterMat = mat(0x5a3b22, 0.7, 0.05);
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.1, 1.4), counterMat);
-  counter.position.set(-7.5, 0.55, 5.6); counter.castShadow=true; counter.receiveShadow=true;
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 4.5), counterMat);
+  counter.position.set(-9.0, 0.55, 0); counter.castShadow=true; counter.receiveShadow=true;
   scene.add(counter);
-  const regTop = new THREE.Mesh(new THREE.BoxGeometry(4.7,0.12,1.6), mat(0x3a2716,0.5));
-  regTop.position.set(-7.5,1.15,5.6); scene.add(regTop);
-  // register box
-  const reg = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.5,0.5), mat(0x222222,0.6,0.3));
-  reg.position.set(-8.5,1.4,5.6); reg.castShadow=true; scene.add(reg);
+  const regTop = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 4.7), mat(0x3a2716,0.5));
+  regTop.position.set(-9.0, 1.15, 0); scene.add(regTop);
+  // #修正3: レトロなレジ（拡大＋クリーム/赤銅色＋軽い emissive）を天板の手前寄り(+Z)に。
+  const register = makeRegister();
+  register.position.set(-9.0, 1.21, 1.5); scene.add(register);
+  // #修正1: メニュー黒板（カウンター一式の一部）を左壁のカウンター上方に掲示（+X 向き）。
+  const menuBoard = makeMenuBoard();
+  menuBoard.position.set(ROOM.minX + 0.2, 2.3, 0); menuBoard.rotation.y = Math.PI/2; scene.add(menuBoard);
+  // #修正2: ジュークボックスを奥壁(−Z)沿い右手＝開始視界の正面に配置（本棚から離す）。前面(+Z)を室内へ。
+  const juke = makeJukebox();
+  juke.position.set(6.5, 0, -7.4); scene.add(juke);
 
   // Decorative bookshelves on the right wall — 背表紙が部屋(-X)を向いて露出
   const shelfMat = mat(0x4a3320, 0.8);
@@ -942,9 +951,70 @@ function buildRoom(){
     // register as LOS occluder (frame is 0.6 wide x 3.2 deep, centered at sx,sz)
     occluders.push({ minX:sx-0.3, maxX:sx+0.3, minZ:sz-1.6, maxZ:sz+1.6 });
   }
-  // register counter as an occluder too (reg box ~ at -8.5,5.6, roughly 3 x 1)
-  occluders.push({ minX:-10.0, maxX:-7.0, minZ:5.1, maxZ:6.1 });
+  // #修正1: 移設後のカウンター占有域(左壁沿い x[-9.8,-8.2], z[-2.4,2.4]) を LOS 遮蔽として登録。
+  occluders.push({ minX:-9.8, maxX:-8.2, minZ:-2.4, maxZ:2.4 });
 }
+
+// #修正3: レトロなレジ（本体＋傾いたキー面＋金額窓＋紙ロール）。天板上に置く恒久プロップ。
+function makeRegister(){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color:0xd9b382, emissive:0x5a3a12, emissiveIntensity:0.25, roughness:0.6, metalness:0.25});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.7), bodyMat);
+  body.position.y = 0.275; body.castShadow=true; g.add(body);
+  // 傾いた打鍵面（赤銅）
+  const keyMat = new THREE.MeshStandardMaterial({color:0xb5462b, emissive:0x3a1206, emissiveIntensity:0.2, roughness:0.5});
+  const keys = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.06, 0.42), keyMat);
+  keys.position.set(0, 0.5, 0.16); keys.rotation.x = -0.5; g.add(keys);
+  // 金額表示窓（明るく発光＝ひと目でレジと分かる）
+  const disp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.18, 0.04),
+    new THREE.MeshStandardMaterial({color:0xfff3c0, emissive:0xffd873, emissiveIntensity:0.6, roughness:0.4}));
+  disp.position.set(0, 0.72, -0.28); g.add(disp);
+  // レシートの紙ロール
+  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.5,12), mat(0xf4efe0,0.7));
+  roll.rotation.z = Math.PI/2; roll.position.set(0, 0.64, -0.12); g.add(roll);
+  return g;
+}
+
+// #修正1: カウンター上方のメニュー黒板（Box本体＋CanvasText 面）。ローカルは +Z 向き。
+function makeMenuBoard(){
+  const g = new THREE.Group();
+  const board = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.08), mat(0x14140f, 0.9));
+  g.add(board);
+  const face = makeTextPlane(1.5, 0.9, 'MENU\nブレンド ¥600\nカフェラテ ¥650\nチーズケーキ ¥550',
+    {cw:300, ch:180, font:28, bg:'#14140f', fg:'#f0efe6'});
+  face.position.z = 0.05; g.add(face);
+  return g;
+}
+
+// #修正2: レトロなジュークボックス（キャビネット＋アーチ天板＋前面グリル＋発光帯）。
+// 発光帯マテリアルを jukeGlowMat に露出し、jukeOn トグルで emissiveIntensity を変える。高さ約1.5。
+function makeJukebox(){
+  const g = new THREE.Group();
+  // キャビネット本体
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.15, 0.6), mat(0x5a2a12, 0.55, 0.25));
+  cab.position.y = 0.6; cab.castShadow=true; cab.receiveShadow=true; g.add(cab);
+  // アーチ型天板（横倒しシリンダー）
+  const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,1.0,20), mat(0x7a3a18, 0.5, 0.35));
+  arch.rotation.z = Math.PI/2; arch.position.set(0, 1.2, 0); arch.castShadow=true; g.add(arch);
+  // 前面グリル（暗い面＋縦バー）
+  const grill = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.04), mat(0x1a1a1a, 0.7));
+  grill.position.set(0, 0.55, 0.31); g.add(grill);
+  for(let i=0;i<5;i++){
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.46, 0.02), mat(0x8a6a3a, 0.5, 0.4));
+    bar.position.set(-0.28 + i*0.14, 0.55, 0.33); g.add(bar);
+  }
+  // 光る帯（jukeOn で強く光る）＝ jukeGlowMat を共有
+  jukeGlowMat = new THREE.MeshStandardMaterial({color:0xffb347, emissive:0xff8c1a, emissiveIntensity:0.35, roughness:0.4});
+  const band = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.05), jukeGlowMat);
+  band.position.set(0, 1.0, 0.31); g.add(band);
+  // アーチ内側の発光半円（曲面の光）
+  const bandArch = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.05, 8, 20, Math.PI), jukeGlowMat);
+  bandArch.position.set(0, 0.92, 0.32); g.add(bandArch);
+  return g;
+}
+
+// #修正2: 発光帯の emissiveIntensity を jukeOn 状態に同期（トグル/リセット時に呼ぶ）。
+function updateJukeGlow(){ try{ if(jukeGlowMat) jukeGlowMat.emissiveIntensity = jukeOn ? 1.4 : 0.35; }catch(e){} }
 
 /* ---------------- Space-morph: per-genre room shapes (#13 Phase 1) ---------------- */
 // 建築要素の追加ヘルパ（roomProps に登録して scene に追加）。
@@ -2522,7 +2592,7 @@ function renderBookOnTable(b, slotIdx){
 // 表示は showInspect（who無し・中立）＋ addLog('◇ '+text)。状態(_idx)は無害＝リトライで復元不要。
 const INTERACTABLES = {
   register: {
-    pos:[-8.5,1.4,5.6], radius:1.8,
+    pos:[-9.0,1.5,1.5], radius:1.8,
     normal:[
       '手打ちの古いレジ。レシートに店主の手書きの一言が付くらしい。',
       '引き出しに常連の忘れ物メモ。',
@@ -2539,7 +2609,7 @@ const INTERACTABLES = {
     sound:'register', // #Phase2: 実ファイル register.ogg（旧'cash'はファイル無し）
   },
   menu: {
-    pos:[-6,1.6,5.6], radius:1.6,
+    pos:[-10.2,1.9,0], radius:2.0, // #修正1: メニュー黒板の実座標(ROOM.minX+0.2≈-10.8,y2.3,z0)に合わせて同期
     normal:['本日のブレンド¥600、カフェラテ¥650、チーズケーキ¥550。まっとうな喫茶店の値段。'],
     byGenre:{
       tetsu:['黒板は真っ白。"存在するとは限らない"メニュー。'],
@@ -2615,7 +2685,7 @@ const INTERACTABLES = {
   },
   // #Phase2: 音楽アイテム（ジュークボックス）。inspect ではなく BGM トグルを行う特別扱い（music:true）。
   juke: {
-    pos:[9.5,1.2,6.4], radius:1.8, music:true,
+    pos:[6.5,1.0,-7.1], radius:1.8, music:true,
     normal:[
       '古いジュークボックス。曲を選べるらしい。',
       'コインは、いらないようだ。',
@@ -2677,6 +2747,7 @@ function toggleJuke(){
       jukeOn = false;
       Audio2.bgm(baseBgmKind());
     }
+    updateJukeGlow(); // #修正2: 発光帯を状態に同期
   } catch(e){}
 }
 
@@ -3397,14 +3468,14 @@ function propsTetsu(reduced){
 }
 function propsShizen(reduced){
   // 観葉植物モリモリ（壁沿い）
+  // #修正4: shizen は半径9の円形壁リング＋円クランプ r8.6。x=±10.4 はリング外＝壁裏になるため、
+  // 観葉植物をリング内側の半径 7.6 の円周に沿って均等配置し、丸い壁沿いに見えるようにする。
   const pn = reduced?3:10;
+  const plantR = 7.6;
   for(let i=0;i<pn;i++){
     const p = makePlant(0.9+Math.random()*0.6);
-    const side = i%4;
-    if(side===0) p.position.set(-10.4, 0, -6+i*1.5);
-    else if(side===1) p.position.set(10.4, 0, -6+i*1.5);
-    else if(side===2) p.position.set(-6+i*1.6, 0, -7.4);
-    else p.position.set(-6+i*1.6, 0, 7.4);
+    const a = (i/pn)*Math.PI*2;
+    p.position.set(Math.cos(a)*plantR, 0, Math.sin(a)*plantR);
     addProp(p);
   }
   // 満月（emissive）＋満ち欠け影球
@@ -3440,11 +3511,20 @@ function propsShizen(reduced){
   spawnProp('chairCushion', 5, 0, 1, {target:0.7});
   // 木の実の器（木鉢＋小Sphere群）×各席
   TABLES.forEach(t=>{ const bowl=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.1,0.08,12),mat(0x7a5230,0.8)); bowl.position.set(t[0]-0.4,1.02,t[1]); for(let k=0;k<4;k++){ const nut=new THREE.Mesh(new THREE.SphereGeometry(0.03,6,6),mat(0x5a3a1a,0.7)); nut.position.set((Math.random()*0.1-0.05),0.06,(Math.random()*0.1-0.05)); bowl.add(nut); } addProp(bowl); });
-  // #Phase2 ポスター4枚（植物の隙間に）
-  addPoster('水は、記憶する。', -10.8, 2.2, -4, Math.PI/2, 1.6, 0.9, '#eef6ea', '#2a6a3a');
-  addPoster('月のリズムで\n暮らす', 10.8, 2.2, -3, -Math.PI/2, 1.6, 1.0, '#eef6ea', '#2a6a3a');
-  addPoster('毒を、出す。', 10.8, 2.2, 3, -Math.PI/2, 1.5, 0.9, '#eef6ea', '#3a7a4a');
-  addPoster('本当の自分に、\n還る。', 0, 2.2, -7.85, 0, 1.7, 1.0, '#eef6ea', '#2a6a3a');
+  // #修正4: shizen ポスター4枚。addPoster の矩形端スナップ(x=±10.8)はリング外＝壁裏になるため、
+  // botanical 実写ポスターと同じく addPosterAt でリング内側 半径 8.2（<r8.6）へ直値配置し、
+  // faceYaw=atan2(-x,-z) で部屋中心を向ける。角度は入口(a=0)と botanical(前方 −Z 域)を避けて分散。
+  const postR = 8.2;
+  [
+    { a: Math.PI*0.5,  text:'水は、記憶する。' },
+    { a: Math.PI,      text:'月のリズムで\n暮らす' },
+    { a: Math.PI*1.5,  text:'毒を、出す。' },
+    { a: Math.PI*0.8,  text:'本当の自分に、\n還る。' },
+  ].forEach(o=>{
+    const x = Math.cos(o.a)*postR, z = Math.sin(o.a)*postR;
+    const faceYaw = Math.atan2(-x, -z);
+    addPosterAt(null, x, 2.1, z, faceYaw, 1.6, 0.95, o.text, '#eef6ea', '#2a6a3a');
+  });
   // #Phase3 ボタニカル実写ポスター×2（縦長）を「丸ドームのリング上」へ直値配置（Fix B）。
   // shizen は円形ドーム（壁リング半径~9・roomCircleClamp r8.6）。ROOM_ACTIVE は矩形 {-11..11,-8..8} なので
   // addPoster の矩形端スナップ(x=±10.8)はリングの外＝壁裏に出て見えない。そこで addPosterAt でリング内側
@@ -3814,6 +3894,7 @@ function applyTransformation(genre){
 
   Audio2.sfx('event');
   jukeOn = false;          // #Phase2: ジャンル切替時はジューク上書きを解除（tension が正しく主BGMになる）
+  updateJukeGlow();        // #修正2: 発光帯を消灯状態へ
   Audio2.bgm('tension');
 
   // change interior tint
@@ -4126,6 +4207,7 @@ function resetGame(){
   alertness = 0; ego = 100; seenNow=false;
   eventTriggered=false; activeGenre=null; talkCount=0;
   jukeOn=false; // #Phase2: ジューク上書きをリセット（直後の startPlaying が bgm('cafe') で主BGMを復元）
+  updateJukeGlow(); // #修正2: 発光帯を消灯状態へ
   logLines=[];
   // #8: ジャンルシーンのクリーンアップ（プロップ・ギャグ状態・フォグ・ライト・NPCポーズ）
   clearGenreProps();
