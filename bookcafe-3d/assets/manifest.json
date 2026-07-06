@@ -1,0 +1,50 @@
+{
+  "sfx": {
+    "footstep": "assets/sfx/footstep.ogg",
+    "pickup": "assets/sfx/pickup.ogg",
+    "place": "assets/sfx/place.ogg",
+    "heartbeat": "assets/sfx/heartbeat.wav",
+    "alert": "assets/sfx/alert.ogg",
+    "bust": "assets/sfx/bust.ogg",
+    "event": "assets/sfx/event.ogg",
+    "clear": "assets/sfx/clear.ogg",
+    "talk": "assets/sfx/talk.ogg",
+    "coin": "assets/sfx/coin.wav",
+    "register": "assets/sfx/register.ogg",
+    "card": "assets/sfx/card.ogg",
+    "bell": "assets/sfx/bell.ogg",
+    "chime": "assets/sfx/chime.ogg",
+    "glass_bell": "assets/sfx/glass_bell.ogg",
+    "gong": "assets/sfx/gong.ogg",
+    "door": "assets/sfx/door.ogg",
+    "clock": "assets/sfx/clock.ogg",
+    "windchime": "assets/sfx/windchime.ogg",
+    "machine": "assets/sfx/machine.ogg",
+    "drone": "assets/sfx/drone.ogg"
+  },
+  "bgm": {
+    "cafe": "assets/bgm/cafe.mp3",
+    "tension": "assets/bgm/tension.mp3"
+  },
+  "tex": {
+    "carpet_gray": "assets/tex/carpet_gray.jpg",
+    "carpet_gray2": "assets/tex/carpet_gray2.jpg",
+    "brick_red": "assets/tex/brick_red.jpg",
+    "brick_patch": "assets/tex/brick_patch.jpg",
+    "tile_blue": "assets/tex/tile_blue.jpg",
+    "tile_marble": "assets/tex/tile_marble.jpg",
+    "wood_floor_dark": "assets/tex/wood_floor_dark.jpg",
+    "wood_floor_brown": "assets/tex/wood_floor_brown.jpg",
+    "concrete_rough": "assets/tex/concrete_rough.jpg"
+  },
+  "img": {
+    "poster_alchemy_symbols": "assets/img/poster_alchemy_symbols.jpg",
+    "poster_alchemy_bell": "assets/img/poster_alchemy_bell.jpg",
+    "poster_botanical_flowers_a": "assets/img/poster_botanical_flowers_a.jpg",
+    "poster_botanical_flowers_b": "assets/img/poster_botanical_flowers_b.jpg",
+    "poster_star_gemini": "assets/img/poster_star_gemini.jpg",
+    "poster_star_ophiuchus": "assets/img/poster_star_ophiuchus.jpg",
+    "poster_zodiac": "assets/img/poster_zodiac.jpg"
+  },
+  "credits": "CREDITS.md"
+}
