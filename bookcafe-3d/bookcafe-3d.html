@@ -17,6 +17,24 @@
     box-shadow: inset 0 0 160px 40px rgba(220,30,30,0); transition:box-shadow .18s linear;
   }
 
+  /* 変貌演出用フルスクリーンオーバーレイ（白フラッシュ→暗転で差し替えを隠す）。JS が opacity/background を直接制御。 */
+  #fxOverlay {
+    position:fixed; inset:0; z-index:45; pointer-events:none; opacity:0;
+    background:#ffffff; mix-blend-mode:normal;
+  }
+  /* 発見/バースト時の赤フラッシュ（別レイヤー・加算的） */
+  #fxHit {
+    position:fixed; inset:0; z-index:44; pointer-events:none; opacity:0;
+    background:radial-gradient(circle at 50% 50%, rgba(255,40,40,0) 30%, rgba(255,30,30,.75) 100%);
+  }
+  /* クリア時の紙吹雪レイヤー（画面オーバーレイより前面） */
+  #confetti { position:fixed; inset:0; z-index:60; pointer-events:none; overflow:hidden; }
+  .confetti-piece { position:absolute; top:-20px; width:11px; height:15px; border-radius:2px; will-change:transform,opacity; }
+  @keyframes confettiFall {
+    0%   { transform:translateY(-10vh) rotateZ(0deg) rotateY(0deg); opacity:1; }
+    100% { transform:translateY(110vh) rotateZ(720deg) rotateY(540deg); opacity:.9; }
+  }
+
   /* generic overlay screen */
   .screen {
     position:fixed; inset:0; z-index:50; display:flex; flex-direction:column;
@@ -96,12 +114,26 @@
     border:10px solid transparent; border-top-color:rgba(255,255,255,.95); border-bottom:0; }
 
   #banner {
-    position:fixed; left:50%; top:40%; transform:translate(-50%,-50%); z-index:40;
-    padding:22px 40px; border-radius:16px; text-align:center; pointer-events:none;
-    background:rgba(12,8,24,.9); border:2px solid #ffd873; box-shadow:0 0 60px rgba(255,180,60,.5);
-    opacity:0; transition:opacity .4s; font-size:26px; color:#ffd873; letter-spacing:.08em;
+    --bnA:#ffd873; --bnB:#ff7a3c;
+    position:fixed; left:50%; top:38%; transform:translate(-50%,-50%) scale(.4); z-index:46;
+    padding:26px 52px; border-radius:18px; text-align:center; pointer-events:none;
+    background:linear-gradient(135deg, rgba(18,10,30,.92), rgba(40,18,50,.92));
+    border:3px solid var(--bnA);
+    box-shadow:0 0 80px var(--bnB), 0 0 140px rgba(255,180,60,.35), inset 0 0 40px rgba(255,255,255,.06);
+    opacity:0; font-size:clamp(30px,5.6vw,52px); font-weight:bold; letter-spacing:.06em;
+    color:#fff; text-shadow:0 0 22px var(--bnA), 0 3px 10px rgba(0,0,0,.7);
+    -webkit-text-stroke:1px rgba(255,255,255,.2);
+    transition:opacity .4s ease;
   }
-  #banner.show { opacity:1; }
+  #banner .bnKick { display:block; font-size:.5em; letter-spacing:.4em; margin-bottom:6px;
+    color:var(--bnA); text-shadow:0 0 14px var(--bnB); }
+  @keyframes bannerPop {
+    0%   { opacity:0; transform:translate(-50%,-50%) scale(.35) rotate(-4deg); }
+    55%  { opacity:1; transform:translate(-50%,-50%) scale(1.14) rotate(1.5deg); }
+    72%  { transform:translate(-50%,-50%) scale(.95) rotate(-1deg); }
+    100% { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0deg); }
+  }
+  #banner.show { animation:bannerPop .62s cubic-bezier(.2,1.3,.4,1) forwards; }
   .hint { position:fixed; left:50%; bottom:92px; transform:translateX(-50%); z-index:16;
     background:rgba(30,20,60,.8); border:1px solid #8a6bff; border-radius:20px; padding:7px 18px;
     font-size:13px; color:#fff; display:none; }
@@ -115,6 +147,9 @@
 
 <div id="canvasWrap"></div>
 <div id="vignette"></div>
+<div id="fxHit"></div>
+<div id="fxOverlay"></div>
+<div id="confetti"></div>
 <div id="dbg" style="position:fixed;left:6px;bottom:6px;z-index:99999;pointer-events:none;white-space:pre;font-family:monospace;font-size:11px;line-height:1.35;color:#cfe;background:rgba(0,0,0,0.6);padding:4px 6px;border-radius:3px;display:none"></div>
 
 <!-- HUD -->
@@ -680,10 +715,36 @@ const Audio2 = (function(){
     setTimeout(()=>beep(58, 0.11, 'sine', 0.38*v, 40), 150);
   }
 
-  /* ---- BGM: try file, else looping synth pad ---- */
+  /* ---- 派手化: 変貌スティンガー（既存シンセで和音＋衝撃＋ノイズスウィープ）---- */
+  function stinger(){
+    if(!ensureCtx()) return;
+    try {
+      beep(70, 0.75, 'sine', 0.55, 40);              // 低いドン（腹に来る）
+      noise(0.45, 0.32, 4200);                        // 明るい衝撃ノイズ
+      [146.8,174.6,220.0,293.7].forEach((f)=> beep(f, 0.55, 'sawtooth', 0.16)); // マイナー系スタブ
+      setTimeout(()=> beep(880, 0.32, 'triangle', 0.2, 1760), 70);  // 上へ抜けるきらめき
+      setTimeout(()=> noise(0.3, 0.18, 8000), 40);    // 高域スウィープ感
+    } catch(e){}
+  }
+
+  /* ---- BGM: try file, else looping synth pad（クロスフェード対応）---- */
+  // 現在の主BGM資源を「フェード対象」として切り離し、dur 秒でフェードアウトさせる（クロスフェードの片側）。
+  function fadeOutCurrent(dur){
+    const el = bgmEl, stopFn = bgmSynthStop;
+    bgmEl = null; bgmSynthStop = null;
+    if(el){
+      try {
+        const v0 = el.volume, steps = 12, iv = (dur*1000)/steps; let i = 0;
+        const t = setInterval(()=>{
+          i++; try { el.volume = Math.max(0, v0*(1 - i/steps)); } catch(e){}
+          if(i>=steps){ clearInterval(t); try{ el.pause(); }catch(e){} }
+        }, iv);
+      } catch(e){ try{ el.pause(); }catch(e2){} }
+    }
+    if(stopFn){ try { stopFn(); } catch(e){} } // synthBgm の stop は自前で 0.4s フェード
+  }
   function stopBgm(){
-    if(bgmEl){ try{ bgmEl.pause(); }catch(e){} bgmEl = null; }
-    if(bgmSynthStop){ bgmSynthStop(); bgmSynthStop = null; }
+    fadeOutCurrent(0.4);
     curBgm = null;
   }
   // #Phase2: ジューク(juke_*)のジャンル別音色。設計2-0の音色方針を軽量化して音程/波形で表現。
@@ -734,17 +795,20 @@ const Audio2 = (function(){
   }
   function bgm(kind){
     if(curBgm === kind) return;
-    stopBgm();
+    // クロスフェード: 旧BGMを 0.8s でフェードアウトしつつ、新BGMを即フェードインで重ねる。
+    fadeOutCurrent(0.8);
     curBgm = kind;
     const url = ASSETS.bgm[kind];
     let usedFile = false;
     try {
       const a = new Audio();
-      a.loop = true; a.volume = 0.35; a.preload='auto';
+      a.loop = true; a.volume = 0.0; a.preload='auto';
+      const fadeInHtml = (el)=>{ const tgt=0.35, steps=16, iv=800/steps; let i=0;
+        const t=setInterval(()=>{ i++; try{ el.volume=Math.min(tgt, tgt*i/steps); }catch(e){} if(i>=steps) clearInterval(t); }, iv); };
       let decided = false;
       a.addEventListener('canplaythrough', ()=>{
         if(decided || curBgm!==kind) return; decided = true; usedFile = true;
-        bgmEl = a; a.play().catch(()=>{ if(!bgmSynthStop) bgmSynthStop = synthBgm(kind); });
+        bgmEl = a; a.play().then(()=>fadeInHtml(a)).catch(()=>{ if(!bgmSynthStop) bgmSynthStop = synthBgm(kind); });
       }, {once:true});
       a.addEventListener('error', ()=>{
         if(decided || curBgm!==kind) return; decided = true;
@@ -759,7 +823,7 @@ const Audio2 = (function(){
   }
 
   probe();
-  return { start, sfx, bgm, stopBgm, ensureCtx, heartbeat };
+  return { start, sfx, bgm, stopBgm, ensureCtx, heartbeat, stinger };
 })();
 
 /* ============================================================
@@ -3548,14 +3612,17 @@ function setGenreAtmosphere(key){
     stashEnv(); // フォグ近遠＋hemi/ambient強度を初回退避
     const hemi = scene.userData.hemi, amb = grabAmbient();
     if(key==='occult'){
-      if(scene.fog){ scene.fog.near = 8; scene.fog.far = 30; } // 濃く暗い
-      const flick = new THREE.PointLight(0x9a6bff, 0.6, 24);
+      if(scene.fog){ scene.fog.near = 11; scene.fog.far = 34; } // 濃く暗い（720p配信で潰れない程度に緩和）
+      const flick = new THREE.PointLight(0x9a6bff, 1.0, 30);
       flick.position.set(0, 3.4, 0);
-      flick.userData.baseIntensity = 0.6;
+      flick.userData.baseIntensity = 1.0;
       addProp(flick);
       if(genreGagState) genreGagState.flickLight = flick;
       // #Phase2: 壁を暗紫へ
       if(scene.userData.wallMat){ scene.userData.wallMat.color.setHex(0x352050); tryTexture(ASSETS_TEX('wall_dark'), scene.userData.wallMat); }
+      // 派手化: 720p配信で黒つぶれしないよう環境光の底を上げる（雰囲気は維持）
+      if(amb)  amb.intensity  = Math.max(amb.intensity,  (savedEnv.ambInt!=null?savedEnv.ambInt:0.55)*0.72);
+      if(hemi) hemi.intensity = Math.max(hemi.intensity, (savedEnv.hemiInt!=null?savedEnv.hemiInt:0.55)*0.62);
     } else if(key==='ishiki'){
       if(scene.fog){ scene.fog.near = 22; scene.fog.far = 45; } // クリアで前向きな朝
       // 朝日 DirectionalLight（暖色・低い角度）
@@ -3573,9 +3640,9 @@ function setGenreAtmosphere(key){
       if(scene.fog){ scene.fog.near = 24; scene.fog.far = 46; } // 薄め
     } else if(key==='tetsu'){
       if(scene.fog){ scene.fog.near = 14; scene.fog.far = 34; } // #13: だだっ広い虚無感（高天井/遠い壁/"?"塔が見える。壁で塞がない）
-      // 全体照明を落とす（0.4倍）
-      if(hemi) hemi.intensity = (savedEnv.hemiInt!=null?savedEnv.hemiInt:0.55) * 0.4;
-      if(amb) amb.intensity = (savedEnv.ambInt!=null?savedEnv.ambInt:0.55) * 0.4;
+      // 全体照明を落とす（0.62倍 — 虚無感は保ちつつ720p配信で黒つぶれしない）
+      if(hemi) hemi.intensity = (savedEnv.hemiInt!=null?savedEnv.hemiInt:0.55) * 0.62;
+      if(amb) amb.intensity = (savedEnv.ambInt!=null?savedEnv.ambInt:0.55) * 0.62;
       // #Phase2: 壁を暗くくすませる
       if(scene.userData.wallMat){ scene.userData.wallMat.color.setHex(0x5a5a8c); tryTexture(ASSETS_TEX('wall_dark'), scene.userData.wallMat); }
     } else if(key==='shizen'){
@@ -3785,13 +3852,14 @@ function updateGenreGags(dt){
 }
 
 // ジャンルシーン適用の集約（triggerEvent末尾から呼ぶ）。
+// 部屋/客/プロップの「同期差し替え」本体。派手化シーケンス(fxTransformSequence)の暗転中に呼ばれ、
+// 差し替え瞬間を隠す。追加された建具/プロップはポップイン登録して明転後に演出する。
 function applyGenreScene(key){
   try {
-    commonTransformFlash();      // #8-①: 暗転フラッシュ
+    const popStart = genreProps.length; // このシーンで addProp される分だけをポップイン対象にする
     // #13 空間モーフ: 部屋の形を「同期で先に」差し替える。
     // ※ addGenreProps(壁ポスター) や rebuildCrowd(配置) が ROOM_ACTIVE を参照するため、
-    //   それらより前に ROOM_ACTIVE/solids を確定させる必要がある（setTimeout遅延だと旧boundsで配置されてしまう）。
-    //   暗転フラッシュ(vignette)が同フレームの差し替えを隠すので見た目のインパクトは維持。
+    //   それらより前に ROOM_ACTIVE/solids を確定させる必要がある。
     try { buildRoomFor(key); } catch(e){}
     startGenreGags(key);         // ギャグ状態を先に初期化（atmosphereがflickLightを積むため）
     swapCustomers(key);          // 客を新ポーズへ（ROOM_ACTIVE 確定後）
@@ -3800,6 +3868,8 @@ function applyGenreScene(key){
     setGenreAtmosphere(key);     // フォグ/追加ライト
     // startGenreGagsは上で実行済み。atmosphereが積んだflickLightを拾い直す。
     if(genreGagState){ try { genreGagState.flickLight = genreProps.find(o=>o.isPointLight && o.userData && o.userData.baseIntensity!=null) || null; } catch(e){} }
+    // 派手化: このシーンで追加された建具/プロップを scale0→easeOutBack でずらしポップイン（ライト除外）
+    try { fxRegisterPopIn(genreProps.slice(popStart)); } catch(e){}
   } catch(e){}
 }
 
@@ -3812,24 +3882,27 @@ function applyTransformation(genre){
   activeGenre = genre;
   const gd = GENRES[genre] || GENRES.chaos;
 
-  Audio2.sfx('event');
   jukeOn = false;          // #Phase2: ジャンル切替時はジューク上書きを解除（tension が正しく主BGMになる）
-  Audio2.bgm('tension');
+  // 派手化: 音のタメ — 一瞬BGMを止め（無音）、スティンガーの“ドン”の後に tension をクロスフェードインさせる。
+  Audio2.stopBgm();
+  setTimeout(()=>{ try { Audio2.bgm('tension'); } catch(e){} }, 420);
 
   // change interior tint
   applyTint(gd.tint);
   // update menu
   updateMenu(gd.menuTitle, gd.menu);
-  // banner
-  showBanner('変貌：'+gd.event);
   addLog('★ 店が「'+gd.event+'」に変わった！ お客・店員にEで3回話してクリア');
   showHint('Eで3回 話しかけてクリア');
   updateHUD();
 
-  // #8-①②③: 化ける演出・客再ポーズ・店員見た目・プロップ・空気・ギャグ
-  applyGenreScene(genre);
-  // #13: 変貌リベールカメラ — 引きの画で「別の店になった」新形状の全景を見せる
-  try { startRevealCam(); } catch(e){}
+  // 派手化シーケンス: 白フラッシュ→暗転→(暗転中に applyGenreScene で同期差し替え＋リベールカメラ開始)
+  //   →明転＋衝撃波＋パーティクル大量バースト＋強シェイク＋バナー。バナー/リベールはシーケンス側で発火。
+  try {
+    fxTransformSequence(genre, ()=> applyGenreScene(genre));
+  } catch(e){
+    // 保険: FXが失敗しても最低限の差し替えは行う（従来動作へフォールバック）
+    try { applyGenreScene(genre); startRevealCam(); showBanner('変貌：'+gd.event); } catch(e2){}
+  }
 }
 
 function triggerEvent(){
@@ -3961,6 +4034,8 @@ function bust(msg){
   if(gameState!=='playing') return;
   Audio2.sfx('bust');
   Audio2.stopBgm();
+  // 派手化: バレた瞬間の強い赤フラッシュ＋大シェイク＋ズームパンチ
+  try { fxHitFlash(0.95); fxShake(1.25); fxZoomPunch(9); } catch(e){}
   gameState = 'over';
   document.getElementById('overMsg').textContent = msg || '店員に見つかってしまった……';
   show('overScreen');
@@ -3979,6 +4054,8 @@ function doClear(){
   show('clearScreen');
   document.getElementById('hud').style.display='none';
   setVignette(0);
+  // 派手化: クリア画面に紙吹雪の雨＋軽いお祝いシェイク
+  try { fxConfetti(170); fxShake(0.5); } catch(e){}
 }
 
 /* ============================================================
@@ -4087,10 +4164,27 @@ function showInspect(text){
   inspectTO=setTimeout(()=>{ el.style.display='none'; }, 3600);
 }
 let bannerTO=null;
-function showBanner(t){
-  const b=$('banner'); b.textContent=t; b.classList.add('show');
+// 派手化: ジャンルカラーのグラデ枠＋「変貌」キッカー＋スケールインバウンス。
+// genre を渡すとカラーを反映。t は本文（"変貌："等の接頭辞は付けず本文だけ渡す想定だが、付いていても表示は成立）。
+function showBanner(t, genre){
+  const b=$('banner'); if(!b) return;
+  // ジャンルカラー（明色→濃色）でグラデ／発光の色を差し替え
+  try {
+    let a='#ffd873', c2='#ff7a3c';
+    if(genre && GENRES[genre] && GENRES[genre].color!=null){
+      const hex = GENRES[genre].color;
+      a = '#'+(hex>>>0).toString(16).padStart(6,'0');
+      const lite = new THREE.Color(hex).lerp(new THREE.Color(0xffffff), 0.45);
+      c2 = '#'+lite.getHexString();
+    }
+    b.style.setProperty('--bnA', a);
+    b.style.setProperty('--bnB', c2);
+  } catch(e){}
+  b.innerHTML = '<span class="bnKick">変貌</span>' + String(t).replace(/^変貌[:：]\s*/, '');
+  // アニメを毎回頭から再生（クラス外し→リフロー→付け直し）
+  b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   if(bannerTO) clearTimeout(bannerTO);
-  bannerTO=setTimeout(()=>{ b.classList.remove('show'); }, 2600);
+  bannerTO=setTimeout(()=>{ b.classList.remove('show'); }, 2800);
 }
 function setVignette(intensity){
   // intensity 0..1
@@ -4171,6 +4265,8 @@ function resetGame(){
   buildStatRows(); buildSlots(); updateHUD(); updateAlertUI();
   $('logLines').innerHTML=''; addLog('本を拾って中央の平積み棚に3冊置こう');
   setVignette(0);
+  // 派手化: 残存FX（オーバーレイ/パーティクル/衝撃波/ポップイン/紙吹雪/シェイク）を全消去
+  try { fxClear(); } catch(e){}
 }
 function startPlaying(){
   resetGame();
@@ -4266,11 +4362,11 @@ const CAM = {
 // #13: 変貌リベールカメラ。変貌直後だけ「店の中心を斜め45°上空から」見せて全景を提示し、
 // 2秒後に確実に通常の肩越しカメラへ戻す。プレイヤーは追わない＝店の"形"と客が一望できる。
 const REVEAL = {
-  dur:      2.0,   // リベール総時間（秒）
+  dur:      2.7,   // リベール総時間（秒）— 決め画で少し長めに見せてゆっくり寄る
   dist:     13.0,  // 店中心からの水平距離（広い部屋は下で自動拡大）
   height:   11.0,  // 高さ（dist と近い値＝約45°の斜め俯瞰。真上にしない）
   lookY:    1.2,   // 店中心の注視高さ
-  ease:     0.55   // 残り時間の後半 ease で肩越しへ戻し始める割合
+  ease:     0.5    // 残り時間の後半 ease で肩越しへ戻し始める割合
 };
 let revealCamT = 0;          // >0 の間リベール中（残り秒）
 let revealYaw = 0;           // 引きの方位（開始時のcameraYaw）
@@ -4330,20 +4426,22 @@ function updateCamera(dt){
     const overZ = -Math.cos(revealYaw)*REVEAL.dist;
     const overY = REVEAL.height;
     if(rem > (1 - REVEAL.ease)){
-      // 前半（rem大）: 俯瞰へ寄せる（プレイヤー非依存の絶対目標）。lookAt=店中心固定。
+      // 前半（rem大）: 店全景が必ず綺麗に入る固定俯瞰へ寄せて“決め画”を作る。lookAt=店中心固定。
+      // lerpK を上げてブレなく即座に決め画へ収束させる（着地の不安定さ＝寄りきれない/漂う を解消）。
       tgtX = overX; tgtZ = overZ; tgtY = overY;
       lookX = 0; lookY = REVEAL.lookY; lookZ = 0;
-      lerpK = 3.0;
+      lerpK = 5.0;
     } else {
-      // 後半: 俯瞰→肩越しへ w=残り率(0..ease) で線形ブレンドして必ず戻す。
-      const w = rem / (1 - REVEAL.ease); // ease境界で1 → 0 で完全に肩越し
+      // 後半: 俯瞰→肩越しへ smoothstep でブレンドして必ず滑らかに戻す。
+      let w = rem / (1 - REVEAL.ease);   // ease境界で1 → 0
+      w = w*w*(3 - 2*w);                 // smoothstep（等速の折れを消す）
       tgtX = overX*w + tgtX*(1-w);
       tgtZ = overZ*w + tgtZ*(1-w);
       tgtY = overY*w + tgtY*(1-w);
       lookX = 0*w + lookX*(1-w);
       lookY = REVEAL.lookY*w + lookY*(1-w);
       lookZ = 0*w + lookZ*(1-w);
-      lerpK = 4.5;
+      lerpK = 6.5;                       // 肩越しへ確実に着地
     }
   } else {
     // 通常時: 壁へハードクランプ（=真上俯瞰/壁埋まりに退化）せず、カメラ距離を「壁の手前まで」短縮する。
@@ -4417,6 +4515,8 @@ function updateCamera(dt){
 
   camera.position.lerp(new THREE.Vector3(tgtX, tgtY, tgtZ), Math.min(1, dt*lerpK));
   camera.lookAt(lookX, lookY, lookZ);
+  // 派手化: スクリーンシェイク＋ズームパンチを最終適用（lookAt後の位置に減衰オフセット注入）
+  fxApplyCamera(dt);
 }
 
 function updateClerks(dt){
@@ -4428,6 +4528,8 @@ function updateClerks(dt){
 
     if(sees && c.pauseT<=0){
       c.pauseT = DIFF.clerkPauseOnSee; // react: pause & turn toward player
+      // 派手化: 禁制品所持中に新規発見された瞬間だけ 赤フラッシュ＋シェイク（危険フィードバック）
+      if(heldBooks.length > 0){ try { fxHitFlash(0.5); fxShake(0.45); } catch(e){} }
     }
 
     if(c.pauseT>0){
@@ -4550,6 +4652,220 @@ function updateBooks(dt){
 }
 
 /* ============================================================
+   FX — 派手化パッケージ（パーティクル / スクリーンシェイク / ズームパンチ /
+   フルスクリーン変貌シーケンス / 家具ポップイン / 紙吹雪 / 発見フラッシュ）
+   外部依存なし。THREE / scene / camera（グローバル）のみ使用。
+   updateFX(dt) を animate から毎フレーム呼び、updateCamera 末尾でシェイク/FOVを適用する。
+   ============================================================ */
+const FX = { shakeAmp:0, fovKick:0, baseFov:58 };
+const fxParticles = [];   // {pts, vel[], life, age, gravity, drag}
+const fxRings = [];       // {ring, age, life, maxScale, op0}
+const fxPopIns = [];      // {o, tgt, delay, dur, t}
+let fxTransforming = false;
+
+function _fxEl(id){ return document.getElementById(id); }
+function fxGenreHex(g){ return (GENRES[g] && GENRES[g].color!=null) ? GENRES[g].color : 0x9a6bff; }
+function fxHexCss(hex){ return '#'+(hex>>>0).toString(16).padStart(6,'0'); }
+function easeOutBack(x){ const c1=1.70158, c3=c1+1; return 1 + c3*Math.pow(x-1,3) + c1*Math.pow(x-1,2); }
+
+/* ---- スクリーンシェイク / ズームパンチ ---- */
+function fxShake(amp){ FX.shakeAmp = Math.min(1.6, Math.max(FX.shakeAmp, amp)); }
+function fxZoomPunch(deg){ FX.fovKick = Math.min(16, Math.max(FX.fovKick, deg)); }
+// updateCamera 末尾から。位置に減衰ノイズを注入し、FOVを一瞬詰める。戻り値は適用済み。
+function fxApplyCamera(dt){
+  if(!camera) return;
+  if(FX.shakeAmp > 0.0008){
+    const a = FX.shakeAmp; const t = performance.now()*0.001;
+    camera.position.x += (Math.sin(t*47.3)+Math.sin(t*29.7))*0.5 * a*0.55;
+    camera.position.y += (Math.sin(t*41.1)+Math.sin(t*57.9))*0.5 * a*0.5;
+    camera.position.z += Math.sin(t*53.7) * a*0.3;
+    FX.shakeAmp = Math.max(0, FX.shakeAmp - dt*3.4); // ~0.4-0.5秒で減衰
+  }
+  if(FX.fovKick > 0.02){
+    camera.fov = FX.baseFov - FX.fovKick;
+    camera.updateProjectionMatrix();
+    FX.fovKick = Math.max(0, FX.fovKick - dt*36);
+    if(FX.fovKick <= 0.02 && camera.fov !== FX.baseFov){ camera.fov = FX.baseFov; camera.updateProjectionMatrix(); }
+  }
+}
+
+/* ---- パーティクルバースト（紙吹雪/火花）---- */
+function fxBurst(pos, o){
+  try {
+    o = o||{};
+    const count = o.count||140;
+    const geo = new THREE.BufferGeometry();
+    const arr = new Float32Array(count*3);
+    const vel = [];
+    const upBias = o.upBias!=null ? o.upBias : 0.9;
+    for(let i=0;i<count;i++){
+      arr[i*3]=pos.x; arr[i*3+1]=pos.y; arr[i*3+2]=pos.z;
+      const dir = new THREE.Vector3(Math.random()*2-1, Math.random()*1.6+upBias, Math.random()*2-1);
+      if(dir.lengthSq()<1e-6) dir.set(0,1,0);
+      dir.normalize();
+      const sp = (o.speed||5)*(0.35+Math.random()*0.9);
+      vel.push(dir.multiplyScalar(sp));
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(arr,3));
+    const mat = new THREE.PointsMaterial({
+      color: o.color!=null?o.color:0xffffff, size:o.size||0.2, transparent:true, opacity:1,
+      depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:true
+    });
+    const pts = new THREE.Points(geo, mat);
+    scene.add(pts);
+    fxParticles.push({pts, vel, life:o.life||1.3, age:0, gravity:o.gravity!=null?o.gravity:6, drag:o.drag!=null?o.drag:0.6});
+  } catch(e){}
+}
+
+/* ---- 衝撃波リング（床面 XZ に広がる）---- */
+function fxShockwave(pos, hex, o){
+  try {
+    o = o||{};
+    const geo = new THREE.RingGeometry(0.25, 0.5, 56);
+    const mat = new THREE.MeshBasicMaterial({color:hex!=null?hex:0xffffff, transparent:true, opacity:o.op0!=null?o.op0:0.85,
+      side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending});
+    const ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI/2;
+    ring.position.set(pos.x, (o.y!=null?o.y:0.15), pos.z);
+    scene.add(ring);
+    fxRings.push({ring, age:0, life:o.life||0.9, maxScale:o.maxScale||18, op0:mat.opacity});
+  } catch(e){}
+}
+
+/* ---- 家具/プロップのポップイン（scale 0→オーバーシュート, ずらしディレイ）---- */
+function fxRegisterPopIn(objs){
+  try {
+    fxPopIns.length = 0; // 同時に1変貌だけ。前回分は破棄。
+    let idx = 0;
+    for(const o of objs){
+      if(!o || o.isLight) continue;                 // ライトはスケール対象外
+      const tgt = o.scale.clone();
+      o.scale.setScalar(0.0001);
+      fxPopIns.push({o, tgt, delay:0.12 + idx*0.07, dur:0.5, t:0});
+      idx++;
+    }
+  } catch(e){}
+}
+
+/* ---- DOM 紙吹雪（クリア画面の前面 z=60）---- */
+function fxConfetti(count){
+  try {
+    const wrap = _fxEl('confetti'); if(!wrap) return;
+    wrap.innerHTML = '';
+    const colors = ['#ffd873','#ff7a3c','#4fd06a','#6a9bff','#ff5aa0','#b06bff','#ffffff'];
+    const n = count||150;
+    for(let i=0;i<n;i++){
+      const d = document.createElement('div'); d.className = 'confetti-piece';
+      d.style.left = (Math.random()*100)+'vw';
+      d.style.background = colors[i % colors.length];
+      const dur = 2.4 + Math.random()*2.6, delay = Math.random()*1.4;
+      d.style.animation = 'confettiFall '+dur.toFixed(2)+'s linear '+delay.toFixed(2)+'s forwards';
+      wrap.appendChild(d);
+    }
+    setTimeout(()=>{ if(wrap) wrap.innerHTML=''; }, 8000);
+  } catch(e){}
+}
+
+/* ---- 発見/バースト時の赤フラッシュ ---- */
+function fxHitFlash(intensity){
+  try {
+    const h = _fxEl('fxHit'); if(!h) return;
+    h.style.transition = 'none'; h.style.opacity = String(Math.min(1, intensity||0.6));
+    requestAnimationFrame(()=>{ h.style.transition = 'opacity .5s ease'; h.style.opacity = '0'; });
+  } catch(e){}
+}
+
+/* ---- 全FXクリア（resetGame / タイトル復帰）---- */
+function fxClear(){
+  try {
+    for(const p of fxParticles){ try{ scene.remove(p.pts); p.pts.geometry.dispose(); p.pts.material.dispose(); }catch(e){} }
+    fxParticles.length = 0;
+    for(const r of fxRings){ try{ scene.remove(r.ring); r.ring.geometry.dispose(); r.ring.material.dispose(); }catch(e){} }
+    fxRings.length = 0;
+    fxPopIns.length = 0;
+    FX.shakeAmp = 0; FX.fovKick = 0; fxTransforming = false;
+    const ov = _fxEl('fxOverlay'); if(ov){ ov.style.transition='none'; ov.style.opacity='0'; }
+    const h = _fxEl('fxHit'); if(h){ h.style.transition='none'; h.style.opacity='0'; }
+    const cf = _fxEl('confetti'); if(cf) cf.innerHTML='';
+  } catch(e){}
+}
+
+/* ---- 変貌シーケンス: 白フラッシュ→暗転(裏で差し替え)→明転＋衝撃波＋バースト＋バナー ----
+   buildFn は「同期で部屋/客/プロップを差し替える」関数（暗転中に実行して差し替えを隠す）。 */
+function fxTransformSequence(genre, buildFn){
+  const hex = fxGenreHex(genre);
+  const ov = _fxEl('fxOverlay');
+  fxTransforming = true;
+  // 既存パーティクルは残しつつ、シェイクとスティンガーで“ドン”の予兆
+  try { Audio2.stinger(); } catch(e){}
+  fxShake(0.55); fxZoomPunch(7);
+  // 1) 白フラッシュ（一瞬）
+  if(ov){ ov.style.transition='none'; ov.style.background = fxHexCss(hex); ov.style.opacity='0.92'; }
+  // 2) 130ms後: ジャンル暗色で暗転して差し替えを隠す
+  setTimeout(()=>{
+    if(ov){ ov.style.transition='opacity .12s ease'; ov.style.background='#05040a'; ov.style.opacity='1'; }
+    // 3) 暗転が画面に乗った次フレームで重い差し替えを実行（＋リベールカメラ開始）
+    requestAnimationFrame(()=> requestAnimationFrame(()=>{
+      try { if(buildFn) buildFn(); } catch(e){ console.warn('fxTransform build error', e); }
+      try { startRevealCam(); } catch(e){}
+      // 4) 明転（リベール）＋衝撃波＋パーティクル大量バースト＋強シェイク＋バナー
+      setTimeout(()=>{
+        if(ov){ ov.style.transition='opacity .45s ease'; ov.style.opacity='0'; }
+        const c = new THREE.Vector3(0,1.3,0);
+        fxShockwave({x:0,z:0}, hex, {maxScale:22, life:0.95, y:0.12});
+        fxShockwave({x:0,z:0}, 0xffffff, {maxScale:13, life:0.7, y:0.14, op0:0.7});
+        fxBurst(c, {count:240, color:hex,      speed:8, size:0.24, life:1.7, gravity:5, upBias:0.7});
+        fxBurst(c, {count:110, color:0xffffff, speed:10, size:0.15, life:1.1, gravity:4, upBias:1.2});
+        fxShake(1.15); fxZoomPunch(11);
+        try { showBanner('変貌：'+((GENRES[genre]&&(GENRES[genre].event||GENRES[genre].label))||''), genre); } catch(e){}
+        setTimeout(()=>{ fxTransforming = false; }, 300);
+      }, 200);
+    }));
+  }, 130);
+}
+
+/* ---- 毎フレーム更新（animate から。gameState を問わず常時）---- */
+function updateFX(dt){
+  // パーティクル
+  for(let i=fxParticles.length-1;i>=0;i--){
+    const p = fxParticles[i]; p.age += dt;
+    try {
+      const attr = p.pts.geometry.attributes.position; const a = attr.array;
+      const dragK = Math.max(0, 1 - p.drag*dt);
+      for(let j=0;j<p.vel.length;j++){
+        const v = p.vel[j];
+        v.y -= p.gravity*dt; v.multiplyScalar(dragK);
+        a[j*3]   += v.x*dt; a[j*3+1] += v.y*dt; a[j*3+2] += v.z*dt;
+      }
+      attr.needsUpdate = true;
+      p.pts.material.opacity = Math.max(0, 1 - p.age/p.life);
+    } catch(e){}
+    if(p.age >= p.life){ try{ scene.remove(p.pts); p.pts.geometry.dispose(); p.pts.material.dispose(); }catch(e){} fxParticles.splice(i,1); }
+  }
+  // 衝撃波リング
+  for(let i=fxRings.length-1;i>=0;i--){
+    const r = fxRings[i]; r.age += dt;
+    const k = Math.min(1, r.age/r.life);
+    try {
+      const s = 1 + k*r.maxScale;
+      r.ring.scale.set(s, s, s);
+      r.ring.material.opacity = r.op0 * (1 - k);
+    } catch(e){}
+    if(r.age >= r.life){ try{ scene.remove(r.ring); r.ring.geometry.dispose(); r.ring.material.dispose(); }catch(e){} fxRings.splice(i,1); }
+  }
+  // 家具ポップイン
+  for(let i=fxPopIns.length-1;i>=0;i--){
+    const p = fxPopIns[i]; p.t += dt;
+    const local = p.t - p.delay;
+    if(local < 0) continue;
+    const k = Math.min(1, local/p.dur);
+    const e = easeOutBack(k);
+    try { p.o.scale.set(p.tgt.x*e, p.tgt.y*e, p.tgt.z*e); } catch(err){}
+    if(k >= 1){ try{ p.o.scale.copy(p.tgt); }catch(err){} fxPopIns.splice(i,1); }
+  }
+}
+
+/* ============================================================
    MAIN LOOP (try/catch guarded)
    ============================================================ */
 function animate(){
@@ -4569,6 +4885,7 @@ function animate(){
       if(scene) { /* keep still */ }
     }
     updateCamera(dt);
+    updateFX(dt);   // 派手化: パーティクル/衝撃波/ポップインを常時進める
     if(renderer && scene && camera) renderer.render(scene, camera);
     if(DEBUG_HUD){
       try {
