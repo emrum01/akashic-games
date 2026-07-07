@@ -1553,9 +1553,16 @@
         escapeArmed: false,
         kakejikuChecks: 0,
         browserHintSeen: false,
+        puzzleHintShown: false,
+        puzzleHintStep: 0,
         ended: false
       };
       let flavorActionHandler = null;
+      const puzzleHints = [
+        "中間は、起点から3回同じ操作をした状態。",
+        "終端は、中間から右側の2つだけが反転した状態。",
+        "入力できる記号は → と ← だけ。"
+      ];
 
       explosionVideo.addEventListener("error", () => {
         clearStage.classList.add("video-failed");
@@ -1590,6 +1597,11 @@
           return;
         }
         puzzleStatus.textContent = "不一致";
+        if (!state.puzzleHintShown) {
+          state.puzzleHintShown = true;
+          state.puzzleHintStep = 0;
+          showPuzzleHint();
+        }
         puzzleInput.select();
       });
 
@@ -1907,6 +1919,18 @@
         flavorAction.textContent = options.actionLabel || "";
         flavorAction.classList.toggle("is-hidden", !flavorActionHandler);
         flavorLayer.classList.remove("is-hidden");
+      }
+
+      function showPuzzleHint() {
+        const hasNext = state.puzzleHintStep < puzzleHints.length - 1;
+        showFlavor(puzzleHints[state.puzzleHintStep], {
+          title: "ヒント",
+          actionLabel: hasNext ? "次のヒント" : "",
+          onAction: hasNext ? () => {
+            state.puzzleHintStep += 1;
+            showPuzzleHint();
+          } : null
+        });
       }
 
       function showBrowserHint() {
