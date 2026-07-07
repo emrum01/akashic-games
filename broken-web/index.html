@@ -687,6 +687,10 @@
       font-weight: 800;
     }
 
+    .word-bank button.is-hidden {
+      display: none;
+    }
+
     .puzzle-status {
       min-height: 1.35em;
       margin-top: 14px;
@@ -1427,7 +1431,7 @@
       <div class="web-error" aria-hidden="true">
         <div class="error-code">404</div>
         <div class="error-label">NOT FOUND</div>
-        <div class="error-copy">壊れたWeb空間。<br>部屋をタップして探索せよ。</div>
+        <div class="error-copy">壊れたWeb空間。<br>部屋を<span style="font-weight:bold; color:var(--accent);">タップ</span>して探索し、脱出せよ。</div>
       </div>
       <button class="display-hotspot" id="displayHotspot" type="button" aria-label="壊れたディスプレイを調べる"></button>
       <button class="scene-hotspot" id="kakejikuHotspot" type="button" aria-label="掛け軸を調べる"></button>
@@ -1455,7 +1459,7 @@
           <button type="button" data-answer="→">→</button>
           <button type="button" data-answer="←">←</button>
           <button type="button" data-action="backspace">戻す</button>
-          <button type="button" data-action="clear">消す</button>
+          <button type="button" data-action="hint" id="puzzleHintButton" class="is-hidden">ヒント</button>
         </div>
         <div class="puzzle-status" id="puzzleStatus" aria-live="polite"></div>
       </section>
@@ -1511,6 +1515,7 @@
       const puzzleForm = document.getElementById("puzzleForm");
       const puzzleInput = document.getElementById("puzzleInput");
       const puzzleStatus = document.getElementById("puzzleStatus");
+      const puzzleHintButton = document.getElementById("puzzleHintButton");
       const devicePanel = document.getElementById("devicePanel");
       const deviceCopy = document.getElementById("deviceCopy");
       const activationButton = document.getElementById("activationButton");
@@ -1573,8 +1578,9 @@
 
       document.querySelectorAll(".word-bank button").forEach((button) => {
         button.addEventListener("click", () => {
-          if (button.dataset.action === "clear") {
-            puzzleInput.value = "";
+          if (button.dataset.action === "hint") {
+            showPuzzleHint();
+            return;
           } else if (button.dataset.action === "backspace") {
             puzzleInput.value = puzzleInput.value.slice(0, -1);
           } else if (button.dataset.answer && puzzleInput.value.length < 5) {
@@ -1600,7 +1606,7 @@
         if (!state.puzzleHintShown) {
           state.puzzleHintShown = true;
           state.puzzleHintStep = 0;
-          showPuzzleHint();
+          puzzleHintButton.classList.remove("is-hidden");
         }
         puzzleInput.select();
       });
