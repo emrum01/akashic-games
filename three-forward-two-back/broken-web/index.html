@@ -1023,6 +1023,17 @@
       display: none;
     }
 
+    .mission-close-button {
+      min-height: 38px;
+      padding: 0 18px;
+      border: 1px solid rgba(224, 213, 181, 0.26);
+      border-radius: 2px;
+      background: rgba(18, 16, 13, 0.92);
+      color: rgba(244, 232, 204, 0.86);
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      cursor: pointer;
+    }
+
     .mission-note {
       margin-top: 10px;
       color: rgba(240, 230, 202, 0.68);
@@ -1506,6 +1517,7 @@
       <span class="mission-text" id="missionText">このWeb空間からの脱出は<br>ブラウザでしか実行できない。</span>
       <div class="mission-actions">
         <button class="mission-browser-button" id="openDefaultBrowserButton" type="button">デフォルトブラウザで開く</button>
+        <button class="mission-close-button" id="missionClose" type="button">閉じる</button>
       </div>
       <div class="mission-note" id="missionNote">画面をタップすると続行できます。</div>
     </div>
@@ -1558,6 +1570,7 @@
       const missionText = document.getElementById("missionText");
       const missionNote = document.getElementById("missionNote");
       const openDefaultBrowserButton = document.getElementById("openDefaultBrowserButton");
+      const missionClose = document.getElementById("missionClose");
       const memoLayer = document.getElementById("memoLayer");
       const memoClose = document.getElementById("memoClose");
       const flavorLayer = document.getElementById("flavorLayer");
@@ -1672,6 +1685,10 @@
 
       openDefaultBrowserButton.addEventListener("click", () => {
         openDefaultBrowser();
+      });
+
+      missionClose.addEventListener("click", () => {
+        missionLayer.classList.add("is-hidden");
       });
 
       memoLayer.addEventListener("click", () => {
@@ -1936,7 +1953,7 @@
         } else if (platform === "android") {
           missionNote.textContent = "ボタンで開けない場合は、URLをコピーしてブラウザで開いてください。";
         } else {
-          missionNote.textContent = "画面をクリックすると続行できます。";
+          missionNote.textContent = "画面をタップすると続行できます。";
         }
       }
 
