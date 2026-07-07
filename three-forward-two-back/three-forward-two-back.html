@@ -1453,10 +1453,10 @@
     </section>
   </main>
 
-  <div class="mission-layer is-hidden" id="missionLayer">
+  <div class="mission-layer" id="missionLayer">
     <div class="mission-dialog" role="status" aria-live="polite">
-      <span class="mission-label">指令</span>
-      <span class="mission-text">このWeb空間から脱出する</span>
+      <span class="mission-label">警告</span>
+      <span class="mission-text">このWeb空間からの脱出は<br>Safari もしくは Chrome でしか実行できない。</span>
     </div>
   </div>
   <div class="memo-layer is-hidden" id="memoLayer">
@@ -1501,6 +1501,7 @@
       const deviceHotspot = document.getElementById("deviceHotspot");
       const clearStage = document.getElementById("clearStage");
       const explosionVideo = document.getElementById("explosionVideo");
+      const missionLayer = document.getElementById("missionLayer");
       const memoLayer = document.getElementById("memoLayer");
       const memoClose = document.getElementById("memoClose");
       const flavorLayer = document.getElementById("flavorLayer");
@@ -1596,6 +1597,10 @@
         showFlavor(state.escapeArmed
           ? "制御装置の内部で、ロックが外れる乾いた音がした。起動ボタンだけが淡く光っている。"
           : "制御装置は古い金属で覆われている。前面の照明だけが、こちらの操作を待っているように見える。");
+      });
+
+      missionLayer.addEventListener("click", () => {
+        missionLayer.classList.add("is-hidden");
       });
 
       memoLayer.addEventListener("click", () => {
