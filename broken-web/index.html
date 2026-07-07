@@ -1482,7 +1482,7 @@
       <div class="web-error" aria-hidden="true">
         <div class="error-code">404</div>
         <div class="error-label">NOT FOUND</div>
-        <div class="error-copy">壊れたWeb空間。<br>脱出せよ。</div>
+        <div class="error-copy">壊れたWeb空間。<br>部屋をタップして探索せよ。</div>
       </div>
       <button class="display-hotspot" id="displayHotspot" type="button" aria-label="壊れたディスプレイを調べる"></button>
       <button class="scene-hotspot" id="kakejikuHotspot" type="button" aria-label="掛け軸を調べる"></button>
@@ -1523,7 +1523,7 @@
         </div>
         <div class="device-plate">
           <div class="device-title">制御装置</div>
-          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置。<br>裏面：赤青青で脱出</div>
+          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置。<br>赤青青で脱出。<br>起動せよ。</div>
           <button class="activation-button" id="activationButton" type="button" aria-label="起動">起動</button>
         </div>
       </section>
@@ -1546,7 +1546,7 @@
       <div class="memo-warning">起動に失敗しました</div>
       <div class="memo-title">走り書き</div>
       <div class="memo-arrows">→ → → ← ←</div>
-      <div class="memo-text">忘れるな。<br>必ず戻れ。</div>
+      <div class="memo-text">この順で。<br>必ず戻れ。</div>
       <button class="memo-close" id="memoClose" type="button">閉じる</button>
     </div>
   </div>
@@ -1867,7 +1867,7 @@
         state.escapeArmed = false;
         puzzlePanel.classList.add("is-hidden");
         devicePanel.classList.remove("is-hidden", "is-available");
-        deviceCopy.textContent = "制御装置。\n裏面：赤青青で脱出";
+        deviceCopy.textContent = "制御装置。\n赤青青で脱出。\n起動せよ。";
         objective.textContent = "目標：赤青青";
         threeScene.setDeviceVisible(true);
         threeScene.setActivationReady(false);
@@ -1945,7 +1945,7 @@
       function armEscape() {
         state.escapeArmed = true;
         devicePanel.classList.add("is-available");
-        deviceCopy.textContent = "脱出可能\n起動ボタンを押す";
+        deviceCopy.textContent = "脱出可能\n起動せよ";
         objective.textContent = "脱出経路：開放";
         threeScene.setActivationReady(true);
       }
