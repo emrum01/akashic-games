@@ -1482,7 +1482,7 @@
       <div class="web-error" aria-hidden="true">
         <div class="error-code">404</div>
         <div class="error-label">NOT FOUND</div>
-        <div class="error-copy">このWeb空間は壊れています。<br>あなたはここに閉じ込められています。<br>脱出の手がかりを探してください。</div>
+        <div class="error-copy">壊れたWeb空間。<br>脱出せよ。</div>
       </div>
       <button class="display-hotspot" id="displayHotspot" type="button" aria-label="壊れたディスプレイを調べる"></button>
       <button class="scene-hotspot" id="kakejikuHotspot" type="button" aria-label="掛け軸を調べる"></button>
@@ -1494,13 +1494,13 @@
       <div class="objective" aria-live="polite">脱出経路：未確定</div>
 
       <section class="puzzle-panel is-hidden" id="puzzlePanel" aria-label="壊れたデータ">
-        <div class="puzzle-title">壊れたデータを見つけた。復元できそうだ。</div>
+        <div class="puzzle-title">壊れたデータを見つけた。<br>正しく → / ← を入力して修復せよ。</div>
         <div class="puzzle-lines" aria-label="矢印の謎">
-          <div class="trace-caption">連続ログ：起点 → 中間 → 終端</div>
+          <div class="trace-caption">ログ</div>
           <div class="trace-row"><span class="trace-input">起点</span><span class="trace-output"><span class="chip mark0">未</span><span class="chip mark0">未</span><span class="chip mark0">未</span></span></div>
           <div class="trace-row"><span class="trace-input">中間</span><span class="trace-output"><span class="chip mark1">刻</span><span class="chip mark1">刻</span><span class="chip mark1">刻</span></span></div>
           <div class="trace-row is-question"><span class="trace-input">終端</span><span class="trace-output"><span class="chip mark1">刻</span><span class="chip mark2">反</span><span class="chip mark2">反</span></span></div>
-          <div class="target-row">中間を通るキー入力を復元する</div>
+          <div class="target-row">修復</div>
         </div>
         <form class="puzzle-form" id="puzzleForm">
           <input id="puzzleInput" name="answer" autocomplete="off" aria-label="答え" readonly>
@@ -1509,7 +1509,7 @@
         <div class="word-bank" aria-label="語群">
           <button type="button" data-answer="→">→</button>
           <button type="button" data-answer="←">←</button>
-          <button type="button" data-action="backspace">一つ戻す</button>
+          <button type="button" data-action="backspace">戻す</button>
           <button type="button" data-action="clear">消す</button>
         </div>
         <div class="puzzle-status" id="puzzleStatus" aria-live="polite"></div>
@@ -1523,7 +1523,7 @@
         </div>
         <div class="device-plate">
           <div class="device-title">制御装置</div>
-          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置が現れた。<br>さっき導いた矢印列が使えそうだ。<br>ランプの色を「赤青青」にすると脱出できると裏に書いてあった</div>
+          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置。<br>裏面：赤青青で脱出</div>
           <button class="activation-button" id="activationButton" type="button" aria-label="起動">起動</button>
         </div>
       </section>
@@ -1544,9 +1544,9 @@
   <div class="memo-layer is-hidden" id="memoLayer">
     <div class="memo-card" role="status" aria-live="polite">
       <div class="memo-warning">起動に失敗しました</div>
-      <div class="memo-title">元管理人の走り書きメモ</div>
+      <div class="memo-title">走り書き</div>
       <div class="memo-arrows">→ → → ← ←</div>
-      <div class="memo-text">をする必要がある。<br>忘れるな。<br>進んだら、必ず戻れ。</div>
+      <div class="memo-text">忘れるな。<br>必ず戻れ。</div>
       <button class="memo-close" id="memoClose" type="button">閉じる</button>
     </div>
   </div>
@@ -1561,7 +1561,7 @@
     <video class="explosion-video" id="explosionVideo" src="assets/explosion.webm" preload="auto" muted playsinline loop></video>
     <div class="server" aria-hidden="true"></div>
     <h1 class="clear-word">脱出成功</h1>
-    <div class="clear-caption">脱出に成功した。<br>元管理人のWeb空間から脱出しました。</div>
+    <div class="clear-caption">脱出に成功した。</div>
     <button class="title-return" id="titleReturn" type="button">タイトルに戻る</button>
   </div>
 
@@ -1653,7 +1653,7 @@
           revealDevice();
           return;
         }
-        puzzleStatus.textContent = "復元結果が一致しない。";
+        puzzleStatus.textContent = "不一致";
         puzzleInput.select();
       });
 
@@ -1663,35 +1663,35 @@
       activationButton.addEventListener("click", handleActivation);
       displayHotspot.addEventListener("click", () => {
         if (state.deviceRevealed) {
-          showFlavor("ディスプレイには、復元済みの断片だけが薄く焼き付いている。もう新しいデータは見つからない。");
+          showFlavor("復元済み。");
           return;
         }
         revealPuzzle();
       });
       kakejikuHotspot.addEventListener("click", () => {
-        showFlavor("掛け軸の端には走り書きで「ブラウザの全ての機能を使うべし」と書かれている");
+        showFlavor("端に小さく「ブラウザの全てを使え」。");
       });
       wallHotspot.addEventListener("click", () => {
-        showFlavor("壁は真っ黒で触ると手に煤けた汚れがついた。相当時間が経っているようだ。");
+        showFlavor("煤けた壁。");
       });
       floorHotspot.addEventListener("click", () => {
-        showFlavor("なんの変哲もないタイルの床だが、無機質な質感で見ていると妙に心細くなる。早く出たい。");
+        showFlavor("冷たい床。");
       });
       floorCrackHotspot.addEventListener("click", () => {
-        showFlavor("床がひび割れていて、向こう側は見えない。時折軋むような音が聞こえる。");
+        showFlavor("深い亀裂。");
       });
       deviceHotspot.addEventListener("click", () => {
         if (!state.deviceRevealed) return;
         showFlavor(state.escapeArmed
-          ? "制御装置の内部で、ロックが外れる乾いた音がした。起動ボタンだけが淡く光っている。"
-          : "制御装置は古い金属で覆われている。前面の照明だけが、こちらの操作を待っているように見える。");
+          ? "ロック解除。"
+          : "古い制御装置。");
       });
       devicePanel.addEventListener("click", (event) => {
         if (event.target === activationButton) return;
         if (!state.deviceRevealed || state.ended) return;
         showFlavor(state.escapeArmed
-          ? "制御装置の内部で、ロックが外れる乾いた音がした。起動ボタンだけが淡く光っている。"
-          : "制御装置は古い金属で覆われている。前面の照明だけが、こちらの操作を待っているように見える。");
+          ? "ロック解除。"
+          : "古い制御装置。");
       });
 
       missionLayer.addEventListener("click", () => {
@@ -1867,7 +1867,7 @@
         state.escapeArmed = false;
         puzzlePanel.classList.add("is-hidden");
         devicePanel.classList.remove("is-hidden", "is-available");
-        deviceCopy.textContent = "制御装置が現れた。\nさっき導いた矢印列が使えそうだ。\nランプの色を「赤青青」にすると脱出できると裏に書いてあった";
+        deviceCopy.textContent = "制御装置。\n裏面：赤青青で脱出";
         objective.textContent = "目標：赤青青";
         threeScene.setDeviceVisible(true);
         threeScene.setActivationReady(false);
