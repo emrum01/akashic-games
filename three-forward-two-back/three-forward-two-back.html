@@ -1523,7 +1523,7 @@
         </div>
         <div class="device-plate">
           <div class="device-title">制御装置</div>
-          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置。<br>赤青青で脱出。<br>起動せよ。</div>
+          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置が現れた。<br>赤青青で脱出。<br>起動せよ。</div>
           <button class="activation-button" id="activationButton" type="button" aria-label="起動">起動</button>
         </div>
       </section>
@@ -1867,7 +1867,7 @@
         state.escapeArmed = false;
         puzzlePanel.classList.add("is-hidden");
         devicePanel.classList.remove("is-hidden", "is-available");
-        deviceCopy.textContent = "制御装置。\n赤青青で脱出。\n起動せよ。";
+        deviceCopy.textContent = "制御装置が現れた。\n赤青青で脱出。\n起動せよ。";
         objective.textContent = "目標：赤青青";
         threeScene.setDeviceVisible(true);
         threeScene.setActivationReady(false);
