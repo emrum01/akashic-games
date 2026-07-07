@@ -1607,8 +1607,7 @@
       kakejikuHotspot.addEventListener("click", () => {
         state.kakejikuChecks += 1;
         if (state.kakejikuChecks >= 2 && !state.browserHintSeen) {
-          showFlavor("端に小さな札が掛かっている。", {
-            title: "掛け軸",
+          showFlavor("よく見ると端をめくれそうだ。", {
             actionLabel: "ヒントを見る",
             onAction: showBrowserHint
           });
