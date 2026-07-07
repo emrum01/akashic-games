@@ -1617,6 +1617,10 @@
         revealPuzzle();
       });
       kakejikuHotspot.addEventListener("click", () => {
+        if (!state.deviceRevealed) {
+          showFlavor("端に小さく「ブラウザの全てを使え」。墨はかすれている。");
+          return;
+        }
         state.kakejikuChecks += 1;
         if (state.kakejikuChecks >= 2 && !state.browserHintSeen) {
           showFlavor("よく見ると端をめくれそうだ。", {
