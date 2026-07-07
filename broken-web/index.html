@@ -1755,51 +1755,36 @@
           history.pushState({ puzzle: true, puzzleRun: runId, puzzleDepth: depth }, "", stepUrl(depth));
         }
         state.routeDepth = maxRouteDepth;
-        window.setTimeout(() => startPrimingBacktrack(), 80);
-        window.setTimeout(() => {
-          if (state.primingHistory) {
-            state.routeDepth = 0;
-            state.primingHistory = false;
-            history.replaceState({ puzzle: true, puzzleRun: runId, puzzleDepth: 0 }, "", stepUrl(0));
-            updateHud();
-          }
-        }, 5200);
-        window.setTimeout(() => {
-          if (!state.deviceRevealed && !state.ended && location.hash !== "#step-0") {
-            state.routeDepth = 0;
-            history.replaceState({ puzzle: true, puzzleRun: runId, puzzleDepth: 0 }, "", stepUrl(0));
-            updateHud();
-          }
-        }, 6500);
+        // 起点(step-0)へは "1回の history.go" で戻す。こうすると進む用の
+        // フォワード履歴 [1..N] が確実に残り、プレイヤーが後で「進む」を押せる。
+        // 旧実装は setInterval で history.back() を繰り返していたため、答えを
+        // 素早く入力したプレイヤーの back/forward 操作と衝突し、履歴スタックを
+        // 底(step-0)より下へ突き抜けて about:blank へ離脱する事故が起きていた
+        // （＝「→→→←← が通らない」の主因）。単発の go に置き換えて競合を無くす。
+        window.setTimeout(() => settlePrimingHome(), 60);
       }
 
-      function startPrimingBacktrack() {
-        let attempts = 0;
-        const timer = window.setInterval(() => {
-          if (!state.primingHistory) {
-            window.clearInterval(timer);
-            return;
-          }
-          const depth = getDepth(history.state);
-          if (depth <= 0) {
-            state.routeDepth = 0;
-            state.primingHistory = false;
-            history.replaceState({ puzzle: true, puzzleRun: runId, puzzleDepth: 0 }, "", stepUrl(0));
-            updateHud();
-            window.clearInterval(timer);
-            return;
-          }
-          attempts += 1;
-          if (attempts > maxRouteDepth + 4) {
-            history.replaceState({ puzzle: true, puzzleRun: runId, puzzleDepth: 0 }, "", stepUrl(0));
-            state.routeDepth = 0;
-            state.primingHistory = false;
-            updateHud();
-            window.clearInterval(timer);
-            return;
-          }
-          history.back();
-        }, 260);
+      function settlePrimingHome(attempt = 0) {
+        if (!state.primingHistory) return;
+        const depth = getDepth(history.state);
+        if (depth <= 0) {
+          state.routeDepth = 0;
+          state.primingHistory = false;
+          history.replaceState({ puzzle: true, puzzleRun: runId, puzzleDepth: 0 }, "", stepUrl(0));
+          updateHud();
+          return;
+        }
+        if (attempt >= 6) {
+          // popstate が戻ってこない環境向けの最終フォールバック。現在地を起点
+          // として受け入れ、priming を解除してプレイ可能な状態にする。
+          state.routeDepth = 0;
+          state.primingHistory = false;
+          history.replaceState({ puzzle: true, puzzleRun: runId, puzzleDepth: 0 }, "", stepUrl(0));
+          updateHud();
+          return;
+        }
+        history.go(-depth);
+        window.setTimeout(() => settlePrimingHome(attempt + 1), 320);
       }
 
       function getDepth(historyState) {
