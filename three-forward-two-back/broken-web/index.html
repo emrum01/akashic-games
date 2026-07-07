@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>三歩進んで二歩戻る</title>
   <style>
     :root {
@@ -52,6 +52,8 @@
     body {
       height: 100%;
       margin: 0;
+      touch-action: manipulation;
+      -webkit-text-size-adjust: 100%;
     }
 
     body {
@@ -61,11 +63,13 @@
       color: var(--ink);
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
       letter-spacing: 0;
+      overscroll-behavior: none;
     }
 
     button,
     input {
       font: inherit;
+      touch-action: manipulation;
     }
 
     .room {
