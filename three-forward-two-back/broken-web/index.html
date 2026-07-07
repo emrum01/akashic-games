@@ -1503,7 +1503,7 @@
   <div class="mission-layer" id="missionLayer">
     <div class="mission-dialog" role="status" aria-live="polite">
       <span class="mission-label">警告</span>
-      <span class="mission-text" id="missionText">このWeb空間からの脱出は<br>Safari もしくは Chrome でしか実行できない。</span>
+      <span class="mission-text" id="missionText">このWeb空間からの脱出は<br>ブラウザでしか実行できない。</span>
       <div class="mission-actions">
         <button class="mission-browser-button" id="openDefaultBrowserButton" type="button">デフォルトブラウザで開く</button>
       </div>
@@ -1930,14 +1930,12 @@
 
       function setupBrowserWarning() {
         const platform = detectPlatform();
+        missionText.innerHTML = "このWeb空間からの脱出は<br>ブラウザでしか実行できない。";
         if (platform === "ios") {
-          missionText.innerHTML = "このWeb空間からの脱出は<br>iOSのデフォルトブラウザで実行してください。";
           missionNote.textContent = "ボタンで開けない場合は、URLをコピーしてブラウザで開いてください。";
         } else if (platform === "android") {
-          missionText.innerHTML = "このWeb空間からの脱出は<br>Androidのデフォルトブラウザで実行してください。";
           missionNote.textContent = "ボタンで開けない場合は、URLをコピーしてブラウザで開いてください。";
         } else {
-          missionText.innerHTML = "このWeb空間からの脱出は<br>Safari もしくは Chrome でしか実行できない。";
           missionNote.textContent = "画面をクリックすると続行できます。";
         }
       }
