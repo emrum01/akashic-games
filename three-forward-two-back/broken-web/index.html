@@ -1663,35 +1663,35 @@
       activationButton.addEventListener("click", handleActivation);
       displayHotspot.addEventListener("click", () => {
         if (state.deviceRevealed) {
-          showFlavor("復元済み。");
+          showFlavor("復元済み。画面には古いノイズだけが残っている。");
           return;
         }
         revealPuzzle();
       });
       kakejikuHotspot.addEventListener("click", () => {
-        showFlavor("端に小さく「ブラウザの全てを使え」。");
+        showFlavor("端に小さく「ブラウザの全てを使え」。墨はかすれている。");
       });
       wallHotspot.addEventListener("click", () => {
-        showFlavor("煤けた壁。");
+        showFlavor("煤けた壁。触れると黒い粉が指につく。");
       });
       floorHotspot.addEventListener("click", () => {
-        showFlavor("冷たい床。");
+        showFlavor("冷たい床。足音だけが妙に大きく返る。");
       });
       floorCrackHotspot.addEventListener("click", () => {
-        showFlavor("深い亀裂。");
+        showFlavor("深い亀裂。奥は暗く、底が見えない。");
       });
       deviceHotspot.addEventListener("click", () => {
         if (!state.deviceRevealed) return;
         showFlavor(state.escapeArmed
-          ? "ロック解除。"
-          : "古い制御装置。");
+          ? "ロック解除。起動ボタンだけが淡く光る。"
+          : "古い制御装置。前面のランプが沈黙している。");
       });
       devicePanel.addEventListener("click", (event) => {
         if (event.target === activationButton) return;
         if (!state.deviceRevealed || state.ended) return;
         showFlavor(state.escapeArmed
-          ? "ロック解除。"
-          : "古い制御装置。");
+          ? "ロック解除。起動ボタンだけが淡く光る。"
+          : "古い制御装置。前面のランプが沈黙している。");
       });
 
       missionLayer.addEventListener("click", () => {
