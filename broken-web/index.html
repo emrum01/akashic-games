@@ -495,13 +495,13 @@
       left: 50%;
       top: 50%;
       z-index: 11;
-      width: min(520px, 88vw);
+      width: min(560px, 92vw);
       transform: translate(-50%, -50%);
-      padding: 30px clamp(22px, 4vw, 36px) 24px;
+      padding: 28px clamp(18px, 4vw, 34px) 24px;
       border: 1px solid rgba(188, 164, 126, 0.58);
       border-radius: 2px;
       background:
-        linear-gradient(180deg, rgba(84, 74, 58, 0.72), rgba(18, 15, 12, 0.86)),
+        linear-gradient(180deg, rgba(65, 55, 41, 0.9), rgba(16, 13, 10, 0.94)),
         repeating-linear-gradient(0deg, rgba(255, 238, 203, 0.04), rgba(255, 238, 203, 0.04) 1px, transparent 1px, transparent 10px);
       color: rgba(242, 231, 209, 0.94);
       box-shadow:
@@ -516,9 +516,10 @@
     }
 
     .puzzle-title {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       color: rgba(229, 184, 127, 0.9);
       font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      font-size: clamp(1.55rem, 5vw, 2.05rem);
       font-weight: 700;
       text-align: center;
     }
@@ -528,12 +529,13 @@
       gap: 10px;
       margin-bottom: 24px;
       font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-      font-size: clamp(0.98rem, 2.7vw, 1.26rem);
+      font-size: clamp(1.35rem, 4.8vw, 1.8rem);
       line-height: 1.4;
       text-align: center;
     }
 
     .trace-caption {
+      display: none;
       color: rgba(229, 184, 127, 0.82);
       font-size: 0.82em;
       letter-spacing: 0.08em;
@@ -542,18 +544,17 @@
 
     .trace-row {
       display: grid;
-      grid-template-columns: minmax(5.8em, 0.7fr) minmax(0, 1fr);
+      grid-template-columns: 3em minmax(0, 1fr);
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       padding: 8px 0;
-      border-bottom: 1px solid rgba(188, 164, 126, 0.16);
     }
 
     .trace-row.is-question {
-      margin-top: 4px;
-      padding: 12px 10px;
-      border: 1px solid rgba(188, 164, 126, 0.28);
-      background: rgba(11, 10, 9, 0.28);
+      margin-top: 0;
+      padding: 8px 0;
+      border: 0;
+      background: transparent;
     }
 
     .trace-input {
@@ -567,16 +568,16 @@
     .trace-output {
       display: flex;
       justify-content: center;
-      gap: 4px;
+      gap: 8px;
       min-width: 0;
     }
 
     .chip {
       display: inline-grid;
       place-items: center;
-      min-width: 2.2em;
-      min-height: 1.8em;
-      margin: 0 3px;
+      min-width: 2.35em;
+      min-height: 1.9em;
+      margin: 0;
       border: 1px solid rgba(255, 255, 255, 0.18);
       border-radius: 2px;
       color: #fff7e8;
@@ -617,14 +618,14 @@
     }
 
     .target-row {
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       gap: 6px;
       margin-top: 2px;
       padding-top: 10px;
       color: rgba(242, 231, 209, 0.76);
-      font-size: 0.92em;
+      font-size: 0.98em;
     }
 
     .lamp-code {
@@ -635,29 +636,37 @@
     .puzzle-form {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
+      gap: 10px;
+    }
+
+    .puzzle-form input {
+      min-height: 52px;
+      font-size: 1.6rem;
+      text-align: center;
     }
 
     .puzzle-form .send-btn {
       width: auto;
-      min-width: 68px;
-      padding: 0 14px;
+      min-width: 86px;
+      padding: 0 16px;
+      font-size: 1.18rem;
       white-space: nowrap;
     }
 
     .word-bank {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 14px;
+      gap: 8px;
+      margin-top: 12px;
     }
 
     .word-bank button {
-      min-height: 38px;
+      min-height: 54px;
       border: 1px solid rgba(188, 164, 126, 0.36);
       border-radius: 2px;
       background: rgba(28, 22, 17, 0.7);
       color: rgba(242, 231, 209, 0.86);
+      font-size: 1.08rem;
       cursor: pointer;
     }
 
@@ -670,7 +679,7 @@
 
     .word-bank button[data-answer] {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 1.35rem;
+      font-size: 2.05rem;
       font-weight: 800;
     }
 
@@ -1326,40 +1335,40 @@
         top: 50%;
         width: calc(100vw - 24px);
         max-height: calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-        padding: 22px 16px 18px;
+        padding: 24px 18px 18px;
         overflow-y: auto;
       }
 
       .puzzle-title {
-        margin-bottom: 14px;
-        font-size: 0.98rem;
+        margin-bottom: 18px;
+        font-size: clamp(1.45rem, 6vw, 1.9rem);
       }
 
       .puzzle-lines {
-        gap: 8px;
-        margin-bottom: 18px;
-        font-size: 0.98rem;
+        gap: 10px;
+        margin-bottom: 20px;
+        font-size: clamp(1.28rem, 5.3vw, 1.7rem);
       }
 
       .trace-caption {
-        font-size: 0.74rem;
+        display: none;
       }
 
       .trace-row {
-        grid-template-columns: 4.8em minmax(0, 1fr);
+        grid-template-columns: 3em minmax(0, 1fr);
         gap: 10px;
         padding: 7px 0;
       }
 
       .trace-row.is-question {
-        padding: 10px 8px;
+        padding: 7px 0;
       }
 
       .chip {
-        min-width: 2em;
-        min-height: 1.66em;
-        margin: 0 2px;
-        font-size: 0.78em;
+        min-width: 2.08em;
+        min-height: 1.72em;
+        margin: 0;
+        font-size: 0.9em;
       }
 
       .target-row {
@@ -1370,8 +1379,14 @@
         gap: 8px;
       }
 
+      .puzzle-form input {
+        min-height: 50px;
+        font-size: 1.45rem;
+      }
+
       .puzzle-form .send-btn {
-        min-width: 58px;
+        min-width: 70px;
+        font-size: 1.02rem;
       }
 
       .word-bank {
@@ -1379,12 +1394,12 @@
       }
 
       .word-bank button {
-        min-height: 42px;
-        font-size: 0.86rem;
+        min-height: 52px;
+        font-size: 1rem;
       }
 
       .word-bank button[data-answer] {
-        font-size: 1.2rem;
+        font-size: 1.86rem;
       }
 
       .device-panel {
@@ -1511,15 +1526,15 @@
     </section>
   </main>
 
-  <div class="mission-layer" id="missionLayer">
+  <div class="mission-layer is-hidden" id="missionLayer">
     <div class="mission-dialog" role="status" aria-live="polite">
       <span class="mission-label">警告</span>
-      <span class="mission-text" id="missionText">このWeb空間からの脱出は<br>ブラウザでしか実行できない。</span>
+      <span class="mission-text" id="missionText">この環境では<br>脱出できません。</span>
       <div class="mission-actions">
-        <button class="mission-browser-button" id="openDefaultBrowserButton" type="button">デフォルトブラウザで開く</button>
+        <button class="mission-browser-button" id="openDefaultBrowserButton" type="button">外部ブラウザで開く</button>
         <button class="mission-close-button" id="missionClose" type="button">閉じる</button>
       </div>
-      <div class="mission-note" id="missionNote">画面をタップすると続行できます。</div>
+      <div class="mission-note" id="missionNote">URLは自動でコピーされます。</div>
     </div>
   </div>
   <div class="memo-layer is-hidden" id="memoLayer">
@@ -1946,15 +1961,10 @@
       }
 
       function setupBrowserWarning() {
-        const platform = detectPlatform();
-        missionText.innerHTML = "このWeb空間からの脱出は<br>ブラウザでしか実行できない。";
-        if (platform === "ios") {
-          missionNote.textContent = "ボタンで開けない場合は、URLをコピーしてブラウザで開いてください。";
-        } else if (platform === "android") {
-          missionNote.textContent = "ボタンで開けない場合は、URLをコピーしてブラウザで開いてください。";
-        } else {
-          missionNote.textContent = "画面をタップすると続行できます。";
-        }
+        if (!isXInAppBrowser()) return;
+        missionText.innerHTML = "この環境では<br>脱出できません。";
+        missionNote.textContent = "URLは自動でコピーされます。";
+        missionLayer.classList.remove("is-hidden");
       }
 
       function detectPlatform() {
@@ -1964,6 +1974,12 @@
         if (/Android/i.test(ua)) return "android";
         if (/iPhone|iPad|iPod/i.test(ua) || touchMac) return "ios";
         return "desktop";
+      }
+
+      function isXInAppBrowser() {
+        if (new URLSearchParams(location.search).has("x-warning")) return true;
+        const ua = navigator.userAgent || "";
+        return /Twitter|TwitterAndroid|Twitter for iPhone|Twitter for iPad/i.test(ua);
       }
 
       function currentCleanUrl() {
@@ -1978,11 +1994,21 @@
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(url).catch(() => {});
         }
-        if (detectPlatform() === "android") {
+        const platform = detectPlatform();
+        if (platform === "android") {
           const parsed = new URL(url);
           const scheme = parsed.protocol.replace(":", "");
           const fallback = encodeURIComponent(url);
-          location.href = `intent://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}#Intent;scheme=${scheme};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${fallback};end`;
+          location.href = `intent://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}#Intent;scheme=${scheme};package=com.android.chrome;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${fallback};end`;
+          return;
+        }
+        if (platform === "ios") {
+          const parsed = new URL(url);
+          const safariUrl = `x-safari-${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+          location.href = safariUrl;
+          window.setTimeout(() => {
+            missionNote.textContent = "開けない場合は、コピーされたURLをSafariに貼り付けてください。";
+          }, 800);
           return;
         }
         location.href = url;
