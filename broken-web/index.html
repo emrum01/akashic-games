@@ -969,91 +969,6 @@
       cursor: pointer;
     }
 
-    .mission-layer {
-      position: fixed;
-      inset: 0;
-      z-index: 12;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: #050403;
-      cursor: pointer;
-    }
-
-    .mission-layer.is-hidden {
-      display: none;
-    }
-
-    .mission-dialog {
-      width: min(86vw, 460px);
-      padding: 22px 24px;
-      border: 1px solid rgba(224, 213, 181, 0.58);
-      border-radius: 2px;
-      background: #11100d;
-      color: #f0e6ca;
-      box-shadow: 0 18px 70px rgba(0, 0, 0, 0.6);
-      text-align: center;
-      letter-spacing: 0;
-      cursor: default;
-    }
-
-    .mission-label {
-      display: block;
-      margin-bottom: 10px;
-      color: #b42d2d;
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-      font-size: 0.82rem;
-      font-weight: 800;
-    }
-
-    .mission-text {
-      display: block;
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-      font-size: clamp(1.1rem, 3vw, 1.5rem);
-      font-weight: 700;
-      line-height: 1.35;
-    }
-
-    .mission-actions {
-      display: grid;
-      gap: 10px;
-      margin-top: 18px;
-    }
-
-    .mission-browser-button {
-      min-height: 42px;
-      padding: 0 18px;
-      border: 1px solid rgba(224, 213, 181, 0.42);
-      border-radius: 2px;
-      background: rgba(58, 43, 27, 0.9);
-      color: #f4e8cc;
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .mission-browser-button.is-hidden {
-      display: none;
-    }
-
-    .mission-close-button {
-      min-height: 38px;
-      padding: 0 18px;
-      border: 1px solid rgba(224, 213, 181, 0.26);
-      border-radius: 2px;
-      background: rgba(18, 16, 13, 0.92);
-      color: rgba(244, 232, 204, 0.86);
-      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-      cursor: pointer;
-    }
-
-    .mission-note {
-      margin-top: 10px;
-      color: rgba(240, 230, 202, 0.68);
-      font-size: 0.82rem;
-      line-height: 1.55;
-    }
-
     .flavor-layer {
       position: fixed;
       inset: 0;
@@ -1084,9 +999,39 @@
       cursor: default;
     }
 
+    .flavor-title {
+      margin-bottom: 10px;
+      color: rgba(229, 184, 127, 0.94);
+      font-weight: 800;
+    }
+
+    .flavor-title.is-hidden {
+      display: none;
+    }
+
+    .flavor-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .flavor-action {
+      min-height: 36px;
+      padding: 0 16px;
+      border: 1px solid rgba(224, 188, 131, 0.52);
+      border-radius: 2px;
+      background: rgba(74, 50, 30, 0.88);
+      color: #f8ead1;
+      cursor: pointer;
+    }
+
+    .flavor-action.is-hidden {
+      display: none;
+    }
+
     .flavor-close {
       min-height: 36px;
-      margin-top: 16px;
       padding: 0 16px;
       border: 1px solid rgba(184, 159, 113, 0.38);
       border-radius: 2px;
@@ -1530,17 +1475,6 @@
     </section>
   </main>
 
-  <div class="mission-layer is-hidden" id="missionLayer">
-    <div class="mission-dialog" role="status" aria-live="polite">
-      <span class="mission-label">警告</span>
-      <span class="mission-text" id="missionText">この環境では<br>脱出できません。</span>
-      <div class="mission-actions">
-        <button class="mission-browser-button" id="openDefaultBrowserButton" type="button">外部ブラウザで開く</button>
-        <button class="mission-close-button" id="missionClose" type="button">閉じる</button>
-      </div>
-      <div class="mission-note" id="missionNote">URLは自動でコピーされます。</div>
-    </div>
-  </div>
   <div class="memo-layer is-hidden" id="memoLayer">
     <div class="memo-card" role="status" aria-live="polite">
       <div class="memo-warning">起動に失敗しました</div>
@@ -1551,8 +1485,12 @@
   </div>
   <div class="flavor-layer is-hidden" id="flavorLayer">
     <div class="flavor-card" role="status" aria-live="polite">
+      <div class="flavor-title is-hidden" id="flavorTitle"></div>
       <div id="flavorText"></div>
-      <button class="flavor-close" id="flavorClose" type="button">閉じる</button>
+      <div class="flavor-actions">
+        <button class="flavor-action is-hidden" id="flavorAction" type="button"></button>
+        <button class="flavor-close" id="flavorClose" type="button">閉じる</button>
+      </div>
     </div>
   </div>
   <div class="terminal-flash" id="doom" role="alert">脱出成功</div>
@@ -1584,15 +1522,12 @@
       const deviceHotspot = document.getElementById("deviceHotspot");
       const clearStage = document.getElementById("clearStage");
       const explosionVideo = document.getElementById("explosionVideo");
-      const missionLayer = document.getElementById("missionLayer");
-      const missionText = document.getElementById("missionText");
-      const missionNote = document.getElementById("missionNote");
-      const openDefaultBrowserButton = document.getElementById("openDefaultBrowserButton");
-      const missionClose = document.getElementById("missionClose");
       const memoLayer = document.getElementById("memoLayer");
       const memoClose = document.getElementById("memoClose");
       const flavorLayer = document.getElementById("flavorLayer");
+      const flavorTitle = document.getElementById("flavorTitle");
       const flavorText = document.getElementById("flavorText");
+      const flavorAction = document.getElementById("flavorAction");
       const flavorClose = document.getElementById("flavorClose");
       const titleReturn = document.getElementById("titleReturn");
       const threeMount = document.getElementById("threeMount");
@@ -1616,15 +1551,17 @@
         primingTargetDepth: 0,
         deviceRevealed: false,
         escapeArmed: false,
+        kakejikuChecks: 0,
+        browserHintSeen: false,
         ended: false
       };
+      let flavorActionHandler = null;
 
       explosionVideo.addEventListener("error", () => {
         clearStage.classList.add("video-failed");
       });
 
       primeBrowserHistory();
-      setupBrowserWarning();
       updateHud();
 
       document.querySelectorAll(".word-bank button").forEach((button) => {
@@ -1668,6 +1605,15 @@
         revealPuzzle();
       });
       kakejikuHotspot.addEventListener("click", () => {
+        state.kakejikuChecks += 1;
+        if (state.kakejikuChecks >= 2 && !state.browserHintSeen) {
+          showFlavor("端に小さな札が掛かっている。", {
+            title: "掛け軸",
+            actionLabel: "ヒントを見る",
+            onAction: showBrowserHint
+          });
+          return;
+        }
         showFlavor("端に小さく「ブラウザの全てを使え」。墨はかすれている。");
       });
       wallHotspot.addEventListener("click", () => {
@@ -1677,6 +1623,14 @@
         showFlavor("冷たい床。足音だけが妙に大きく返る。");
       });
       floorCrackHotspot.addEventListener("click", () => {
+        if (state.browserHintSeen) {
+          showFlavor("亀裂にメモが挟まっている。", {
+            title: "メモ",
+            actionLabel: "読む",
+            onAction: showSwipeHint
+          });
+          return;
+        }
         showFlavor("深い亀裂。奥は暗く、底が見えない。");
       });
       deviceHotspot.addEventListener("click", () => {
@@ -1691,22 +1645,6 @@
         showFlavor(state.escapeArmed
           ? "ロック解除。起動ボタンだけが淡く光る。"
           : "古い制御装置。前面のランプが沈黙している。");
-      });
-
-      missionLayer.addEventListener("click", () => {
-        missionLayer.classList.add("is-hidden");
-      });
-
-      missionLayer.querySelector(".mission-dialog").addEventListener("click", (event) => {
-        event.stopPropagation();
-      });
-
-      openDefaultBrowserButton.addEventListener("click", () => {
-        openDefaultBrowser();
-      });
-
-      missionClose.addEventListener("click", () => {
-        missionLayer.classList.add("is-hidden");
       });
 
       memoLayer.addEventListener("click", () => {
@@ -1732,6 +1670,10 @@
 
       flavorClose.addEventListener("click", () => {
         flavorLayer.classList.add("is-hidden");
+      });
+
+      flavorAction.addEventListener("click", () => {
+        if (flavorActionHandler) flavorActionHandler();
       });
 
       titleReturn.addEventListener("click", () => {
@@ -1957,64 +1899,28 @@
         }, 180);
       }
 
-      function showFlavor(text) {
+      function showFlavor(text, options = {}) {
         if (state.ended) return;
+        flavorTitle.textContent = options.title || "";
+        flavorTitle.classList.toggle("is-hidden", !options.title);
         flavorText.textContent = text;
+        flavorActionHandler = typeof options.onAction === "function" ? options.onAction : null;
+        flavorAction.textContent = options.actionLabel || "";
+        flavorAction.classList.toggle("is-hidden", !flavorActionHandler);
         flavorLayer.classList.remove("is-hidden");
       }
 
-      function setupBrowserWarning() {
-        if (!isXInAppBrowser()) return;
-        missionText.innerHTML = "この環境では<br>脱出できません。";
-        missionNote.textContent = "URLは自動でコピーされます。";
-        missionLayer.classList.remove("is-hidden");
+      function showBrowserHint() {
+        state.browserHintSeen = true;
+        showFlavor("進む / 戻る は、ブラウザの進む / 戻る。", {
+          title: "ヒント"
+        });
       }
 
-      function detectPlatform() {
-        const ua = navigator.userAgent || "";
-        const platform = navigator.platform || "";
-        const touchMac = platform === "MacIntel" && navigator.maxTouchPoints > 1;
-        if (/Android/i.test(ua)) return "android";
-        if (/iPhone|iPad|iPod/i.test(ua) || touchMac) return "ios";
-        return "desktop";
-      }
-
-      function isXInAppBrowser() {
-        const ua = navigator.userAgent || "";
-        return /Twitter|TwitterAndroid|Twitter for iPhone|Twitter for iPad/i.test(ua);
-      }
-
-      function currentCleanUrl() {
-        const url = new URL(location.href);
-        url.searchParams.delete("_pstep");
-        url.searchParams.delete("x-warning");
-        url.hash = "step-0";
-        return url.href;
-      }
-
-      function openDefaultBrowser() {
-        const url = currentCleanUrl();
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).catch(() => {});
-        }
-        const platform = detectPlatform();
-        if (platform === "android") {
-          const parsed = new URL(url);
-          const scheme = parsed.protocol.replace(":", "");
-          const fallback = encodeURIComponent(url);
-          location.href = `intent://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}#Intent;scheme=${scheme};package=com.android.chrome;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${fallback};end`;
-          return;
-        }
-        if (platform === "ios") {
-          const parsed = new URL(url);
-          const safariUrl = `x-safari-${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
-          location.href = safariUrl;
-          window.setTimeout(() => {
-            missionNote.textContent = "開けない場合は、コピーされたURLをSafariに貼り付けてください。";
-          }, 800);
-          return;
-        }
-        location.href = url;
+      function showSwipeHint() {
+        showFlavor("画面の端をスワイプしても、ブラウザの進む / 戻るが使える。", {
+          title: "メモ"
+        });
       }
 
       function handleActivation(event) {
