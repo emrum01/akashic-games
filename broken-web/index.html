@@ -1977,7 +1977,6 @@
       }
 
       function isXInAppBrowser() {
-        if (new URLSearchParams(location.search).has("x-warning")) return true;
         const ua = navigator.userAgent || "";
         return /Twitter|TwitterAndroid|Twitter for iPhone|Twitter for iPad/i.test(ua);
       }
@@ -1985,6 +1984,7 @@
       function currentCleanUrl() {
         const url = new URL(location.href);
         url.searchParams.delete("_pstep");
+        url.searchParams.delete("x-warning");
         url.hash = "step-0";
         return url.href;
       }
