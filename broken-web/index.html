@@ -1523,7 +1523,7 @@
         </div>
         <div class="device-plate">
           <div class="device-title">制御装置</div>
-          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置が現れた。<br>赤青青で脱出。<br>起動せよ。</div>
+          <div class="device-copy" id="deviceCopy" aria-live="polite">制御装置が現れた。<br>「赤青青で脱出」と裏面に書いてあった。</div>
           <button class="activation-button" id="activationButton" type="button" aria-label="起動">起動</button>
         </div>
       </section>
@@ -1544,7 +1544,6 @@
   <div class="memo-layer is-hidden" id="memoLayer">
     <div class="memo-card" role="status" aria-live="polite">
       <div class="memo-warning">起動に失敗しました</div>
-      <div class="memo-title">走り書き</div>
       <div class="memo-arrows">→ → → ← ←</div>
       <div class="memo-text">この順で。<br>必ず戻れ。</div>
       <button class="memo-close" id="memoClose" type="button">閉じる</button>
@@ -1867,7 +1866,7 @@
         state.escapeArmed = false;
         puzzlePanel.classList.add("is-hidden");
         devicePanel.classList.remove("is-hidden", "is-available");
-        deviceCopy.textContent = "制御装置が現れた。\n赤青青で脱出。\n起動せよ。";
+        deviceCopy.textContent = "制御装置が現れた。\n「赤青青で脱出」と裏面に書いてあった。";
         objective.textContent = "目標：赤青青";
         threeScene.setDeviceVisible(true);
         threeScene.setActivationReady(false);
