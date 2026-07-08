@@ -4,6 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>三歩進んで二歩戻る</title>
+  <meta name="description" content="壊れたWeb空間から脱出せよ。WEB謎解きゲーム。">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="三歩進んで二歩戻る — broken-web">
+  <meta property="og:description" content="壊れたWeb空間から脱出せよ。WEB謎解きゲーム。">
+  <meta property="og:image" content="https://emrum01.github.io/akashic-games/broken-web/ogp.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://emrum01.github.io/akashic-games/broken-web/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="三歩進んで二歩戻る — broken-web">
+  <meta name="twitter:description" content="壊れたWeb空間から脱出せよ。WEB謎解きゲーム。">
+  <meta name="twitter:image" content="https://emrum01.github.io/akashic-games/broken-web/ogp.png">
   <style>
     :root {
       --ink: #e8edf2;
@@ -610,15 +622,15 @@
     }
 
     .chip.mark1 {
-      background: rgba(143, 101, 46, 0.84);
-      color: #fff1d2;
-      box-shadow: 0 0 12px rgba(217, 154, 65, 0.22);
+      background: rgba(224, 50, 50, 0.86);
+      color: #fff7e8;
+      box-shadow: 0 0 14px rgba(239, 43, 43, 0.28);
     }
 
     .chip.mark2 {
-      background: rgba(50, 101, 124, 0.86);
+      background: rgba(75, 130, 215, 0.88);
       color: #e9fbff;
-      box-shadow: 0 0 12px rgba(75, 168, 201, 0.22);
+      box-shadow: 0 0 14px rgba(74, 130, 215, 0.28);
     }
 
     .target-row {
@@ -685,6 +697,20 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 2.05rem;
       font-weight: 800;
+    }
+
+    .word-bank button[data-answer="→"] {
+      border-color: rgba(239, 43, 43, 0.55);
+      background: rgba(127, 16, 18, 0.72);
+      color: #ffe8e8;
+      box-shadow: 0 0 14px rgba(239, 43, 43, 0.18);
+    }
+
+    .word-bank button[data-answer="←"] {
+      border-color: rgba(74, 130, 215, 0.55);
+      background: rgba(23, 62, 139, 0.72);
+      color: #e3f0ff;
+      box-shadow: 0 0 14px rgba(74, 130, 215, 0.18);
     }
 
     .word-bank button.is-hidden {
@@ -955,6 +981,16 @@
       font-size: clamp(1.9rem, 8vw, 3.2rem);
       font-weight: 800;
       line-height: 1;
+    }
+
+    .memo-arrows .arrow-fwd {
+      color: #ef2b2b;
+      text-shadow: 0 0 12px rgba(239, 43, 43, 0.45);
+    }
+
+    .memo-arrows .arrow-back {
+      color: #4a82d7;
+      text-shadow: 0 0 12px rgba(74, 130, 215, 0.45);
     }
 
     .memo-text {
@@ -1482,7 +1518,7 @@
   <div class="memo-layer is-hidden" id="memoLayer">
     <div class="memo-card" role="status" aria-live="polite">
       <div class="memo-warning">起動に失敗しました</div>
-      <div class="memo-arrows">→ → → ← ←</div>
+      <div class="memo-arrows"><span class="arrow-fwd">→</span> <span class="arrow-fwd">→</span> <span class="arrow-fwd">→</span> <span class="arrow-back">←</span> <span class="arrow-back">←</span></div>
       <div class="memo-text">この順で。<br>必ず戻れ。</div>
       <button class="memo-close" id="memoClose" type="button">閉じる</button>
     </div>
