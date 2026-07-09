@@ -714,11 +714,21 @@
       text-align: center;
     }
 
+    .puzzle-close {
+      display: block;
+      margin: 18px auto 0;
+    }
+
     .device-panel {
       position: absolute;
       left: 50%;
       bottom: clamp(22px, 6vh, 62px);
-      z-index: 5;
+      /* #floorCrackHotspot / #kakejikuHotspot (z-index:6) and
+         #displayHotspot / #deviceHotspot (z-index:7) are positioned by the
+         3D projection loop and can land on top of the activation button's
+         screen position. Keep the device panel above all scene hotspots so
+         clicks on the 起動 button are never stolen by the crack hit-area. */
+      z-index: 9;
       width: min(620px, 86vw);
       display: grid;
       grid-template-rows: 1fr auto;
@@ -1212,6 +1222,75 @@
       background: rgba(5, 4, 3, 0.78);
     }
 
+    .lp-card {
+      position: absolute;
+      left: 50%;
+      bottom: max(18vh, env(safe-area-inset-bottom));
+      z-index: 3;
+      width: min(88vw, 460px);
+      transform: translateX(-50%) translateY(6px);
+      padding: 12px 16px;
+      border: 1px solid rgba(245, 234, 208, 0.24);
+      border-radius: 2px;
+      background: rgba(5, 4, 3, 0.62);
+      color: rgba(245, 234, 208, 0.82);
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 600ms ease, transform 600ms ease;
+    }
+
+    .lp-card.is-hidden {
+      display: none;
+    }
+
+    .lp-card.is-visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
+    }
+
+    .lp-card-copy {
+      margin-bottom: 10px;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      font-size: clamp(0.82rem, 2vw, 0.98rem);
+      line-height: 1.6;
+    }
+
+    .lp-card-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .lp-card-link,
+    .lp-card-share {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 14px;
+      border: 1px solid rgba(245, 234, 208, 0.34);
+      border-radius: 2px;
+      background: rgba(5, 4, 3, 0.7);
+      color: rgba(245, 234, 208, 0.88);
+      font-size: 0.82rem;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .lp-card-link {
+      border-color: rgba(102, 211, 255, 0.4);
+      color: #dff7ff;
+    }
+
+    @media (max-width: 680px) {
+      .lp-card {
+        bottom: max(14vh, env(safe-area-inset-bottom));
+        width: calc(100vw - 24px);
+      }
+    }
+
     @keyframes doom {
       0%, 100% { filter: contrast(1); transform: translate(0, 0); }
       50% { filter: contrast(1.8); transform: translate(3px, -2px); }
@@ -1477,6 +1556,7 @@
           <button type="button" data-action="hint" id="puzzleHintButton" class="is-hidden">ヒント</button>
         </div>
         <div class="puzzle-status" id="puzzleStatus" aria-live="polite"></div>
+        <button class="flavor-close puzzle-close" id="puzzleClose" type="button">閉じる</button>
       </section>
 
       <section class="device-panel is-hidden" id="devicePanel" aria-label="制御装置">
@@ -1507,6 +1587,7 @@
       <div class="flavor-title is-hidden" id="flavorTitle"></div>
       <div id="flavorText"></div>
       <div class="flavor-actions">
+        <button class="flavor-action is-hidden" id="flavorPrevAction" type="button"></button>
         <button class="flavor-action is-hidden" id="flavorAction" type="button"></button>
         <button class="flavor-close" id="flavorClose" type="button">閉じる</button>
       </div>
@@ -1518,11 +1599,19 @@
     <div class="server" aria-hidden="true"></div>
     <h1 class="clear-word">脱出成功</h1>
     <div class="clear-caption">脱出に成功した。</div>
+    <div class="lp-card is-hidden" id="lpCard" aria-live="polite">
+      <div class="lp-card-copy">この物語には、現実の店舗にある“本編”がある。</div>
+      <div class="lp-card-actions">
+        <a class="lp-card-link" id="lpCardLink" href="https://invite.escape-safari.com/bookcafe/?utm_source=webnazo&amp;utm_medium=game&amp;utm_campaign=weekly_webnazo_001&amp;utm_content=clear_card" target="_blank" rel="noopener">本編を見る</a>
+        <button class="lp-card-share" id="shareButton" type="button" aria-label="シェア">シェア</button>
+      </div>
+    </div>
     <button class="title-return" id="titleReturn" type="button">タイトルに戻る</button>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="analytics.js"></script>
   <script>
     (() => {
       const objective = document.querySelector(".objective");
@@ -1531,6 +1620,7 @@
       const puzzleInput = document.getElementById("puzzleInput");
       const puzzleStatus = document.getElementById("puzzleStatus");
       const puzzleHintButton = document.getElementById("puzzleHintButton");
+      const puzzleClose = document.getElementById("puzzleClose");
       const devicePanel = document.getElementById("devicePanel");
       const deviceCopy = document.getElementById("deviceCopy");
       const activationButton = document.getElementById("activationButton");
@@ -1547,9 +1637,13 @@
       const flavorLayer = document.getElementById("flavorLayer");
       const flavorTitle = document.getElementById("flavorTitle");
       const flavorText = document.getElementById("flavorText");
+      const flavorPrevAction = document.getElementById("flavorPrevAction");
       const flavorAction = document.getElementById("flavorAction");
       const flavorClose = document.getElementById("flavorClose");
       const titleReturn = document.getElementById("titleReturn");
+      const lpCard = document.getElementById("lpCard");
+      const lpCardLink = document.getElementById("lpCardLink");
+      const shareButton = document.getElementById("shareButton");
       const threeMount = document.getElementById("threeMount");
       const lamps = [
         document.getElementById("lamp0"),
@@ -1574,10 +1668,29 @@
         kakejikuChecks: 0,
         browserHintSeen: false,
         puzzleHintShown: false,
+        // puzzleHintStep = 段階的に解放済みの最大インデックス（ネタバレ防止のため
+        // 一度に全部は見せず、「次のヒントへ」を押した分だけ解放する）
         puzzleHintStep: 0,
-        ended: false
+        // puzzleHintView = 現在表示中のヒントのインデックス（ヒントパネルを開く
+        // たびに 0 へ戻すが、解放済みの範囲内なら前後に移動できる）
+        puzzleHintView: 0,
+        ended: false,
+        started: false,
+        startedAt: 0,
+        wrongCount: 0,
+        hintCount: 0
       };
       let flavorActionHandler = null;
+      let flavorPrevActionHandler = null;
+      const analytics = window.AkashicAnalytics || { track: () => {} };
+
+      function markStarted() {
+        if (state.started) return;
+        state.started = true;
+        state.startedAt = Date.now();
+        analytics.track("game_start");
+        analytics.track("first_action");
+      }
       const puzzleHints = [
         "中間は、起点から3回同じ操作をした状態。",
         "終端は、中間から右側の2つだけが反転した状態。",
@@ -1587,6 +1700,8 @@
       explosionVideo.addEventListener("error", () => {
         clearStage.classList.add("video-failed");
       });
+
+      document.addEventListener("pointerdown", markStarted, { once: true, capture: true });
 
       primeBrowserHistory();
       updateHud();
@@ -1618,12 +1733,40 @@
           return;
         }
         puzzleStatus.textContent = "不一致";
+        state.wrongCount += 1;
+        analytics.track("wrong_answer", {
+          answer_length: answer.length,
+          wrong_count: state.wrongCount
+        });
         if (!state.puzzleHintShown) {
           state.puzzleHintShown = true;
           state.puzzleHintStep = 0;
           puzzleHintButton.classList.remove("is-hidden");
         }
         puzzleInput.select();
+      });
+
+      // click だけに頼ると環境によってタップ後に click が発火しないことがあるため、
+      // 全ダイアログの「閉じる」ボタンは touchend でも確実に閉じられるようにする。
+      // touchend 側で preventDefault し、その後に発火する合成 click を握りつぶす
+      // ガードを入れて二重発火を防ぐ。
+      function bindTapToClose(button, onClose) {
+        let lastHandledAt = 0;
+        function run() {
+          const now = Date.now();
+          if (now - lastHandledAt < 350) return;
+          lastHandledAt = now;
+          onClose();
+        }
+        button.addEventListener("touchend", (event) => {
+          event.preventDefault();
+          run();
+        }, { passive: false });
+        button.addEventListener("click", run);
+      }
+
+      bindTapToClose(puzzleClose, () => {
+        puzzlePanel.classList.add("is-hidden");
       });
 
       activationButton.addEventListener("pointerdown", handleActivation);
@@ -1692,7 +1835,7 @@
         event.stopPropagation();
       });
 
-      memoClose.addEventListener("click", () => {
+      bindTapToClose(memoClose, () => {
         memoLayer.classList.add("is-hidden");
       });
 
@@ -1704,7 +1847,7 @@
         event.stopPropagation();
       });
 
-      flavorClose.addEventListener("click", () => {
+      bindTapToClose(flavorClose, () => {
         flavorLayer.classList.add("is-hidden");
       });
 
@@ -1712,8 +1855,37 @@
         if (flavorActionHandler) flavorActionHandler();
       });
 
+      flavorPrevAction.addEventListener("click", () => {
+        if (flavorPrevActionHandler) flavorPrevActionHandler();
+      });
+
       titleReturn.addEventListener("click", () => {
         location.href = `${location.pathname}?_pstep=0#step-0`;
+      });
+
+      lpCardLink.addEventListener("click", () => {
+        analytics.track("lp_click", { link_target: lpCardLink.href });
+      });
+
+      shareButton.addEventListener("click", async () => {
+        const shareUrl = "https://games.escape-safari.com/broken-web/";
+        const shareText = "壊れたWeb空間から脱出した。「三歩進んで二歩戻る」";
+        let shareType = "clipboard";
+        try {
+          if (navigator.share) {
+            shareType = "native";
+            await navigator.share({ title: "三歩進んで二歩戻る", text: shareText, url: shareUrl });
+          } else if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+            shareButton.textContent = "コピーしました";
+            window.setTimeout(() => {
+              shareButton.textContent = "シェア";
+            }, 2000);
+          }
+        } catch (error) {
+          // ユーザーによるキャンセル等は握りつぶす
+        }
+        analytics.track("share_click", { share_type: shareType });
       });
 
       window.addEventListener("popstate", (event) => {
@@ -1928,29 +2100,55 @@
         flavorActionHandler = typeof options.onAction === "function" ? options.onAction : null;
         flavorAction.textContent = options.actionLabel || "";
         flavorAction.classList.toggle("is-hidden", !flavorActionHandler);
+        flavorPrevActionHandler = typeof options.onPrev === "function" ? options.onPrev : null;
+        flavorPrevAction.textContent = options.prevLabel || "";
+        flavorPrevAction.classList.toggle("is-hidden", !flavorPrevActionHandler);
         flavorLayer.classList.remove("is-hidden");
       }
 
+      // ヒントパネルを開くたびに必ず最初のヒント(index 0)から表示する。
+      // state.puzzleHintStep は「これまでに解放済みの最大インデックス」を保持し、
+      // 「次のヒントへ」で新しい範囲に進むとその都度更新される（段階的解放を維持）。
+      // state.puzzleHintView は「現在表示中のインデックス」で、解放済みの範囲内で
+      // 前後に自由に移動できる。
       function showPuzzleHint() {
-        const hasNext = state.puzzleHintStep < puzzleHints.length - 1;
-        showFlavor(puzzleHints[state.puzzleHintStep], {
+        state.hintCount += 1;
+        state.puzzleHintView = 0;
+        renderPuzzleHint();
+      }
+
+      function renderPuzzleHint() {
+        const view = state.puzzleHintView;
+        const hasPrev = view > 0;
+        const hasNext = view < puzzleHints.length - 1;
+        showFlavor(puzzleHints[view], {
           title: "ヒント",
-          actionLabel: hasNext ? "次のヒント" : "",
+          prevLabel: hasPrev ? "前のヒントへ" : "",
+          onPrev: hasPrev ? () => {
+            state.puzzleHintView -= 1;
+            renderPuzzleHint();
+          } : null,
+          actionLabel: hasNext ? "次のヒントへ" : "",
           onAction: hasNext ? () => {
-            state.puzzleHintStep += 1;
-            showPuzzleHint();
+            state.puzzleHintView += 1;
+            if (state.puzzleHintView > state.puzzleHintStep) {
+              state.puzzleHintStep = state.puzzleHintView;
+            }
+            renderPuzzleHint();
           } : null
         });
       }
 
       function showBrowserHint() {
         state.browserHintSeen = true;
+        state.hintCount += 1;
         showFlavor("進む / 戻る は、ブラウザの進む / 戻る。", {
           title: "ヒント"
         });
       }
 
       function showSwipeHint() {
+        state.hintCount += 1;
         showFlavor("画面の端をスワイプしても、ブラウザの進む / 戻るが使える。", {
           title: "メモ"
         });
@@ -1971,9 +2169,24 @@
         state.ended = true;
         clearStage.classList.add("is-visible");
         explosionVideo.pause();
+        const clearTimeSec = state.startedAt ? Math.round((Date.now() - state.startedAt) / 1000) : null;
+        analytics.track("game_clear", {
+          clear_time_sec: clearTimeSec,
+          hint_count: state.hintCount,
+          wrong_count: state.wrongCount
+        });
         window.setTimeout(() => {
           clearStage.classList.add("is-settled");
         }, 3000);
+        const lpDelaySec = 4;
+        window.setTimeout(() => {
+          lpCard.classList.remove("is-hidden");
+          // 1フレーム待ってから is-visible を付与し、CSS transition でフェードインさせる
+          requestAnimationFrame(() => {
+            lpCard.classList.add("is-visible");
+          });
+          analytics.track("lp_card_view", { delay_sec: lpDelaySec });
+        }, lpDelaySec * 1000);
       }
 
       function initThreeScene() {
@@ -2067,8 +2280,20 @@
               }
             });
             projectHotspot(displayHotspot, terminal && terminal.screen, 0.078, 0.052);
-            projectHotspot(kakejikuHotspot, kakejiku3d && kakejiku3d.target, 0.16, 0.24);
-            projectHotspot(wallHotspot, wallProbe, 0.56, 0.34, 520, 260);
+            // 掛け軸（紙 1.55x2.62 world units）は画面上で 幅≈14vw / 高さ≈22-24vh
+            // に見える。旧値 (0.16, 0.24, max 180x150) はモバイルで 62x94px と
+            // 見た目より大幅に狭かったため、見た目全体を覆うサイズへ拡大。
+            // 注: projectHotspot の height も widthBase(=innerWidth) 基準。
+            // 起動ボタン(.device-panel, z-index:9)は本ホットスポット(z-index:6)
+            // より上にあるため、拡大しても操作を妨げない。
+            projectHotspot(kakejikuHotspot, kakejiku3d && kakejiku3d.target, 0.3, 0.5, 220, 320);
+            // 壁のタップ範囲を拡大（旧 0.56, 0.34, 520, 260 は狭いとの報告）。
+            // ディスプレイ(#displayHotspot)は右下に投影されるため、幅は大きく
+            // 広げつつ高さ上限を 230px に抑え、壁矩形の下端がディスプレイ矩形の
+            // 上端に届かないようにしている（320〜2560px幅で矩形非重複を計算検証
+            // 済み。万一接しても display は z-index:7 > 壁 z-index:4 で優先）。
+            // 起動ボタン(.device-panel)は z-index:9 で常に最前面。
+            projectHotspot(wallHotspot, wallProbe, 0.78, 0.5, 900, 230);
             projectHotspot(floorHotspot, tileFloorProbe, 0.9, 0.34, 780, 260);
             projectHotspot(floorCrackHotspot, floorProbe, 0.88, 0.18, 760, 180);
             projectHotspot(deviceHotspot, device3d && device3d.visible ? device3d : null, 0.46, 0.2);
