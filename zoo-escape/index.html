@@ -415,6 +415,49 @@
     }
     #hud.show { display: block; }
 
+    /* 中央広場の看板に重ねる実テキスト（板面に相対配置、JSで位置決め） */
+    #board-text {
+      position: absolute;
+      z-index: 15;               /* 背景の上・tap-catcher(20)の下 */
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;      /* タップは下の tap-catcher に通す */
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+      color: #2c1a09;
+      line-height: 1.02;
+      text-align: center;
+      overflow: visible;         /* 隅の落書きが板面外でクリップされないように */
+    }
+    #board-text.show { display: flex; }
+    #board-text .poem {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      /* 灯りに照らされた墨字っぽく、わずかなにじみとハイライト */
+      text-shadow: 0 0.5px 0 rgba(255,225,170,0.35), 0 -0.5px 0.5px rgba(0,0,0,0.25);
+    }
+    #board-text .scribble {
+      margin-top: 0.12em;
+      align-self: flex-start;    /* 板面の暗い左下側へ（右はランプで明るく溶ける） */
+      margin-left: 0.6em;
+      font-size: 0.58em;
+      white-space: nowrap;       /* 折り返さず1行で全文表示 */
+      color: #160b03;            /* ほぼ黒。明暗どちらの木目でも沈まないよう濃く */
+      opacity: 1;
+      /* 薄い明色のにじみで縁取り、明部背景でも輪郭が出るように */
+      text-shadow:
+        0 0 1px rgba(247,232,203,0.95),
+        0 0 2px rgba(247,232,203,0.8),
+        0 1px 0 rgba(0,0,0,0.35);
+      transform: rotate(-2.2deg);
+      transform-origin: left center;
+      font-weight: 700;
+    }
+
     @media (min-width: 481px) {
       #stage { box-shadow: 0 0 60px rgba(0,0,0,0.7); }
     }
@@ -424,6 +467,16 @@
   <div id="app">
     <div id="stage">
       <div class="bg" id="bg"></div>
+      <!-- 中央広場の看板に、ゲームが実際に使う看板テキストを重ねる（板面に相対配置） -->
+      <div id="board-text" aria-hidden="true">
+        <div class="poem">
+          <span>よるのらいおんはおきる</span>
+          <span>とりはそらへかえる</span>
+          <span>はちゅうるいはねむらない</span>
+          <span>そこがでぐちだ</span>
+        </div>
+        <div class="scribble">──まっすぐよむな</div>
+      </div>
       <img class="actor" id="actor" alt="" hidden>
       <img id="meat" class="hidden" alt="肉"
         src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2090'%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='%23a12a2a'/%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='none'%20stroke='%236f1717'%20stroke-width='3'/%3E%3Cellipse%20cx='58'%20cy='44'%20rx='34'%20ry='22'%20fill='%23c8443f'/%3E%3Cpath%20d='M40%2038q18%2010%2038%202'%20stroke='%23e08a86'%20stroke-width='4'%20fill='none'%20stroke-linecap='round'/%3E%3Cpath%20d='M42%2054q16%208%2034%201'%20stroke='%23e08a86'%20stroke-width='3'%20fill='none'%20stroke-linecap='round'/%3E%3Cellipse%20cx='102'%20cy='40'%20rx='12'%20ry='9'%20fill='%23f2e7cf'%20stroke='%23cbb98f'%20stroke-width='2'/%3E%3C/svg%3E">
@@ -479,7 +532,9 @@
 
     // ---------- 要素 ----------
     var el = {
+      stage: document.getElementById("stage"),
       bg: document.getElementById("bg"),
+      boardText: document.getElementById("board-text"),
       actor: document.getElementById("actor"),
       meat: document.getElementById("meat"),
       paw: document.getElementById("paw"),
@@ -630,8 +685,35 @@
       el.bg.style.backgroundImage = "url('" + ASSET + file + "')";
     }
 
+    // 背景は全エリア共通 1280x720、`background-size: cover` 相当で描画される。
+    // 看板の板面は画像内の固定比率にあるので、cover のスケール／オフセットを
+    // 計算して重畳テキストを板面へ正確に載せる（画面サイズが変わっても追従）。
+    var BG_W = 1280, BG_H = 720;
+    // 板面（無地化した領域）の画像内比率
+    var FACE = { x: 0.416, y: 0.360, w: 0.203, h: 0.095 };
+    function layoutBoardText() {
+      var W = el.stage.clientWidth, H = el.stage.clientHeight;
+      if (!W || !H) return;
+      var s = Math.max(W / BG_W, H / BG_H);
+      var dW = BG_W * s, dH = BG_H * s;
+      var offX = (W - dW) / 2, offY = (H - dH) / 2;
+      var bt = el.boardText;
+      bt.style.left = (offX + FACE.x * dW) + "px";
+      bt.style.top = (offY + FACE.y * dH) + "px";
+      bt.style.width = (FACE.w * dW) + "px";
+      bt.style.height = (FACE.h * dH) + "px";
+      // 4行＋落書きが板面に収まるようフォントを板面高さから決める
+      bt.style.fontSize = (FACE.h * dH * 0.165) + "px";
+    }
+    function setBoardText(show) {
+      el.boardText.classList.toggle("show", !!show);
+      if (show) layoutBoardText();
+    }
+    window.addEventListener("resize", layoutBoardText);
+
     function setActor(file, cls) {
       if (!file) { el.actor.hidden = true; return; }
+      el.actor.removeAttribute("style"); // 前エリアのインライン位置指定を消す
       el.actor.src = ASSET + file;
       el.actor.className = "actor" + (cls ? " " + cls : "");
       el.actor.hidden = false;
@@ -692,6 +774,7 @@
       el.meat.classList.add("hidden");
       el.paw.classList.remove("show");
       hidePaw();
+      setBoardText(area === "central"); // 看板テキストは中央広場だけ表示
 
       A.track("area_enter", { area_id: area });
 
@@ -716,6 +799,10 @@
     // 中央広場
     function enterCentral(first) {
       setActor("char_hero.png", "hero small");
+      // 主人公は看板を隠さないよう左端に寄せる
+      el.actor.style.left = "13%";
+      el.actor.style.bottom = "28%";
+      el.actor.style.height = "36%";
       var intro = first && !state.lionSolved
         ? ["閉園時間は、とっくに過ぎている。", "動物園に迷い込んでしまった。出口を探そう。", "広場の真ん中に、大きな看板が立っている。"]
         : ["中央広場。「まっすぐ読むな」の看板が立っている。"];
@@ -1190,6 +1277,7 @@
       el.meat.classList.add("hidden");
       el.paw.classList.remove("show");
       el.textbox.classList.add("hidden");
+      setBoardText(false);
       el.title.classList.remove("hidden");
       el.title.querySelector(".kicker").textContent = "CLEAR";
       el.title.querySelector("h1").innerHTML = 'GAME CLEAR<span class="sub">動物園脱出 成功</span>';
@@ -1209,6 +1297,7 @@
       el.title.classList.remove("hidden");
       el.textbox.classList.add("hidden");
       el.actor.hidden = true;
+      setBoardText(false);
       setBackground(AREAS.central.bg);
       el.titleBtns.innerHTML = "";
       addTitleBtn(state.started && !state.cleared ? "つづきから" : "はじめる", true, function () {
