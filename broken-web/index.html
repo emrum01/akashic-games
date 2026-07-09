@@ -2247,7 +2247,7 @@
         const wallProbe = new THREE.Object3D();
         wallProbe.position.set(0.05, 2.7, -4.94);
         const tileFloorProbe = new THREE.Object3D();
-        tileFloorProbe.position.set(2.6, 0.04, 0.95);
+        tileFloorProbe.position.set(0.05, 0.04, 1.18);
 
         buildRoom(scene, materials);
         const floorCrack3d = buildFloorCrack(scene, materials);
@@ -2294,6 +2294,7 @@
               }
             });
             const compact = (window.innerWidth || threeMount.clientWidth) < 720;
+            const heightBase = window.innerHeight || threeMount.clientHeight;
             projectHotspot(displayHotspot, terminal && terminal.screen, 0.078, 0.052);
             // 掛け軸（紙 1.55x2.62 world units）は画面上で 幅≈14vw / 高さ≈22-24vh
             // に見える。旧値 (0.16, 0.24, max 180x150) はモバイルで 62x94px と
@@ -2309,7 +2310,19 @@
             // 済み。万一接しても display は z-index:7 > 壁 z-index:4 で優先）。
             // 起動ボタン(.device-panel)は z-index:9 で常に最前面。
             projectHotspot(wallHotspot, wallProbe, 0.78, 0.5, 900, 230);
-            projectHotspot(floorHotspot, tileFloorProbe, compact ? 0.26 : 0.3, compact ? 0.1 : 0.12, compact ? 120 : 180, compact ? 64 : 84);
+            // 床は見た目の畳グリッド全体を覆う広い当たり判定にする。
+            // 旧PR #18 で単一タイル(120〜180px)に縮小され、404画面の床タップで
+            // フレーバーが出ない不具合があった。制御装置パネル(z-index:9)は
+            // 床ホットスポット(z-index:4)より前面なので重なっても起動操作は奪われない。
+            projectHotspot(
+              floorHotspot,
+              tileFloorProbe,
+              compact ? 0.82 : 0.9,
+              compact ? 0.28 : 0.34,
+              compact ? 700 : 780,
+              compact ? 220 : 260
+            );
+            extendFloorHotspot(floorHotspot, heightBase, compact);
             // 床のひびは3Dオブジェクト（floorCrack3d.target）にホットスポットを同期。
             // 制御装置も3D正面板（device3d.target）に同期。下部パネルは説明表示専用。
             projectHotspot(
@@ -2332,6 +2345,19 @@
           } catch (error) {
             console.error("Three.js frame error:", error);
           }
+        }
+
+        function extendFloorHotspot(hotspot, heightBase, compact) {
+          if (!hotspot || hotspot.classList.contains("is-hidden")) return;
+          const centerY = parseFloat(hotspot.style.top);
+          const height = parseFloat(hotspot.style.height);
+          if (!Number.isFinite(centerY) || !Number.isFinite(height)) return;
+          const topEdge = centerY - height / 2;
+          const floorBottom = heightBase * (compact ? 0.9 : 0.86);
+          const minHeight = floorBottom - topEdge;
+          if (minHeight <= height) return;
+          hotspot.style.height = `${minHeight}px`;
+          hotspot.style.top = `${topEdge + minHeight / 2}px`;
         }
 
         function projectHotspot(hotspot, target, widthScale, heightScale, maxWidth = 180, maxHeight = 150) {
