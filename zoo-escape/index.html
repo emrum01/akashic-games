@@ -375,6 +375,29 @@
     }
     #flash.on { opacity: 0.9; }
 
+    /* トースト（センサー不可の案内など） */
+    #toast {
+      position: absolute;
+      left: 50%;
+      bottom: 22%;
+      transform: translate(-50%, 12px);
+      z-index: 70;
+      max-width: 84%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: center;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
     /* デバッグHUD */
     #hud {
       position: absolute;
@@ -392,6 +415,49 @@
     }
     #hud.show { display: block; }
 
+    /* 中央広場の看板に重ねる実テキスト（板面に相対配置、JSで位置決め） */
+    #board-text {
+      position: absolute;
+      z-index: 15;               /* 背景の上・tap-catcher(20)の下 */
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;      /* タップは下の tap-catcher に通す */
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+      color: #2c1a09;
+      line-height: 1.02;
+      text-align: center;
+      overflow: visible;         /* 隅の落書きが板面外でクリップされないように */
+    }
+    #board-text.show { display: flex; }
+    #board-text .poem {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      /* 灯りに照らされた墨字っぽく、わずかなにじみとハイライト */
+      text-shadow: 0 0.5px 0 rgba(255,225,170,0.35), 0 -0.5px 0.5px rgba(0,0,0,0.25);
+    }
+    #board-text .scribble {
+      margin-top: 0.12em;
+      align-self: flex-start;    /* 板面の暗い左下側へ（右はランプで明るく溶ける） */
+      margin-left: 0.6em;
+      font-size: 0.58em;
+      white-space: nowrap;       /* 折り返さず1行で全文表示 */
+      color: #160b03;            /* ほぼ黒。明暗どちらの木目でも沈まないよう濃く */
+      opacity: 1;
+      /* 薄い明色のにじみで縁取り、明部背景でも輪郭が出るように */
+      text-shadow:
+        0 0 1px rgba(247,232,203,0.95),
+        0 0 2px rgba(247,232,203,0.8),
+        0 1px 0 rgba(0,0,0,0.35);
+      transform: rotate(-2.2deg);
+      transform-origin: left center;
+      font-weight: 700;
+    }
+
     @media (min-width: 481px) {
       #stage { box-shadow: 0 0 60px rgba(0,0,0,0.7); }
     }
@@ -401,6 +467,16 @@
   <div id="app">
     <div id="stage">
       <div class="bg" id="bg"></div>
+      <!-- 中央広場の看板に、ゲームが実際に使う看板テキストを重ねる（板面に相対配置） -->
+      <div id="board-text" aria-hidden="true">
+        <div class="poem">
+          <span>よるのらいおんはおきる</span>
+          <span>とりはそらへかえる</span>
+          <span>はちゅうるいはねむらない</span>
+          <span>そこがでぐちだ</span>
+        </div>
+        <div class="scribble">──まっすぐよむな</div>
+      </div>
       <img class="actor" id="actor" alt="" hidden>
       <img id="meat" class="hidden" alt="肉"
         src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2090'%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='%23a12a2a'/%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='none'%20stroke='%236f1717'%20stroke-width='3'/%3E%3Cellipse%20cx='58'%20cy='44'%20rx='34'%20ry='22'%20fill='%23c8443f'/%3E%3Cpath%20d='M40%2038q18%2010%2038%202'%20stroke='%23e08a86'%20stroke-width='4'%20fill='none'%20stroke-linecap='round'/%3E%3Cpath%20d='M42%2054q16%208%2034%201'%20stroke='%23e08a86'%20stroke-width='3'%20fill='none'%20stroke-linecap='round'/%3E%3Cellipse%20cx='102'%20cy='40'%20rx='12'%20ry='9'%20fill='%23f2e7cf'%20stroke='%23cbb98f'%20stroke-width='2'/%3E%3C/svg%3E">
@@ -440,6 +516,7 @@
       </div>
 
       <div id="flash"></div>
+      <div id="toast"></div>
       <div id="hud" class="show"></div>
     </div>
   </div>
@@ -455,7 +532,9 @@
 
     // ---------- 要素 ----------
     var el = {
+      stage: document.getElementById("stage"),
       bg: document.getElementById("bg"),
+      boardText: document.getElementById("board-text"),
       actor: document.getElementById("actor"),
       meat: document.getElementById("meat"),
       paw: document.getElementById("paw"),
@@ -475,6 +554,7 @@
       title: document.getElementById("title"),
       titleBtns: document.getElementById("title-btns"),
       flash: document.getElementById("flash"),
+      toast: document.getElementById("toast"),
       hud: document.getElementById("hud"),
       btnMap: document.getElementById("btn-map"),
       btnReset: document.getElementById("btn-reset")
@@ -546,23 +626,44 @@
       deviceTilt = Math.max(0, Math.min(90, -ev.gamma));
       orientationReady = true;
     }
-    function enableOrientation() {
-      if (typeof DeviceOrientationEvent !== "undefined" &&
-          typeof DeviceOrientationEvent.requestPermission === "function") {
+    var tiltRequested = false;
+    var tiltDenied = false;
+    var toastTimer = null;
+
+    function showToast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add("show");
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { el.toast.classList.remove("show"); }, 4500);
+    }
+
+    // ゲーム開始時（ユーザージェスチャー起点）に一度だけ傾き許可を要求する
+    function requestOrientationAtStart() {
+      if (tiltRequested) return;
+      tiltRequested = true;
+      if (typeof DeviceOrientationEvent === "undefined") {
+        // デスクトップ等: センサーなし。ドラッグ/キーで代替
+        return;
+      }
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        // iOS 13+: 明示的な許可ダイアログ（案内は中立的に。解法は匂わせない）
+        showToast("このゲームは端末のセンサーを使用します。");
         DeviceOrientationEvent.requestPermission().then(function (res) {
           if (res === "granted") {
             window.addEventListener("deviceorientation", onOrientation);
             orientationReady = true;
+          } else {
+            tiltDenied = true;
+            showToast("センサーは使えないようだ。それでも、指の操作だけで進められる。");
           }
-        }).catch(function(){});
+        }).catch(function () {
+          tiltDenied = true;
+          showToast("センサーは使えないようだ。それでも、指の操作だけで進められる。");
+        });
       } else {
+        // Android等: 許可不要。黙ってリスナー登録
         window.addEventListener("deviceorientation", onOrientation);
       }
-    }
-    function needsPermissionButton() {
-      return typeof DeviceOrientationEvent !== "undefined" &&
-             typeof DeviceOrientationEvent.requestPermission === "function" &&
-             !orientationReady;
     }
 
     // デバッグ: 矢印キーで傾きをシミュレート（保持される）
@@ -584,8 +685,35 @@
       el.bg.style.backgroundImage = "url('" + ASSET + file + "')";
     }
 
+    // 背景は全エリア共通 1280x720、`background-size: cover` 相当で描画される。
+    // 看板の板面は画像内の固定比率にあるので、cover のスケール／オフセットを
+    // 計算して重畳テキストを板面へ正確に載せる（画面サイズが変わっても追従）。
+    var BG_W = 1280, BG_H = 720;
+    // 板面（無地化した領域）の画像内比率
+    var FACE = { x: 0.416, y: 0.360, w: 0.203, h: 0.095 };
+    function layoutBoardText() {
+      var W = el.stage.clientWidth, H = el.stage.clientHeight;
+      if (!W || !H) return;
+      var s = Math.max(W / BG_W, H / BG_H);
+      var dW = BG_W * s, dH = BG_H * s;
+      var offX = (W - dW) / 2, offY = (H - dH) / 2;
+      var bt = el.boardText;
+      bt.style.left = (offX + FACE.x * dW) + "px";
+      bt.style.top = (offY + FACE.y * dH) + "px";
+      bt.style.width = (FACE.w * dW) + "px";
+      bt.style.height = (FACE.h * dH) + "px";
+      // 4行＋落書きが板面に収まるようフォントを板面高さから決める
+      bt.style.fontSize = (FACE.h * dH * 0.165) + "px";
+    }
+    function setBoardText(show) {
+      el.boardText.classList.toggle("show", !!show);
+      if (show) layoutBoardText();
+    }
+    window.addEventListener("resize", layoutBoardText);
+
     function setActor(file, cls) {
       if (!file) { el.actor.hidden = true; return; }
+      el.actor.removeAttribute("style"); // 前エリアのインライン位置指定を消す
       el.actor.src = ASSET + file;
       el.actor.className = "actor" + (cls ? " " + cls : "");
       el.actor.hidden = false;
@@ -646,6 +774,7 @@
       el.meat.classList.add("hidden");
       el.paw.classList.remove("show");
       hidePaw();
+      setBoardText(area === "central"); // 看板テキストは中央広場だけ表示
 
       A.track("area_enter", { area_id: area });
 
@@ -670,6 +799,10 @@
     // 中央広場
     function enterCentral(first) {
       setActor("char_hero.png", "hero small");
+      // 主人公は看板を隠さないよう左端に寄せる
+      el.actor.style.left = "13%";
+      el.actor.style.bottom = "28%";
+      el.actor.style.height = "36%";
       var intro = first && !state.lionSolved
         ? ["閉園時間は、とっくに過ぎている。", "動物園に迷い込んでしまった。出口を探そう。", "広場の真ん中に、大きな看板が立っている。"]
         : ["中央広場。「まっすぐ読むな」の看板が立っている。"];
@@ -683,22 +816,9 @@
     }
 
     function inspectSign() {
-      if (!state.lionSolved) {
-        speak("看板", [
-          "「まっすぐ読むな」と大きく書かれている。",
-          "そのほかにも、こまかな文字がびっしり。",
-          "傾けようとしても、看板はびくともしない。今はまだ、意味が分からない。"
-        ], showCentralActions);
-        return;
-      }
-      if (state.signSolved) {
-        speak("看板", [
-          "落ちずに残った文字は「らいおん・とり・はちゅうるい・でぐち」。",
-          "この順に回れ、ということだろうか。"
-        ], showCentralActions);
-        return;
-      }
-      openSignPuzzle();
+      if (state.signSolved) { openSign({ review: true }); return; }
+      if (!state.lionSolved) { openSign({ locked: true }); return; }
+      openSign({});
     }
 
     // ライオンエリア
@@ -713,25 +833,16 @@
       }
       lionArmed = false;
       speak("", [
-        "檻の前に、肉のかたまりが落ちている。",
-        "ライオンがこちらをじっと見ている。道をふさぐように。"
+        "ライオンがこちらをじっと見ている。道をふさぐように。",
+        "檻の前に、肉のかたまりが落ちている。手では届かなそうだ。"
       ], armLionTutorial);
     }
     function armLionTutorial() {
+      // 操作指示は出さない。閾値がゆるいので、少し動かせば自然に肉が滑る
       lionArmed = true;
       showMeat();
-      var acts = [];
-      if (needsPermissionButton()) {
-        acts.push({ label: "傾きセンサーを有効にする", primary: true, onClick: function(){ enableOrientation(); } });
-      }
-      acts.push({ label: "マップを開く", onClick: openMap });
-      setActions(acts);
-      speak("", [
-        "端末を左に傾けて、肉をライオンの方へ滑らせよう。",
-        "（センサーが使えないときは、肉を左へドラッグしてもいい）"
-      ], function(){ /* 説明後もアクションは残す */ setActionsAfterLionIntro(acts); });
+      setActions([{ label: "マップを開く", onClick: openMap }]);
     }
-    function setActionsAfterLionIntro(acts) { setActions(acts); }
 
     function showMeat() {
       el.meat.classList.remove("hidden");
@@ -755,8 +866,7 @@
         A.track("meat_delivered", {});
         speak("", [
           "肉がすべって、ライオンの前まで転がった。",
-          "ライオンは満足そうに道をあけた。",
-          "そういえば――さっきの看板も、「傾ける」ことができるかもしれない。"
+          "ライオンは満足そうに道をあけた。"
         ], function () {
           setActions([
             { label: "中央広場へ戻る", primary: true, onClick: function(){ goArea("central"); } },
@@ -812,7 +922,7 @@
         el.bg.style.filter = "";
         var lines = ["大きなゲートが、固く閉ざされている。"];
         lines.push(state.signSolved
-          ? "看板の順――らいおん、とり、はちゅうるい――に回れば、開くのかもしれない。"
+          ? "看板に残った文字が示す順に回れば、開くのかもしれない。"
           : "鍵は見当たらない。何か手がかりがいるようだ。");
         speak("", lines, function () {
           setActions([{ label: "マップを開く", onClick: openMap }]);
@@ -882,8 +992,17 @@
     var signActive = false;
     var holdMs = 0;
     var lastTs = 0;
-    var lowFailCount = 0;
     var noticedTilt = false;
+    // 段階的ヒント用の状態（詰まった後にだけ後出しする）
+    var signFailCount = 0;   // 傾き不足のまま終わった試行回数
+    var signHintStage = 0;   // 出したヒントの段階（0=未提示）
+    var signOpenTime = 0;    // パズルを開いた時刻
+    var attemptMaxTilt = 0;  // いまの試行で到達した最大傾き
+
+    // 傾きセンサーが実質使えない環境か（ドラッグ案内はここでのみ許可）
+    function tiltUnsupported() {
+      return tiltDenied || typeof DeviceOrientationEvent === "undefined";
+    }
 
     function buildBoard() {
       el.board.innerHTML = "";
@@ -914,24 +1033,52 @@
       });
     }
 
-    function openSignPuzzle() {
+    // opts.locked: ライオン攻略前（全文は読めるが傾けても反応しない）
+    // opts.review: 攻略済み（落ちた後の状態で眺める）
+    // それ以外: 通常のパズル（傾けて解く）
+    function openSign(opts) {
+      opts = opts || {};
       mode = "sign";
-      signActive = true;
       holdMs = 0;
       lastTs = 0;
-      lowFailCount = 0;
       noticedTilt = false;
       simTilt = 0; dragTilt = 0;
       buildBoard();
-      setBoardProgress(0);
       el.sign.classList.add("show");
-      el.signCaption.textContent = "端末を左に大きく傾け、そのまま保ち続けよう。（看板を長押しで左へドラッグしてもいい）";
-      var btns = [];
-      if (needsPermissionButton()) {
-        btns.push({ label: "傾きセンサーを有効にする" , act: enableOrientation, primary: true });
+
+      if (opts.review) {
+        signActive = false;
+        el.tiltmeter.style.display = "none";
+        el.board.classList.add("solved");
+        setBoardProgress(1);
+        el.board.querySelectorAll('.tile[data-keep="1"]').forEach(function (k) {
+          k.classList.add("solved-keep");
+        });
+        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。残った文字が、何かの順番に見える。";
+        renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
+        return;
       }
-      btns.push({ label: "やめる", act: closeSignPuzzle });
-      renderSignBtns(btns);
+
+      setBoardProgress(0);
+      if (opts.locked) {
+        // 全文は読めるが、傾けても微動だにしない
+        signActive = false;
+        el.tiltmeter.style.display = "none";
+        el.signCaption.textContent = "「まっすぐ読むな」――ほかにも、こまかな文字がびっしり書かれている。傾けようとしても、看板はびくともしない。今はまだ、意味が分からない。";
+        renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
+        return;
+      }
+
+      // 通常パズル（操作指示は出さない。詩の雰囲気テキストのみ）
+      signActive = true;
+      signFailCount = 0;
+      signHintStage = 0;
+      signOpenTime = performance.now();
+      attemptMaxTilt = 0;
+      el.tiltmeter.style.display = "";
+      el.tiltmeterBar.style.width = "0%";
+      el.signCaption.textContent = "「まっすぐ読むな」――さっきまで微動だにしなかった文字が、いまはなぜか、ぐらついて見える。";
+      renderSignBtns([{ label: "やめる", act: closeSign }]);
     }
     function renderSignBtns(btns) {
       el.signBtns.innerHTML = "";
@@ -945,7 +1092,7 @@
         el.signBtns.appendChild(el2);
       });
     }
-    function closeSignPuzzle() {
+    function closeSign() {
       signActive = false;
       el.sign.classList.remove("show");
       goArea("central");
@@ -968,12 +1115,27 @@
       keeps.forEach(function (k) { k.classList.add("solved-keep"); });
       el.tiltmeter.classList.remove("armed");
       el.tiltmeterBar.style.width = "100%";
-      el.signCaption.textContent = "余分な文字が滑り落ちた。残ったのは――らいおん / とり / はちゅうるい / でぐち。";
+      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。";
       A.track("sign_solved", {});
       renderSignBtns([{ label: "看板から離れる", primary: true, act: function () {
         el.sign.classList.remove("show");
         goArea("central");
       } }]);
+    }
+
+    // 段階的ヒント（詰まった後にだけ後出しする。答えや操作は直接言わない）
+    function showSignHint() {
+      var stage = signFailCount >= 3 ? 2 : 1;
+      if (stage < signHintStage) stage = signHintStage;
+      signHintStage = stage;
+      var msg = (stage >= 2)
+        ? "ライオンの肉は、あんなに大きく滑って転がっていった……。"  // ライオン体験の想起（間接）
+        : "少し傾けるくらいでは足りないようだ。";                    // 企画書の第1ヒント
+      // センサーが実質使えない環境でのみ、複数回失敗後に代替操作を案内（詰み防止）
+      if (tiltUnsupported() && signFailCount >= 3) {
+        msg += "（看板を長押しして、左へ大きくドラッグしてみよう）";
+      }
+      el.signCaption.textContent = msg;
     }
 
     function updateSign(dt) {
@@ -982,40 +1144,46 @@
       var meterPct = Math.min(100, (tilt / TILT_THRESHOLD) * 100);
       var armed = tilt >= TILT_THRESHOLD;
       el.tiltmeter.classList.toggle("armed", armed);
+      if (tilt > attemptMaxTilt) attemptMaxTilt = tilt;
 
       if (armed) {
         noticedTilt = true;
-        holdMs += dt;
+        holdMs += dt; // 傾けている間だけ蓄積（緩めても進捗は凍結し、続ければ再開）
         el.board.classList.toggle("charging", holdMs < HOLD_START);
         if (holdMs >= HOLD_START) {
           var p = Math.min(1, (holdMs - HOLD_START) / (HOLD_DONE - HOLD_START));
           el.board.classList.remove("charging");
           setBoardProgress(p);
           if (holdMs >= HOLD_DONE) { solveSign(); return; }
-          el.signCaption.textContent = "接着が外れていく……このまま傾け続けろ。";
+          el.signCaption.textContent = "接着が外れていく……。";     // 進行中の雰囲気のみ
         } else {
-          el.signCaption.textContent = "看板がわずかに震えだした。もっと傾けて保て。";
+          el.signCaption.textContent = "看板が、みしり、と鳴いた。"; // 進行中の雰囲気のみ
         }
-        // メーターは保持時間で満ちていく表現に切替
         var fillByHold = Math.min(100, (holdMs / HOLD_DONE) * 100);
         el.tiltmeterBar.style.width = Math.max(meterPct, fillByHold) + "%";
-      } else {
-        el.board.classList.remove("charging");
-        el.tiltmeterBar.style.width = meterPct + "%";
-        if (holdMs > 0) {
-          // 傾きが足りなくなった → 途中で止まる
-          if (holdMs >= HOLD_START) {
-            el.signCaption.textContent = "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。";
-          } else {
-            lowFailCount++;
-            if (lowFailCount >= 2) {
-              el.signCaption.textContent = "少し傾けるくらいでは足りないようだ。";
-            } else {
-              el.signCaption.textContent = "反応がない。もっと大きく、長く傾けてみよう。";
-            }
-          }
-          holdMs = 0; // 保持は途切れるが、落下進捗(--p)は現在位置で凍結
+        return;
+      }
+
+      // 傾きが閾値未満
+      el.board.classList.remove("charging");
+      el.tiltmeterBar.style.width = meterPct + "%";
+
+      if (attemptMaxTilt > 10 && tilt < 10) {
+        // ひとつの試行が終わった（傾けていたが緩めた）
+        if (holdMs >= HOLD_START) {
+          // 途中まで落ちたのに緩めた → 失敗フィードバック（維持）
+          el.signCaption.textContent = "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。";
+        } else {
+          // 閾値に届かないまま終えた → 段階ヒントを後出し
+          signFailCount++;
+          showSignHint();
         }
+        attemptMaxTilt = 0;
+      } else if (signHintStage === 0 && holdMs === 0 &&
+                 (performance.now() - signOpenTime) > 15000) {
+        // しばらく手詰まりのままなら、時間ベースで第1ヒントを後出し
+        signFailCount = Math.max(signFailCount, 1);
+        showSignHint();
       }
     }
 
@@ -1109,6 +1277,7 @@
       el.meat.classList.add("hidden");
       el.paw.classList.remove("show");
       el.textbox.classList.add("hidden");
+      setBoardText(false);
       el.title.classList.remove("hidden");
       el.title.querySelector(".kicker").textContent = "CLEAR";
       el.title.querySelector("h1").innerHTML = 'GAME CLEAR<span class="sub">動物園脱出 成功</span>';
@@ -1128,6 +1297,7 @@
       el.title.classList.remove("hidden");
       el.textbox.classList.add("hidden");
       el.actor.hidden = true;
+      setBoardText(false);
       setBackground(AREAS.central.bg);
       el.titleBtns.innerHTML = "";
       addTitleBtn(state.started && !state.cleared ? "つづきから" : "はじめる", true, function () {
@@ -1148,6 +1318,8 @@
     }
 
     function startGame(fresh) {
+      // 開始タップ（ユーザージェスチャー）を起点に傾き許可を要求する
+      requestOrientationAtStart();
       if (fresh || !state.started) {
         if (!state.started) A.track("game_start", {});
         else A.track("game_start", { restart: true });
@@ -1185,7 +1357,7 @@
     window.ZOO = {
       state: function(){ return state; },
       goArea: goArea,
-      openSign: openSignPuzzle,
+      openSign: function (o) { return openSign(o || {}); },
       solveSign: solveSign,
       deliverMeat: deliverMeat,
       start: startGame,
