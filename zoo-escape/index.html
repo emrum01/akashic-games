@@ -510,9 +510,8 @@
       pointer-events: none;
       transform-origin: 50% -40%; /* 上の吊り元を軸に揺れる */
       transform: translateX(-50%) rotate(-8deg);
-      transition: transform 0.42s cubic-bezier(.34,1.56,.64,1); /* カタンと戻る軽いバウンス */
+      /* 揺れ・水平戻りは JS のバネで駆動（updateWorldReactions）。CSS transition は使わない */
     }
-    #exit-tag.level { transform: translateX(-50%) rotate(0deg); }
     #exit-tag.hidden { display: none; }
     #exit-tag::before {          /* 吊り紐 */
       content: "";
@@ -695,19 +694,40 @@
     }
 
     // ---------- 傾き入力 ----------
-    var deviceTilt = 0; // 左傾きの大きさ(度)
-    var dragTilt = 0;   // ドラッグによる相当角
-    var simTilt = 0;    // デバッグ用キーボード
+    var deviceTilt = 0;   // 左傾きの大きさ(度)。看板パズルの閾値判定に使用（従来どおり）
+    var deviceGamma = 0;  // 生の gamma（署名付き。微反応用）
+    var deviceSeen = false; // 実際に端末センサー値を受け取ったか
+    var dragTilt = 0;     // ドラッグによる相当角（左が正）
+    var simTilt = 0;      // デバッグ用キーボード（左が正）
     var orientationReady = false;
 
+    // 看板パズル用（左傾きの大きさ・従来仕様のまま変更しない）
     function leftTilt() {
       return Math.max(deviceTilt, dragTilt, simTilt);
     }
 
+    // 微反応用の署名付き傾き（左が正）。世界がプレイヤーの傾きに追従するために使う
+    function worldTilt() {
+      if (DEBUG && simTilt !== 0) return simTilt;
+      if (dragging && dragTilt !== 0) return dragTilt;
+      if (deviceSeen) return Math.max(-90, Math.min(90, -deviceGamma));
+      return 0;
+    }
+    function tiltInputActive() {
+      return (DEBUG && simTilt !== 0) || (dragging && dragTilt !== 0) || deviceSeen;
+    }
+    // 実入力が無いとき（PC/ジャイロ非対応）のアイドル微揺れ（約6.5秒周期）
+    function reactTilt(now) {
+      if (tiltInputActive()) return worldTilt();
+      return Math.sin(now / 1035) * 6; // ±6度相当のゆっくりした揺れ
+    }
+
     function onOrientation(ev) {
-      // gamma: 左右の傾き。左に倒すと負 → 左傾きの大きさに変換
+      // gamma: 左右の傾き。左に倒すと負
       if (ev.gamma == null) return;
-      deviceTilt = Math.max(0, Math.min(90, -ev.gamma));
+      deviceGamma = ev.gamma;
+      deviceTilt = Math.max(0, Math.min(90, -ev.gamma)); // 左傾きの大きさ（パズル用）
+      deviceSeen = true;
       orientationReady = true;
     }
     var tiltRequested = false;
@@ -862,7 +882,7 @@
       // 世界律モチーフの表示切り替え
       el.fallenTag.classList.toggle("hidden", area !== "central");
       el.exitTag.classList.toggle("hidden", area !== "exit");
-      if (area !== "exit") el.exitTag.classList.remove("level");
+      if (area === "exit" && !state.cleared) { exitAngle = -8; exitVel = 0; } // 振り子を初期姿勢へ
 
       A.track("area_enter", { area_id: area });
 
@@ -971,13 +991,11 @@
       el.actor.style.left = "70%";
       el.actor.style.bottom = "46%";
       el.actor.style.height = "22%";
-      // 世界律モチーフ: 首をかしげているように傾ける
-      el.actor.style.transform = "translateX(-50%) rotate(12deg)";
+      // 傾きへの首かしげは updateWorldReactions が毎フレーム反映（会話中の大写しでも継続）
       speak("", [
         "木の上から、何かがこちらを見ている気がする。",
         "オオハシの目が、月明かりにきらりと光った。"
       ], function () {
-        el.actor.removeAttribute("style");
         setActions([{ label: "マップを開く", onClick: openMap }]);
       });
     }
@@ -988,13 +1006,13 @@
       el.actor.style.left = "68%";
       el.actor.style.bottom = "22%";
       el.actor.style.height = "20%";
-      // 世界律モチーフ: 壁に斜めに張り付いているように傾ける
+      // 意図的な例外: トカゲは傾きに反応せず、壁に斜めに張り付いたまま「微動だにしない」
       el.actor.style.transform = "translateX(-50%) rotate(-30deg)";
       speak("", [
         "生きているのかもわからないほど、微動だにしない。",
         "それでも、確かにこちらを見ている。"
       ], function () {
-        el.actor.removeAttribute("style");
+        // 姿勢は維持（大写しでも斜めのまま）。次エリアの setActor でリセットされる
         setActions([{ label: "マップを開く", onClick: openMap }]);
       });
     }
@@ -1281,10 +1299,48 @@
     }
 
     // ---------- メインループ ----------
+    // ---------- 世界律: 端末の傾きへの微反応 ----------
+    // 「まっすぐ読むな」→「傾ける」への無言の橋。小物が傾きにわずかに反応する。
+    var exitAngle = -8, exitVel = 0;   // EXIT札の振り子（署名付き角度）
+    var fallenBaseRot = -24;           // 落ちた札の基準角
+
+    function updateWorldReactions(now) {
+      var t = reactTilt(now);          // 署名付き傾き（左が正）／実入力なしはアイドル揺れ
+
+      // 中央広場: 落ちた札がわずかに滑る（画面外に出ない範囲でクランプ）
+      if (state.area === "central" && !el.fallenTag.classList.contains("hidden")) {
+        var slide = Math.max(-10, Math.min(10, t * 0.16)); // 最大±10px
+        el.fallenTag.style.transform =
+          "translateX(" + slide.toFixed(1) + "px) rotate(" + fallenBaseRot + "deg)";
+        // 看板の文字が傾き中ごくわずかに震える（解禁・落下ロジックは不変）
+        var shim = tiltInputActive() ? (Math.sin(now / 45) * 0.4 + t * 0.03) : 0;
+        el.boardText.style.transform = "rotate(" + shim.toFixed(2) + "deg)";
+      }
+
+      // 出口: EXIT札が振り子的に揺れる（バネ＋減衰）。クリア確定で水平へカタンと戻る
+      if (state.area === "exit" && !el.exitTag.classList.contains("hidden")) {
+        var target = state.cleared ? 0 : (-8 + t * 0.28);
+        exitVel += (target - exitAngle) * 0.14; // バネ
+        exitVel *= 0.80;                          // 減衰
+        exitAngle += exitVel;
+        el.exitTag.style.transform =
+          "translateX(-50%) rotate(" + exitAngle.toFixed(2) + "deg)";
+      }
+
+      // 鳥: トゥーカンは傾きと逆に首を返して水平を保とうとする（最大±15度）
+      if (state.area === "bird" && !el.actor.hidden) {
+        var counter = Math.max(-15, Math.min(15, -t * 0.5));
+        el.actor.style.transform = "translateX(-50%) rotate(" + counter.toFixed(2) + "deg)";
+      }
+      // 爬虫類: トカゲは反応しない（「微動だにしない」の意図的な例外 → enterReptileの静的傾きのまま）
+    }
+
     function tick(ts) {
       var dt = lastTs ? (ts - lastTs) : 16;
       lastTs = ts;
       if (dt > 100) dt = 100;
+
+      updateWorldReactions(ts);
 
       if (mode === "sign") {
         updateSign(dt);
@@ -1353,8 +1409,7 @@
     function doClear() {
       state.cleared = true; save();
       A.track("game_clear", {});
-      // 世界律モチーフ: クリア確定で出口の札がカタンと水平に戻る
-      el.exitTag.classList.add("level");
+      // 世界律モチーフ: クリア確定 → updateWorldReactions のバネが札を水平(0)へ戻す（カタンと）
       el.flash.classList.add("on");
       // 主人公が外へ歩き出す
       el.actor.style.transition = "transform 1.6s ease, opacity 1.4s ease";
