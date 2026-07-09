@@ -2448,49 +2448,76 @@
 
       function buildFloorCrack(scene, materials) {
         const crack = new THREE.Group();
-        // 手前中央。以前のケーブル付近にひびを置き、見た目と当たり判定を一致させる。
         crack.position.set(0.12, 0, 2.55);
 
-        const crackMaterial = new THREE.MeshStandardMaterial({
-          color: 0x050403,
-          roughness: 0.98,
-          metalness: 0.02,
-          emissive: 0x120908,
-          emissiveIntensity: 0.35
-        });
-        const main = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.03, 0.14), crackMaterial);
-        main.position.set(0, 0.012, 0);
-        main.castShadow = true;
-        main.receiveShadow = true;
-        crack.add(main);
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 256;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const branchA = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.024, 0.08), crackMaterial);
-        branchA.rotation.y = 0.82;
-        branchA.position.set(0.34, 0.01, 0.14);
-        branchA.castShadow = true;
-        crack.add(branchA);
-
-        const branchB = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.024, 0.08), crackMaterial);
-        branchB.rotation.y = -0.7;
-        branchB.position.set(-0.28, 0.01, -0.1);
-        branchB.castShadow = true;
-        crack.add(branchB);
-
-        for (let i = -2; i <= 2; i += 1) {
-          const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 2.9, 10), materials.black);
-          cable.rotation.z = Math.PI / 2;
-          cable.rotation.y = i % 2 ? 0.28 : -0.17;
-          cable.position.set(i * 0.58, 0.03, 0.1);
-          cable.castShadow = true;
-          crack.add(cable);
+        function strokeCrack(points, width, alpha) {
+          if (points.length < 2) return;
+          ctx.strokeStyle = `rgba(6, 4, 3, ${alpha})`;
+          ctx.lineWidth = width;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          ctx.moveTo(points[0][0], points[0][1]);
+          for (let i = 1; i < points.length; i += 1) {
+            ctx.lineTo(points[i][0], points[i][1]);
+          }
+          ctx.stroke();
         }
+
+        strokeCrack([[392, 138], [318, 126], [252, 142], [186, 118], [118, 132], [52, 124]], 11, 0.92);
+        strokeCrack([[392, 138], [318, 126], [252, 142], [186, 118], [118, 132], [52, 124]], 5, 0.55);
+        strokeCrack([[252, 142], [268, 98], [284, 62]], 7, 0.88);
+        strokeCrack([[186, 118], [162, 88], [148, 58]], 5, 0.75);
+        strokeCrack([[118, 132], [96, 168], [72, 196]], 4, 0.7);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const decal = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.65, 0.82),
+          new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false,
+            polygonOffset: true,
+            polygonOffsetFactor: -2,
+            polygonOffsetUnits: -2
+          })
+        );
+        decal.rotation.x = -Math.PI / 2;
+        decal.position.y = 0.009;
+        crack.add(decal);
+
+        const gougeMaterial = new THREE.MeshStandardMaterial({
+          color: 0x080605,
+          roughness: 1,
+          metalness: 0,
+          emissive: 0x0a0604,
+          emissiveIntensity: 0.2
+        });
+        [
+          { size: [1.05, 0.018, 0.05], pos: [0, 0.006, 0], rot: 0 },
+          { size: [0.42, 0.014, 0.035], pos: [0.28, 0.005, 0.12], rot: 0.75 },
+          { size: [0.36, 0.014, 0.032], pos: [-0.22, 0.005, -0.08], rot: -0.62 },
+          { size: [0.28, 0.012, 0.028], pos: [0.08, 0.004, -0.14], rot: -0.35 }
+        ].forEach(({ size, pos, rot }) => {
+          const gouge = new THREE.Mesh(new THREE.BoxGeometry(...size), gougeMaterial);
+          gouge.position.set(pos[0], pos[1], pos[2]);
+          gouge.rotation.y = rot;
+          gouge.receiveShadow = true;
+          crack.add(gouge);
+        });
 
         const hitbox = new THREE.Object3D();
         hitbox.position.set(0, 0.05, 0);
         crack.add(hitbox);
 
         scene.add(crack);
-        return { group: crack, target: hitbox, visual: main };
+        return { group: crack, target: hitbox, visual: decal };
       }
 
       function buildRoom(scene, materials) {
