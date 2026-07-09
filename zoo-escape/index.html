@@ -375,29 +375,6 @@
     }
     #flash.on { opacity: 0.9; }
 
-    /* トースト（センサー不可の案内など） */
-    #toast {
-      position: absolute;
-      left: 50%;
-      bottom: 22%;
-      transform: translate(-50%, 12px);
-      z-index: 70;
-      max-width: 84%;
-      padding: 12px 16px;
-      border-radius: 12px;
-      background: var(--panel-strong);
-      border: 1px solid var(--line);
-      color: var(--ink);
-      font-size: 13px;
-      line-height: 1.6;
-      text-align: center;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-    }
-    #toast.show { opacity: 1; transform: translate(-50%, 0); }
-
     /* デバッグHUD */
     #hud {
       position: absolute;
@@ -463,7 +440,6 @@
       </div>
 
       <div id="flash"></div>
-      <div id="toast"></div>
       <div id="hud" class="show"></div>
     </div>
   </div>
@@ -499,7 +475,6 @@
       title: document.getElementById("title"),
       titleBtns: document.getElementById("title-btns"),
       flash: document.getElementById("flash"),
-      toast: document.getElementById("toast"),
       hud: document.getElementById("hud"),
       btnMap: document.getElementById("btn-map"),
       btnReset: document.getElementById("btn-reset")
@@ -571,43 +546,23 @@
       deviceTilt = Math.max(0, Math.min(90, -ev.gamma));
       orientationReady = true;
     }
-    var tiltRequested = false;
-    var tiltDenied = false;
-    var toastTimer = null;
-
-    function showToast(msg) {
-      el.toast.textContent = msg;
-      el.toast.classList.add("show");
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () { el.toast.classList.remove("show"); }, 4500);
-    }
-
-    // ゲーム開始時（ユーザージェスチャー起点）に一度だけ傾き許可を要求する
-    function requestOrientationAtStart() {
-      if (tiltRequested) return;
-      tiltRequested = true;
-      if (typeof DeviceOrientationEvent === "undefined") {
-        // デスクトップ等: センサーなし。ドラッグ/キーで代替
-        return;
-      }
-      if (typeof DeviceOrientationEvent.requestPermission === "function") {
-        // iOS 13+: 明示的な許可ダイアログ
+    function enableOrientation() {
+      if (typeof DeviceOrientationEvent !== "undefined" &&
+          typeof DeviceOrientationEvent.requestPermission === "function") {
         DeviceOrientationEvent.requestPermission().then(function (res) {
           if (res === "granted") {
             window.addEventListener("deviceorientation", onOrientation);
             orientationReady = true;
-          } else {
-            tiltDenied = true;
-            showToast("傾きセンサーは使えないようだ。看板や肉は「左へドラッグ」でも操作できる。");
           }
-        }).catch(function () {
-          tiltDenied = true;
-          showToast("傾きセンサーは使えないようだ。「左へドラッグ」でも遊べる。");
-        });
+        }).catch(function(){});
       } else {
-        // Android等: 許可不要。黙ってリスナー登録
         window.addEventListener("deviceorientation", onOrientation);
       }
+    }
+    function needsPermissionButton() {
+      return typeof DeviceOrientationEvent !== "undefined" &&
+             typeof DeviceOrientationEvent.requestPermission === "function" &&
+             !orientationReady;
     }
 
     // デバッグ: 矢印キーで傾きをシミュレート（保持される）
@@ -728,9 +683,22 @@
     }
 
     function inspectSign() {
-      if (state.signSolved) { openSign({ review: true }); return; }
-      if (!state.lionSolved) { openSign({ locked: true }); return; }
-      openSign({});
+      if (!state.lionSolved) {
+        speak("看板", [
+          "「まっすぐ読むな」と大きく書かれている。",
+          "そのほかにも、こまかな文字がびっしり。",
+          "傾けようとしても、看板はびくともしない。今はまだ、意味が分からない。"
+        ], showCentralActions);
+        return;
+      }
+      if (state.signSolved) {
+        speak("看板", [
+          "落ちずに残った文字は「らいおん・とり・はちゅうるい・でぐち」。",
+          "この順に回れ、ということだろうか。"
+        ], showCentralActions);
+        return;
+      }
+      openSignPuzzle();
     }
 
     // ライオンエリア
@@ -752,7 +720,11 @@
     function armLionTutorial() {
       lionArmed = true;
       showMeat();
-      var acts = [{ label: "マップを開く", onClick: openMap }];
+      var acts = [];
+      if (needsPermissionButton()) {
+        acts.push({ label: "傾きセンサーを有効にする", primary: true, onClick: function(){ enableOrientation(); } });
+      }
+      acts.push({ label: "マップを開く", onClick: openMap });
       setActions(acts);
       speak("", [
         "端末を左に傾けて、肉をライオンの方へ滑らせよう。",
@@ -942,49 +914,24 @@
       });
     }
 
-    // opts.locked: ライオン攻略前（全文は読めるが傾けても反応しない）
-    // opts.review: 攻略済み（落ちた後の状態で眺める）
-    // それ以外: 通常のパズル（傾けて解く）
-    function openSign(opts) {
-      opts = opts || {};
+    function openSignPuzzle() {
       mode = "sign";
+      signActive = true;
       holdMs = 0;
       lastTs = 0;
       lowFailCount = 0;
       noticedTilt = false;
       simTilt = 0; dragTilt = 0;
       buildBoard();
-      el.sign.classList.add("show");
-
-      if (opts.review) {
-        signActive = false;
-        el.tiltmeter.style.display = "none";
-        el.board.classList.add("solved");
-        setBoardProgress(1);
-        el.board.querySelectorAll('.tile[data-keep="1"]').forEach(function (k) {
-          k.classList.add("solved-keep");
-        });
-        el.signCaption.textContent = "落ちずに残ったのは――らいおん / とり / はちゅうるい / でぐち。この順に回れ、ということだろうか。";
-        renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
-        return;
-      }
-
       setBoardProgress(0);
-      if (opts.locked) {
-        // 全文は読めるが、傾けても微動だにしない
-        signActive = false;
-        el.tiltmeter.style.display = "none";
-        el.signCaption.textContent = "「まっすぐ読むな」――ほかにも、こまかな文字がびっしり書かれている。傾けようとしても、看板はびくともしない。今はまだ、意味が分からない。";
-        renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
-        return;
-      }
-
-      // 通常パズル
-      signActive = true;
-      el.tiltmeter.style.display = "";
-      el.tiltmeterBar.style.width = "0%";
+      el.sign.classList.add("show");
       el.signCaption.textContent = "端末を左に大きく傾け、そのまま保ち続けよう。（看板を長押しで左へドラッグしてもいい）";
-      renderSignBtns([{ label: "やめる", act: closeSign }]);
+      var btns = [];
+      if (needsPermissionButton()) {
+        btns.push({ label: "傾きセンサーを有効にする" , act: enableOrientation, primary: true });
+      }
+      btns.push({ label: "やめる", act: closeSignPuzzle });
+      renderSignBtns(btns);
     }
     function renderSignBtns(btns) {
       el.signBtns.innerHTML = "";
@@ -998,7 +945,7 @@
         el.signBtns.appendChild(el2);
       });
     }
-    function closeSign() {
+    function closeSignPuzzle() {
       signActive = false;
       el.sign.classList.remove("show");
       goArea("central");
@@ -1201,8 +1148,6 @@
     }
 
     function startGame(fresh) {
-      // 開始タップ（ユーザージェスチャー）を起点に傾き許可を要求する
-      requestOrientationAtStart();
       if (fresh || !state.started) {
         if (!state.started) A.track("game_start", {});
         else A.track("game_start", { restart: true });
@@ -1240,7 +1185,7 @@
     window.ZOO = {
       state: function(){ return state; },
       goArea: goArea,
-      openSign: function (o) { return openSign(o || {}); },
+      openSign: openSignPuzzle,
       solveSign: solveSign,
       deliverMeat: deliverMeat,
       start: startGame,
