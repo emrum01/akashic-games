@@ -33,12 +33,26 @@
 
   var isDebug = /(?:^|[?&])debug=1(?:&|$)/.test(window.location.search);
 
+  // utm_source/medium/campaign/content を読み取り、全イベント共通パラメータとして付与する
+  // （source=x 等の流入元別に customEvent ディメンションで集計できるようにするため）
+  function readUtmParams() {
+    var query = new URLSearchParams(window.location.search);
+    var utm = {};
+    if (query.has("utm_source")) utm.source = query.get("utm_source");
+    if (query.has("utm_medium")) utm.medium = query.get("utm_medium");
+    if (query.has("utm_campaign")) utm.campaign = query.get("utm_campaign");
+    if (query.has("utm_content")) utm.content = query.get("utm_content");
+    return utm;
+  }
+  var utmParams = readUtmParams();
+
   function track(eventName, params) {
     var payload = Object.assign(
       {
         game_id: GAME.id,
         game_title: GAME.title
       },
+      utmParams,
       params || {}
     );
     window.gtag("event", eventName, payload);
