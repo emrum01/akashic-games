@@ -484,7 +484,7 @@
 
     #kakejikuHotspot,
     #floorCrackHotspot {
-      z-index: 6;
+      z-index: 10;
     }
 
     #displayHotspot,
@@ -1802,7 +1802,8 @@
       floorHotspot.addEventListener("click", () => {
         showFlavor("冷たい床。足音だけが妙に大きく返る。");
       });
-      floorCrackHotspot.addEventListener("click", () => {
+      floorCrackHotspot.addEventListener("click", (event) => {
+        event.stopPropagation();
         if (state.browserHintSeen) {
           state.floorCrackChecks += 1;
           if (state.floorCrackChecks % 2 === 0) {
@@ -2228,7 +2229,7 @@
         const wallProbe = new THREE.Object3D();
         wallProbe.position.set(0.05, 2.7, -4.94);
         const tileFloorProbe = new THREE.Object3D();
-        tileFloorProbe.position.set(0.05, 0.04, 1.18);
+        tileFloorProbe.position.set(2.6, 0.04, 0.95);
 
         buildRoom(scene, materials);
         const floorCrack3d = buildFloorCrack(scene, materials);
@@ -2290,17 +2291,16 @@
             // 済み。万一接しても display は z-index:7 > 壁 z-index:4 で優先）。
             // 起動ボタン(.device-panel)は z-index:9 で常に最前面。
             projectHotspot(wallHotspot, wallProbe, 0.78, 0.5, 900, 230);
-            projectHotspot(floorHotspot, tileFloorProbe, 0.9, 0.34, 780, 260);
+            projectHotspot(floorHotspot, tileFloorProbe, compact ? 0.26 : 0.3, compact ? 0.1 : 0.12, compact ? 120 : 180, compact ? 64 : 84);
             // 床のひびは3Dオブジェクト（floorCrack3d.target）にホットスポットを同期。
-            // 制御装置表示後は deviceHotspot(z-index:7) より前面に出す。
-            floorCrackHotspot.style.zIndex = state.deviceRevealed ? "8" : "6";
+            // 制御装置も3D正面板（device3d.target）に同期。下部パネルは説明表示専用。
             projectHotspot(
               floorCrackHotspot,
               floorCrack3d && floorCrack3d.target,
-              compact ? 0.34 : 0.38,
-              compact ? 0.14 : 0.16,
-              compact ? 140 : 180,
-              compact ? 72 : 90
+              compact ? 0.42 : 0.46,
+              compact ? 0.18 : 0.2,
+              compact ? 168 : 220,
+              compact ? 88 : 104
             );
             projectHotspot(
               deviceHotspot,
@@ -2439,40 +2439,49 @@
 
       function buildFloorCrack(scene, materials) {
         const crack = new THREE.Group();
-        // 左寄り・やや奥。モバイルでも画面内に投影され、制御装置パネルと重なりにくい位置。
-        crack.position.set(1.05, 0, 1.95);
+        // 手前中央。以前のケーブル付近にひびを置き、見た目と当たり判定を一致させる。
+        crack.position.set(0.12, 0, 2.55);
 
         const crackMaterial = new THREE.MeshStandardMaterial({
-          color: 0x090807,
-          roughness: 0.92,
-          metalness: 0.04
+          color: 0x050403,
+          roughness: 0.98,
+          metalness: 0.02,
+          emissive: 0x120908,
+          emissiveIntensity: 0.35
         });
-        const main = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.018, 0.07), crackMaterial);
-        main.position.set(0, 0.01, 0);
+        const main = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.03, 0.14), crackMaterial);
+        main.position.set(0, 0.012, 0);
         main.castShadow = true;
         main.receiveShadow = true;
         crack.add(main);
 
-        const branchA = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.016, 0.05), crackMaterial);
-        branchA.rotation.y = 0.78;
-        branchA.position.set(0.22, 0.009, 0.1);
+        const branchA = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.024, 0.08), crackMaterial);
+        branchA.rotation.y = 0.82;
+        branchA.position.set(0.34, 0.01, 0.14);
         branchA.castShadow = true;
         crack.add(branchA);
 
-        const branchB = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.016, 0.05), crackMaterial);
-        branchB.rotation.y = -0.64;
-        branchB.position.set(-0.18, 0.009, -0.08);
+        const branchB = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.024, 0.08), crackMaterial);
+        branchB.rotation.y = -0.7;
+        branchB.position.set(-0.28, 0.01, -0.1);
         branchB.castShadow = true;
         crack.add(branchB);
 
-        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 10), materials.black);
-        cable.rotation.z = Math.PI / 2;
-        cable.rotation.y = 0.34;
-        cable.position.set(0.08, 0.02, 0.14);
-        crack.add(cable);
+        for (let i = -2; i <= 2; i += 1) {
+          const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 2.9, 10), materials.black);
+          cable.rotation.z = Math.PI / 2;
+          cable.rotation.y = i % 2 ? 0.28 : -0.17;
+          cable.position.set(i * 0.58, 0.03, 0.1);
+          cable.castShadow = true;
+          crack.add(cable);
+        }
+
+        const hitbox = new THREE.Object3D();
+        hitbox.position.set(0, 0.05, 0);
+        crack.add(hitbox);
 
         scene.add(crack);
-        return { group: crack, target: main };
+        return { group: crack, target: hitbox, visual: main };
       }
 
       function buildRoom(scene, materials) {
