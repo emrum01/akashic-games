@@ -321,7 +321,8 @@
       bottom: 20%;
       left: 46%;
       transform: translateX(-50%);
-      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));
+      /* 世界律モチーフ: 地面がわずかに傾いている → 影を斜めに落とす */
+      filter: drop-shadow(7px 7px 9px rgba(0,0,0,0.6));
       cursor: grab;
       touch-action: none;
       transition: none;
@@ -458,6 +459,82 @@
       font-weight: 700;
     }
 
+    /* ===== 世界律モチーフ: あらゆるものが少しずつ傾いている ===== */
+    /* タイトルの「な」だけがわずかに傾く */
+    #title h1 .tilt-na {
+      display: inline-block;
+      transform: rotate(4deg);
+      transform-origin: 50% 80%;
+    }
+    /* 落書きは後の文字ほど左下へ流れる（JSで1文字ずつ span 化して傾ける） */
+    #board-text .scribble span { display: inline-block; }
+
+    /* 植え込みに落ちた木の札 */
+    #fallen-tag {
+      position: absolute;
+      z-index: 25;               /* tap-catcher(20) より上でタップ可能 */
+      width: 8.5%;
+      max-width: 46px;
+      aspect-ratio: 5 / 4;
+      left: 60%;
+      bottom: 30%;
+      transform: rotate(-24deg);
+      border-radius: 2px;
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, rgba(0,0,0,0) 1px 5px),
+        linear-gradient(150deg, #5a4023, #3a2914);
+      border: 1px solid #74542e;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.92;
+    }
+    #fallen-tag.hidden { display: none; }
+    #fallen-tag span {
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      font-weight: 700;
+      font-size: 3.4vw;
+      color: rgba(232, 214, 180, 0.42);   /* かすれた一文字 */
+      text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+    }
+    @media (min-width: 481px) { #fallen-tag span { font-size: 16px; } }
+
+    /* 出口ゲートにぶら下がる札 */
+    #exit-tag {
+      position: absolute;
+      z-index: 16;               /* 背景の上、装飾（タップ不可） */
+      left: 50%;
+      top: 39%;
+      pointer-events: none;
+      transform-origin: 50% -40%; /* 上の吊り元を軸に揺れる */
+      transform: translateX(-50%) rotate(-8deg);
+      /* 揺れ・水平戻りは JS のバネで駆動（updateWorldReactions）。CSS transition は使わない */
+    }
+    #exit-tag.hidden { display: none; }
+    #exit-tag::before {          /* 吊り紐 */
+      content: "";
+      position: absolute;
+      left: 50%; top: -46%;
+      width: 1px; height: 46%;
+      background: rgba(20,14,6,0.7);
+      transform: translateX(-50%);
+    }
+    #exit-tag span {
+      display: block;
+      padding: 3px 8px;
+      font: 700 11px/1 "Helvetica Neue", Arial, sans-serif;
+      letter-spacing: 0.18em;
+      color: #f3ead2;
+      background: linear-gradient(160deg, #4a3620, #2f2110);
+      border: 1px solid #75542d;
+      border-radius: 2px;
+      box-shadow: 0 3px 7px rgba(0,0,0,0.5);
+      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    }
+    @media (min-width: 481px) { #exit-tag span { font-size: 12px; } }
+
     @media (min-width: 481px) {
       #stage { box-shadow: 0 0 60px rgba(0,0,0,0.7); }
     }
@@ -481,6 +558,10 @@
       <img id="meat" class="hidden" alt="肉"
         src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2090'%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='%23a12a2a'/%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='none'%20stroke='%236f1717'%20stroke-width='3'/%3E%3Cellipse%20cx='58'%20cy='44'%20rx='34'%20ry='22'%20fill='%23c8443f'/%3E%3Cpath%20d='M40%2038q18%2010%2038%202'%20stroke='%23e08a86'%20stroke-width='4'%20fill='none'%20stroke-linecap='round'/%3E%3Cpath%20d='M42%2054q16%208%2034%201'%20stroke='%23e08a86'%20stroke-width='3'%20fill='none'%20stroke-linecap='round'/%3E%3Cellipse%20cx='102'%20cy='40'%20rx='12'%20ry='9'%20fill='%23f2e7cf'%20stroke='%23cbb98f'%20stroke-width='2'/%3E%3C/svg%3E">
       <div id="paw"><span></span><span></span><span></span></div>
+      <!-- 世界律モチーフ: 植え込みに落ちた、剥がれた木の札（中央広場のみ・巡回順とは無関係の一文字） -->
+      <div id="fallen-tag" class="hidden" role="button" tabindex="0" aria-label="木の札"><span>園</span></div>
+      <!-- 世界律モチーフ: 出口ゲートに斜めにぶら下がる札（クリアで水平に戻る） -->
+      <div id="exit-tag" class="hidden" aria-hidden="true"><span>EXIT</span></div>
 
       <div id="tap-catcher"></div>
 
@@ -510,7 +591,7 @@
       <!-- タイトル -->
       <div id="title">
         <div class="kicker">ESCAPE SAFARI</div>
-        <h1>まっすぐ読むな<span class="sub">― 動物園脱出 ―</span></h1>
+        <h1>まっすぐ読む<span class="tilt-na">な</span><span class="sub">― 動物園脱出 ―</span></h1>
         <p>閉園後の動物園に、迷い込んでしまった。<br>看板の言葉は「まっすぐ読むな」。<br>その意味を、まだ君は知らない。</p>
         <div class="btns" id="title-btns"></div>
       </div>
@@ -538,6 +619,8 @@
       actor: document.getElementById("actor"),
       meat: document.getElementById("meat"),
       paw: document.getElementById("paw"),
+      fallenTag: document.getElementById("fallen-tag"),
+      exitTag: document.getElementById("exit-tag"),
       tapCatcher: document.getElementById("tap-catcher"),
       areaName: document.getElementById("area-name"),
       textbox: document.getElementById("textbox"),
@@ -611,19 +694,40 @@
     }
 
     // ---------- 傾き入力 ----------
-    var deviceTilt = 0; // 左傾きの大きさ(度)
-    var dragTilt = 0;   // ドラッグによる相当角
-    var simTilt = 0;    // デバッグ用キーボード
+    var deviceTilt = 0;   // 左傾きの大きさ(度)。看板パズルの閾値判定に使用（従来どおり）
+    var deviceGamma = 0;  // 生の gamma（署名付き。微反応用）
+    var deviceSeen = false; // 実際に端末センサー値を受け取ったか
+    var dragTilt = 0;     // ドラッグによる相当角（左が正）
+    var simTilt = 0;      // デバッグ用キーボード（左が正）
     var orientationReady = false;
 
+    // 看板パズル用（左傾きの大きさ・従来仕様のまま変更しない）
     function leftTilt() {
       return Math.max(deviceTilt, dragTilt, simTilt);
     }
 
+    // 微反応用の署名付き傾き（左が正）。世界がプレイヤーの傾きに追従するために使う
+    function worldTilt() {
+      if (DEBUG && simTilt !== 0) return simTilt;
+      if (dragging && dragTilt !== 0) return dragTilt;
+      if (deviceSeen) return Math.max(-90, Math.min(90, -deviceGamma));
+      return 0;
+    }
+    function tiltInputActive() {
+      return (DEBUG && simTilt !== 0) || (dragging && dragTilt !== 0) || deviceSeen;
+    }
+    // 実入力が無いとき（PC/ジャイロ非対応）のアイドル微揺れ（約6.5秒周期）
+    function reactTilt(now) {
+      if (tiltInputActive()) return worldTilt();
+      return Math.sin(now / 1035) * 6; // ±6度相当のゆっくりした揺れ
+    }
+
     function onOrientation(ev) {
-      // gamma: 左右の傾き。左に倒すと負 → 左傾きの大きさに変換
+      // gamma: 左右の傾き。左に倒すと負
       if (ev.gamma == null) return;
-      deviceTilt = Math.max(0, Math.min(90, -ev.gamma));
+      deviceGamma = ev.gamma;
+      deviceTilt = Math.max(0, Math.min(90, -ev.gamma)); // 左傾きの大きさ（パズル用）
+      deviceSeen = true;
       orientationReady = true;
     }
     var tiltRequested = false;
@@ -690,7 +794,7 @@
     // 計算して重畳テキストを板面へ正確に載せる（画面サイズが変わっても追従）。
     var BG_W = 1280, BG_H = 720;
     // 板面（無地化した領域）の画像内比率
-    var FACE = { x: 0.416, y: 0.360, w: 0.203, h: 0.095 };
+    var FACE = { x: 0.417, y: 0.352, w: 0.202, h: 0.103 };
     function layoutBoardText() {
       var W = el.stage.clientWidth, H = el.stage.clientHeight;
       if (!W || !H) return;
@@ -775,6 +879,10 @@
       el.paw.classList.remove("show");
       hidePaw();
       setBoardText(area === "central"); // 看板テキストは中央広場だけ表示
+      // 世界律モチーフの表示切り替え
+      el.fallenTag.classList.toggle("hidden", area !== "central");
+      el.exitTag.classList.toggle("hidden", area !== "exit");
+      if (area === "exit" && !state.cleared) { exitAngle = -8; exitVel = 0; } // 振り子を初期姿勢へ
 
       A.track("area_enter", { area_id: area });
 
@@ -848,7 +956,8 @@
       el.meat.classList.remove("hidden");
       el.meat.style.left = "46%";
       el.meat.style.bottom = "20%";
-      el.meat.style.transform = "translateX(-50%)";
+      // 世界律モチーフ: 傾いた地面に乗っているようわずかに傾ける
+      el.meat.style.transform = "translateX(-50%) rotate(-6deg)";
     }
 
     function deliverMeat() {
@@ -882,11 +991,11 @@
       el.actor.style.left = "70%";
       el.actor.style.bottom = "46%";
       el.actor.style.height = "22%";
+      // 傾きへの首かしげは updateWorldReactions が毎フレーム反映（会話中の大写しでも継続）
       speak("", [
         "木の上から、何かがこちらを見ている気がする。",
         "オオハシの目が、月明かりにきらりと光った。"
       ], function () {
-        el.actor.removeAttribute("style");
         setActions([{ label: "マップを開く", onClick: openMap }]);
       });
     }
@@ -897,11 +1006,13 @@
       el.actor.style.left = "68%";
       el.actor.style.bottom = "22%";
       el.actor.style.height = "20%";
+      // 意図的な例外: トカゲは傾きに反応せず、壁に斜めに張り付いたまま「微動だにしない」
+      el.actor.style.transform = "translateX(-50%) rotate(-30deg)";
       speak("", [
         "生きているのかもわからないほど、微動だにしない。",
         "それでも、確かにこちらを見ている。"
       ], function () {
-        el.actor.removeAttribute("style");
+        // 姿勢は維持（大写しでも斜めのまま）。次エリアの setActor でリセットされる
         setActions([{ label: "マップを開く", onClick: openMap }]);
       });
     }
@@ -1188,10 +1299,48 @@
     }
 
     // ---------- メインループ ----------
+    // ---------- 世界律: 端末の傾きへの微反応 ----------
+    // 「まっすぐ読むな」→「傾ける」への無言の橋。小物が傾きにわずかに反応する。
+    var exitAngle = -8, exitVel = 0;   // EXIT札の振り子（署名付き角度）
+    var fallenBaseRot = -24;           // 落ちた札の基準角
+
+    function updateWorldReactions(now) {
+      var t = reactTilt(now);          // 署名付き傾き（左が正）／実入力なしはアイドル揺れ
+
+      // 中央広場: 落ちた札がわずかに滑る（画面外に出ない範囲でクランプ）
+      if (state.area === "central" && !el.fallenTag.classList.contains("hidden")) {
+        var slide = Math.max(-10, Math.min(10, t * 0.16)); // 最大±10px
+        el.fallenTag.style.transform =
+          "translateX(" + slide.toFixed(1) + "px) rotate(" + fallenBaseRot + "deg)";
+        // 看板の文字が傾き中ごくわずかに震える（解禁・落下ロジックは不変）
+        var shim = tiltInputActive() ? (Math.sin(now / 45) * 0.4 + t * 0.03) : 0;
+        el.boardText.style.transform = "rotate(" + shim.toFixed(2) + "deg)";
+      }
+
+      // 出口: EXIT札が振り子的に揺れる（バネ＋減衰）。クリア確定で水平へカタンと戻る
+      if (state.area === "exit" && !el.exitTag.classList.contains("hidden")) {
+        var target = state.cleared ? 0 : (-8 + t * 0.28);
+        exitVel += (target - exitAngle) * 0.14; // バネ
+        exitVel *= 0.80;                          // 減衰
+        exitAngle += exitVel;
+        el.exitTag.style.transform =
+          "translateX(-50%) rotate(" + exitAngle.toFixed(2) + "deg)";
+      }
+
+      // 鳥: トゥーカンは傾きと逆に首を返して水平を保とうとする（最大±15度）
+      if (state.area === "bird" && !el.actor.hidden) {
+        var counter = Math.max(-15, Math.min(15, -t * 0.5));
+        el.actor.style.transform = "translateX(-50%) rotate(" + counter.toFixed(2) + "deg)";
+      }
+      // 爬虫類: トカゲは反応しない（「微動だにしない」の意図的な例外 → enterReptileの静的傾きのまま）
+    }
+
     function tick(ts) {
       var dt = lastTs ? (ts - lastTs) : 16;
       lastTs = ts;
       if (dt > 100) dt = 100;
+
+      updateWorldReactions(ts);
 
       if (mode === "sign") {
         updateSign(dt);
@@ -1260,6 +1409,7 @@
     function doClear() {
       state.cleared = true; save();
       A.track("game_clear", {});
+      // 世界律モチーフ: クリア確定 → updateWorldReactions のバネが札を水平(0)へ戻す（カタンと）
       el.flash.classList.add("on");
       // 主人公が外へ歩き出す
       el.actor.style.transition = "transform 1.6s ease, opacity 1.4s ease";
@@ -1341,6 +1491,17 @@
     el.btnMap.addEventListener("click", function () {
       if (mode === "area") openMap();
     });
+
+    // 世界律モチーフ: 落ちた木の札を調べる（中央広場・一文だけ）
+    function inspectFallenTag(ev) {
+      ev.stopPropagation();
+      if (mode !== "area" || state.area !== "central") return;
+      speak("", ["木の札だ。看板から剥がれ落ちたものらしい。"], showCentralActions);
+    }
+    el.fallenTag.addEventListener("click", inspectFallenTag);
+    el.fallenTag.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") inspectFallenTag(ev);
+    });
     el.btnReset.addEventListener("click", function () {
       if (confirm("はじめからやり直しますか？（進行状況は消えます）")) {
         state = defaultState(); save();
@@ -1363,6 +1524,22 @@
       start: startGame,
       setSim: function(v){ simTilt = v; }
     };
+
+    // 世界律モチーフ: 落書きを1文字ずつ span 化し、後の文字ほど左下へ流す
+    (function tiltScribble() {
+      var s = el.boardText.querySelector(".scribble");
+      if (!s) return;
+      var chars = s.textContent.split("");
+      s.textContent = "";
+      chars.forEach(function (ch, i) {
+        var sp = document.createElement("span");
+        sp.textContent = ch;
+        sp.style.transform =
+          "translate(" + (-i * 0.02).toFixed(3) + "em, " + (i * 0.085).toFixed(3) + "em) " +
+          "rotate(" + (-i * 1.1).toFixed(1) + "deg)";
+        s.appendChild(sp);
+      });
+    })();
 
     // ---------- 起動 ----------
     showTitle();
