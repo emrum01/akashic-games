@@ -714,11 +714,21 @@
       text-align: center;
     }
 
+    .puzzle-close {
+      display: block;
+      margin: 18px auto 0;
+    }
+
     .device-panel {
       position: absolute;
       left: 50%;
       bottom: clamp(22px, 6vh, 62px);
-      z-index: 5;
+      /* #floorCrackHotspot / #kakejikuHotspot (z-index:6) and
+         #displayHotspot / #deviceHotspot (z-index:7) are positioned by the
+         3D projection loop and can land on top of the activation button's
+         screen position. Keep the device panel above all scene hotspots so
+         clicks on the 起動 button are never stolen by the crack hit-area. */
+      z-index: 9;
       width: min(620px, 86vw);
       display: grid;
       grid-template-rows: 1fr auto;
@@ -1546,6 +1556,7 @@
           <button type="button" data-action="hint" id="puzzleHintButton" class="is-hidden">ヒント</button>
         </div>
         <div class="puzzle-status" id="puzzleStatus" aria-live="polite"></div>
+        <button class="flavor-close puzzle-close" id="puzzleClose" type="button">閉じる</button>
       </section>
 
       <section class="device-panel is-hidden" id="devicePanel" aria-label="制御装置">
@@ -1576,6 +1587,7 @@
       <div class="flavor-title is-hidden" id="flavorTitle"></div>
       <div id="flavorText"></div>
       <div class="flavor-actions">
+        <button class="flavor-action is-hidden" id="flavorPrevAction" type="button"></button>
         <button class="flavor-action is-hidden" id="flavorAction" type="button"></button>
         <button class="flavor-close" id="flavorClose" type="button">閉じる</button>
       </div>
@@ -1608,6 +1620,7 @@
       const puzzleInput = document.getElementById("puzzleInput");
       const puzzleStatus = document.getElementById("puzzleStatus");
       const puzzleHintButton = document.getElementById("puzzleHintButton");
+      const puzzleClose = document.getElementById("puzzleClose");
       const devicePanel = document.getElementById("devicePanel");
       const deviceCopy = document.getElementById("deviceCopy");
       const activationButton = document.getElementById("activationButton");
@@ -1624,6 +1637,7 @@
       const flavorLayer = document.getElementById("flavorLayer");
       const flavorTitle = document.getElementById("flavorTitle");
       const flavorText = document.getElementById("flavorText");
+      const flavorPrevAction = document.getElementById("flavorPrevAction");
       const flavorAction = document.getElementById("flavorAction");
       const flavorClose = document.getElementById("flavorClose");
       const titleReturn = document.getElementById("titleReturn");
@@ -1654,7 +1668,12 @@
         kakejikuChecks: 0,
         browserHintSeen: false,
         puzzleHintShown: false,
+        // puzzleHintStep = 段階的に解放済みの最大インデックス（ネタバレ防止のため
+        // 一度に全部は見せず、「次のヒントへ」を押した分だけ解放する）
         puzzleHintStep: 0,
+        // puzzleHintView = 現在表示中のヒントのインデックス（ヒントパネルを開く
+        // たびに 0 へ戻すが、解放済みの範囲内なら前後に移動できる）
+        puzzleHintView: 0,
         ended: false,
         started: false,
         startedAt: 0,
@@ -1662,6 +1681,7 @@
         hintCount: 0
       };
       let flavorActionHandler = null;
+      let flavorPrevActionHandler = null;
       const analytics = window.AkashicAnalytics || { track: () => {} };
 
       function markStarted() {
@@ -1724,6 +1744,29 @@
           puzzleHintButton.classList.remove("is-hidden");
         }
         puzzleInput.select();
+      });
+
+      // click だけに頼ると環境によってタップ後に click が発火しないことがあるため、
+      // 全ダイアログの「閉じる」ボタンは touchend でも確実に閉じられるようにする。
+      // touchend 側で preventDefault し、その後に発火する合成 click を握りつぶす
+      // ガードを入れて二重発火を防ぐ。
+      function bindTapToClose(button, onClose) {
+        let lastHandledAt = 0;
+        function run() {
+          const now = Date.now();
+          if (now - lastHandledAt < 350) return;
+          lastHandledAt = now;
+          onClose();
+        }
+        button.addEventListener("touchend", (event) => {
+          event.preventDefault();
+          run();
+        }, { passive: false });
+        button.addEventListener("click", run);
+      }
+
+      bindTapToClose(puzzleClose, () => {
+        puzzlePanel.classList.add("is-hidden");
       });
 
       activationButton.addEventListener("pointerdown", handleActivation);
@@ -1792,7 +1835,7 @@
         event.stopPropagation();
       });
 
-      memoClose.addEventListener("click", () => {
+      bindTapToClose(memoClose, () => {
         memoLayer.classList.add("is-hidden");
       });
 
@@ -1804,12 +1847,16 @@
         event.stopPropagation();
       });
 
-      flavorClose.addEventListener("click", () => {
+      bindTapToClose(flavorClose, () => {
         flavorLayer.classList.add("is-hidden");
       });
 
       flavorAction.addEventListener("click", () => {
         if (flavorActionHandler) flavorActionHandler();
+      });
+
+      flavorPrevAction.addEventListener("click", () => {
+        if (flavorPrevActionHandler) flavorPrevActionHandler();
       });
 
       titleReturn.addEventListener("click", () => {
@@ -2053,18 +2100,41 @@
         flavorActionHandler = typeof options.onAction === "function" ? options.onAction : null;
         flavorAction.textContent = options.actionLabel || "";
         flavorAction.classList.toggle("is-hidden", !flavorActionHandler);
+        flavorPrevActionHandler = typeof options.onPrev === "function" ? options.onPrev : null;
+        flavorPrevAction.textContent = options.prevLabel || "";
+        flavorPrevAction.classList.toggle("is-hidden", !flavorPrevActionHandler);
         flavorLayer.classList.remove("is-hidden");
       }
 
+      // ヒントパネルを開くたびに必ず最初のヒント(index 0)から表示する。
+      // state.puzzleHintStep は「これまでに解放済みの最大インデックス」を保持し、
+      // 「次のヒントへ」で新しい範囲に進むとその都度更新される（段階的解放を維持）。
+      // state.puzzleHintView は「現在表示中のインデックス」で、解放済みの範囲内で
+      // 前後に自由に移動できる。
       function showPuzzleHint() {
         state.hintCount += 1;
-        const hasNext = state.puzzleHintStep < puzzleHints.length - 1;
-        showFlavor(puzzleHints[state.puzzleHintStep], {
+        state.puzzleHintView = 0;
+        renderPuzzleHint();
+      }
+
+      function renderPuzzleHint() {
+        const view = state.puzzleHintView;
+        const hasPrev = view > 0;
+        const hasNext = view < puzzleHints.length - 1;
+        showFlavor(puzzleHints[view], {
           title: "ヒント",
-          actionLabel: hasNext ? "次のヒント" : "",
+          prevLabel: hasPrev ? "前のヒントへ" : "",
+          onPrev: hasPrev ? () => {
+            state.puzzleHintView -= 1;
+            renderPuzzleHint();
+          } : null,
+          actionLabel: hasNext ? "次のヒントへ" : "",
           onAction: hasNext ? () => {
-            state.puzzleHintStep += 1;
-            showPuzzleHint();
+            state.puzzleHintView += 1;
+            if (state.puzzleHintView > state.puzzleHintStep) {
+              state.puzzleHintStep = state.puzzleHintView;
+            }
+            renderPuzzleHint();
           } : null
         });
       }
@@ -2210,8 +2280,20 @@
               }
             });
             projectHotspot(displayHotspot, terminal && terminal.screen, 0.078, 0.052);
-            projectHotspot(kakejikuHotspot, kakejiku3d && kakejiku3d.target, 0.16, 0.24);
-            projectHotspot(wallHotspot, wallProbe, 0.56, 0.34, 520, 260);
+            // 掛け軸（紙 1.55x2.62 world units）は画面上で 幅≈14vw / 高さ≈22-24vh
+            // に見える。旧値 (0.16, 0.24, max 180x150) はモバイルで 62x94px と
+            // 見た目より大幅に狭かったため、見た目全体を覆うサイズへ拡大。
+            // 注: projectHotspot の height も widthBase(=innerWidth) 基準。
+            // 起動ボタン(.device-panel, z-index:9)は本ホットスポット(z-index:6)
+            // より上にあるため、拡大しても操作を妨げない。
+            projectHotspot(kakejikuHotspot, kakejiku3d && kakejiku3d.target, 0.3, 0.5, 220, 320);
+            // 壁のタップ範囲を拡大（旧 0.56, 0.34, 520, 260 は狭いとの報告）。
+            // ディスプレイ(#displayHotspot)は右下に投影されるため、幅は大きく
+            // 広げつつ高さ上限を 230px に抑え、壁矩形の下端がディスプレイ矩形の
+            // 上端に届かないようにしている（320〜2560px幅で矩形非重複を計算検証
+            // 済み。万一接しても display は z-index:7 > 壁 z-index:4 で優先）。
+            // 起動ボタン(.device-panel)は z-index:9 で常に最前面。
+            projectHotspot(wallHotspot, wallProbe, 0.78, 0.5, 900, 230);
             projectHotspot(floorHotspot, tileFloorProbe, 0.9, 0.34, 780, 260);
             projectHotspot(floorCrackHotspot, floorProbe, 0.88, 0.18, 760, 180);
             projectHotspot(deviceHotspot, device3d && device3d.visible ? device3d : null, 0.46, 0.2);
