@@ -701,9 +701,20 @@
     var simTilt = 0;      // デバッグ用キーボード（左が正）
     var orientationReady = false;
 
-    // 看板パズル用（左傾きの大きさ・従来仕様のまま変更しない）
+    // ライオンの肉など（左傾きの絶対量）
     function leftTilt() {
       return Math.max(deviceTilt, dragTilt, simTilt);
+    }
+
+    // 看板パズル用の「相対」左傾き。看板ビューを開いた瞬間の端末角を0とし、
+    // そこからさらに左へ傾けた量で判定する。寝転がり/机置きで gamma が
+    // 常時大きい端末でも、開いた姿勢のままでは 0 のままなので事故クリアを防ぐ。
+    var signBaselineGamma = 0; // 看板ビューを開いた時点の gamma（基準）
+    function signLeftTilt() {
+      var deviceRel = deviceSeen
+        ? Math.max(0, Math.min(90, signBaselineGamma - deviceGamma)) // より左へ倒した分
+        : 0;
+      return Math.max(deviceRel, dragTilt, simTilt); // ドラッグ/キーは元から相対
     }
 
     // 微反応用の署名付き傾き（左が正）。世界がプレイヤーの傾きに追従するために使う
@@ -911,7 +922,7 @@
       el.actor.style.left = "13%";
       el.actor.style.bottom = "28%";
       el.actor.style.height = "36%";
-      var intro = first && !state.lionSolved
+      var intro = first
         ? ["閉園時間は、とっくに過ぎている。", "動物園に迷い込んでしまった。出口を探そう。", "広場の真ん中に、大きな看板が立っている。"]
         : ["中央広場。「まっすぐ読むな」の看板が立っている。"];
       speak("", intro, showCentralActions);
@@ -924,8 +935,8 @@
     }
 
     function inspectSign() {
+      // ライオン前提のロックは撤廃。最初から傾ければ解ける
       if (state.signSolved) { openSign({ review: true }); return; }
-      if (!state.lionSolved) { openSign({ locked: true }); return; }
       openSign({});
     }
 
@@ -1144,9 +1155,8 @@
       });
     }
 
-    // opts.locked: ライオン攻略前（全文は読めるが傾けても反応しない）
     // opts.review: 攻略済み（落ちた後の状態で眺める）
-    // それ以外: 通常のパズル（傾けて解く）
+    // それ以外: 通常のパズル（最初から傾けて解ける）
     function openSign(opts) {
       opts = opts || {};
       mode = "sign";
@@ -1171,21 +1181,13 @@
       }
 
       setBoardProgress(0);
-      if (opts.locked) {
-        // 全文は読めるが、傾けても微動だにしない
-        signActive = false;
-        el.tiltmeter.style.display = "none";
-        el.signCaption.textContent = "「まっすぐ読むな」――ほかにも、こまかな文字がびっしり書かれている。傾けようとしても、看板はびくともしない。今はまだ、意味が分からない。";
-        renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
-        return;
-      }
-
-      // 通常パズル（操作指示は出さない。詩の雰囲気テキストのみ）
+      // 通常パズル（操作指示は出さない。詩の雰囲気テキストのみ）。最初から解ける
       signActive = true;
       signFailCount = 0;
       signHintStage = 0;
       signOpenTime = performance.now();
       attemptMaxTilt = 0;
+      signBaselineGamma = deviceGamma; // この姿勢を0基準にする（相対判定）
       el.tiltmeter.style.display = "";
       el.tiltmeterBar.style.width = "0%";
       el.signCaption.textContent = "「まっすぐ読むな」――さっきまで微動だにしなかった文字が、いまはなぜか、ぐらついて見える。";
@@ -1235,23 +1237,35 @@
     }
 
     // 段階的ヒント（詰まった後にだけ後出しする。答えや操作は直接言わない）
-    function showSignHint() {
+    // 傾けたが弱い場合のヒント
+    function showTiltHint() {
       var stage = signFailCount >= 3 ? 2 : 1;
       if (stage < signHintStage) stage = signHintStage;
       signHintStage = stage;
-      var msg = (stage >= 2)
-        ? "ライオンの肉は、あんなに大きく滑って転がっていった……。"  // ライオン体験の想起（間接）
-        : "少し傾けるくらいでは足りないようだ。";                    // 企画書の第1ヒント
-      // センサーが実質使えない環境でのみ、複数回失敗後に代替操作を案内（詰み防止）
+      var msg;
+      if (stage >= 2) {
+        // ライオン体験があればそれを想起、なければ世界律（傾き）へ寄せる（ライオン前提にしない）
+        msg = state.lionSolved
+          ? "ライオンの肉は、あんなに大きく滑って転がっていった……。"
+          : "この動物園では、何もかもが少しずつ傾いている……もっと大胆に。";
+      } else {
+        msg = "少し傾けるくらいでは足りないようだ。"; // 企画書の第1ヒント
+      }
       if (tiltUnsupported() && signFailCount >= 3) {
         msg += "（看板を長押しして、左へ大きくドラッグしてみよう）";
       }
       el.signCaption.textContent = msg;
     }
+    // 看板の前で無操作が続いた場合は、探索へ誘導（ライオン等の伏線に気づかせる）
+    function showIdleHint() {
+      if (signHintStage > 0) return;
+      signHintStage = 1;
+      el.signCaption.textContent = "看板の前で立ち尽くしていても始まらない。園内を、見て回ろう。";
+    }
 
     function updateSign(dt) {
       if (!signActive) return;
-      var tilt = leftTilt();
+      var tilt = signLeftTilt(); // 相対傾き（開いた姿勢からの追加の左傾き）
       var meterPct = Math.min(100, (tilt / TILT_THRESHOLD) * 100);
       var armed = tilt >= TILT_THRESHOLD;
       el.tiltmeter.classList.toggle("armed", armed);
@@ -1287,14 +1301,13 @@
         } else {
           // 閾値に届かないまま終えた → 段階ヒントを後出し
           signFailCount++;
-          showSignHint();
+          showTiltHint();
         }
         attemptMaxTilt = 0;
       } else if (signHintStage === 0 && holdMs === 0 &&
                  (performance.now() - signOpenTime) > 15000) {
-        // しばらく手詰まりのままなら、時間ベースで第1ヒントを後出し
-        signFailCount = Math.max(signFailCount, 1);
-        showSignHint();
+        // 無操作が続く → 探索へ誘導（ライオン等の伏線に気づかせる）
+        showIdleHint();
       }
     }
 
@@ -1522,7 +1535,10 @@
       solveSign: solveSign,
       deliverMeat: deliverMeat,
       start: startGame,
-      setSim: function(v){ simTilt = v; }
+      setSim: function(v){ simTilt = v; },
+      // 検証用: 端末 gamma を直接注入し、相対傾き判定を確認できるようにする
+      setGamma: function(v){ onOrientation({ gamma: v }); },
+      signLeftTilt: function(){ return signLeftTilt(); }
     };
 
     // 世界律モチーフ: 落書きを1文字ずつ span 化し、後の文字ほど左下へ流す
