@@ -743,6 +743,10 @@
       pointer-events: none;
     }
 
+    .device-panel:not(.is-hidden) {
+      pointer-events: auto;
+    }
+
     .device-panel.is-available {
       cursor: default;
     }
@@ -817,7 +821,8 @@
       box-shadow:
         inset 0 0 24px rgba(0, 0, 0, 0.58),
         0 18px 38px rgba(0, 0, 0, 0.28);
-      pointer-events: none;
+      pointer-events: auto;
+      cursor: default;
       backdrop-filter: blur(2px);
     }
 
@@ -2334,6 +2339,10 @@
           const y = (1 - center.y) * heightBase * 0.5 - parentRect.top;
           const width = Math.max(44, Math.min(maxWidth, widthBase * widthScale));
           const height = Math.max(30, Math.min(maxHeight, widthBase * heightScale));
+          if (hotspot === deviceHotspot && state.deviceRevealed && y > heightBase * 0.58) {
+            hotspot.classList.add("is-hidden");
+            return;
+          }
           hotspot.style.left = `${x}px`;
           hotspot.style.top = `${y}px`;
           hotspot.style.width = `${width}px`;
