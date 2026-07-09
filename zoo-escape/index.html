@@ -923,7 +923,7 @@
       el.actor.style.bottom = "28%";
       el.actor.style.height = "36%";
       var intro = first
-        ? ["閉園時間は、とっくに過ぎている。", "動物園に迷い込んでしまった。出口を探そう。", "広場の真ん中に、大きな看板が立っている。"]
+        ? ["閉園時間は、とっくに過ぎている。", "動物園に迷い込んでしまった。出口を探そう。", "広場の真ん中に、大きな看板が立っている。", "園内はまだ、誰かの手入れを待っているように静まりかえっている。"]
         : ["中央広場。「まっすぐ読むな」の看板が立っている。"];
       speak("", intro, showCentralActions);
     }
@@ -986,7 +986,8 @@
         A.track("meat_delivered", {});
         speak("", [
           "肉がすべって、ライオンの前まで転がった。",
-          "ライオンは満足そうに道をあけた。"
+          "ライオンは危なげなく受け止め、満足そうに身を退けた。",
+          "餌やりは、本来なら誰かの仕事のはずだ。"
         ], function () {
           setActions([
             { label: "中央広場へ戻る", primary: true, onClick: function(){ goArea("central"); } },
@@ -1005,7 +1006,7 @@
       // 傾きへの首かしげは updateWorldReactions が毎フレーム反映（会話中の大写しでも継続）
       speak("", [
         "木の上から、何かがこちらを見ている気がする。",
-        "オオハシの目が、月明かりにきらりと光った。"
+        "傾いたこの世界で、オオハシの目だけが、まっすぐ水平をとらえていた。"
       ], function () {
         setActions([{ label: "マップを開く", onClick: openMap }]);
       });
@@ -1021,7 +1022,7 @@
       el.actor.style.transform = "translateX(-50%) rotate(-30deg)";
       speak("", [
         "生きているのかもわからないほど、微動だにしない。",
-        "それでも、確かにこちらを見ている。"
+        "斜めの岩肌に平然と張りついたまま、それでも確かにこちらを見ている。"
       ], function () {
         // 姿勢は維持（大写しでも斜めのまま）。次エリアの setActor でリセットされる
         setActions([{ label: "マップを開く", onClick: openMap }]);
@@ -1035,7 +1036,7 @@
         setBackground(AREAS.exit.bg);
         el.bg.style.filter = "saturate(1.15) brightness(1.12)";
         speak("", [
-          "足跡が導いた先で、固かったゲートがゆっくりと開いていく。",
+          "決まった順に見回りを終えると、固かったゲートがひとりでに開いていった。",
           "夜風が、外から吹き込んできた。"
         ], function () {
           setActions([{ label: "外へ出る", primary: true, onClick: doClear }]);
@@ -1175,7 +1176,7 @@
         el.board.querySelectorAll('.tile[data-keep="1"]').forEach(function (k) {
           k.classList.add("solved-keep");
         });
-        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。残った文字が、何かの順番に見える。";
+        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。……これは、誰かの見回りの順だろうか。";
         renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
         return;
       }
@@ -1228,7 +1229,7 @@
       keeps.forEach(function (k) { k.classList.add("solved-keep"); });
       el.tiltmeter.classList.remove("armed");
       el.tiltmeterBar.style.width = "100%";
-      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。";
+      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。……誰かの、見回りの順だろうか。";
       A.track("sign_solved", {});
       renderSignBtns([{ label: "看板から離れる", primary: true, act: function () {
         el.sign.classList.remove("show");
@@ -1445,7 +1446,7 @@
       el.title.querySelector(".kicker").textContent = "CLEAR";
       el.title.querySelector("h1").innerHTML = 'GAME CLEAR<span class="sub">動物園脱出 成功</span>';
       el.title.querySelector("p").textContent =
-        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。";
+        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。まっすぐだったのは、生き物たちだけだった。";
       el.titleBtns.innerHTML = "";
       addTitleBtn("もう一度あそぶ", true, function () {
         state = defaultState(); save();
