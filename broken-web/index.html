@@ -1666,6 +1666,7 @@
         deviceRevealed: false,
         escapeArmed: false,
         kakejikuChecks: 0,
+        floorCrackChecks: 0,
         browserHintSeen: false,
         puzzleHintShown: false,
         // puzzleHintStep = 段階的に解放済みの最大インデックス（ネタバレ防止のため
@@ -1786,7 +1787,7 @@
           return;
         }
         state.kakejikuChecks += 1;
-        if (state.kakejikuChecks >= 2 && !state.browserHintSeen) {
+        if (state.kakejikuChecks % 2 === 0) {
           showFlavor("よく見ると端をめくれそうだ。", {
             actionLabel: "ヒントを見る",
             onAction: showBrowserHint
@@ -1803,12 +1804,15 @@
       });
       floorCrackHotspot.addEventListener("click", () => {
         if (state.browserHintSeen) {
-          showFlavor("亀裂にメモが挟まっている。", {
-            title: "メモ",
-            actionLabel: "読む",
-            onAction: showSwipeHint
-          });
-          return;
+          state.floorCrackChecks += 1;
+          if (state.floorCrackChecks % 2 === 0) {
+            showFlavor("亀裂にメモが挟まっている。", {
+              title: "メモ",
+              actionLabel: "読む",
+              onAction: showSwipeHint
+            });
+            return;
+          }
         }
         showFlavor("深い亀裂。奥は暗く、底が見えない。");
       });
@@ -2233,9 +2237,10 @@
         const tileFloorProbe = new THREE.Object3D();
         tileFloorProbe.position.set(0.05, 0.04, 1.18);
         const floorProbe = new THREE.Object3D();
-        floorProbe.position.set(0.1, 0.05, 2.82);
+        floorProbe.position.set(-2.35, 0.05, 1.38);
 
         buildRoom(scene, materials);
+        buildFloorCrack(scene, materials, floorProbe.position);
         const kakejiku3d = buildKakejiku(scene, materials);
         const device3d = buildControlDevice(scene, materials, lampObjects, activationObject);
         scene.add(wallProbe);
@@ -2279,6 +2284,7 @@
                 lamp.light.intensity = lamp.light.userData.baseIntensity + Math.sin(elapsed * 7 + index) * 0.035;
               }
             });
+            const compact = (window.innerWidth || threeMount.clientWidth) < 720;
             projectHotspot(displayHotspot, terminal && terminal.screen, 0.078, 0.052);
             // 掛け軸（紙 1.55x2.62 world units）は画面上で 幅≈14vw / 高さ≈22-24vh
             // に見える。旧値 (0.16, 0.24, max 180x150) はモバイルで 62x94px と
@@ -2295,8 +2301,25 @@
             // 起動ボタン(.device-panel)は z-index:9 で常に最前面。
             projectHotspot(wallHotspot, wallProbe, 0.78, 0.5, 900, 230);
             projectHotspot(floorHotspot, tileFloorProbe, 0.9, 0.34, 780, 260);
-            projectHotspot(floorCrackHotspot, floorProbe, 0.88, 0.18, 760, 180);
-            projectHotspot(deviceHotspot, device3d && device3d.visible ? device3d : null, 0.46, 0.2);
+            // 床のひびは左奥へ移動。モバイルでは制御装置パネルと重ならないよう
+            // 当たり判定を小さめにし、deviceHotspot(z-index:7)より前面に出す。
+            floorCrackHotspot.style.zIndex = state.deviceRevealed ? "8" : "6";
+            projectHotspot(
+              floorCrackHotspot,
+              floorProbe,
+              compact ? 0.28 : 0.44,
+              compact ? 0.08 : 0.12,
+              compact ? 120 : 220,
+              compact ? 64 : 96
+            );
+            projectHotspot(
+              deviceHotspot,
+              device3d && device3d.visible ? device3d : null,
+              compact ? 0.34 : 0.46,
+              compact ? 0.14 : 0.2,
+              compact ? 200 : 180,
+              compact ? 88 : 150
+            );
             renderer.render(scene, camera);
           } catch (error) {
             console.error("Three.js frame error:", error);
@@ -2422,6 +2445,24 @@
             console.warn("Lamp model failed to load:", error);
           }
         );
+      }
+
+      function buildFloorCrack(scene, materials, position) {
+        const crack = new THREE.Group();
+        const segment = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.012, 0.05), materials.black);
+        segment.position.set(0, 0, 0);
+        crack.add(segment);
+        const branchA = segment.clone();
+        branchA.rotation.y = 0.72;
+        branchA.position.set(0.16, 0, 0.08);
+        crack.add(branchA);
+        const branchB = segment.clone();
+        branchB.rotation.y = -0.58;
+        branchB.position.set(-0.14, 0, -0.06);
+        crack.add(branchB);
+        crack.position.copy(position);
+        crack.position.y = -0.055;
+        scene.add(crack);
       }
 
       function buildRoom(scene, materials) {
