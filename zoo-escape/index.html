@@ -591,18 +591,19 @@
         return;
       }
       if (typeof DeviceOrientationEvent.requestPermission === "function") {
-        // iOS 13+: 明示的な許可ダイアログ
+        // iOS 13+: 明示的な許可ダイアログ（案内は中立的に。解法は匂わせない）
+        showToast("このゲームは端末のセンサーを使用します。");
         DeviceOrientationEvent.requestPermission().then(function (res) {
           if (res === "granted") {
             window.addEventListener("deviceorientation", onOrientation);
             orientationReady = true;
           } else {
             tiltDenied = true;
-            showToast("傾きセンサーは使えないようだ。看板や肉は「左へドラッグ」でも操作できる。");
+            showToast("センサーは使えないようだ。それでも、指の操作だけで進められる。");
           }
         }).catch(function () {
           tiltDenied = true;
-          showToast("傾きセンサーは使えないようだ。「左へドラッグ」でも遊べる。");
+          showToast("センサーは使えないようだ。それでも、指の操作だけで進められる。");
         });
       } else {
         // Android等: 許可不要。黙ってリスナー登録
@@ -745,21 +746,16 @@
       }
       lionArmed = false;
       speak("", [
-        "檻の前に、肉のかたまりが落ちている。",
-        "ライオンがこちらをじっと見ている。道をふさぐように。"
+        "ライオンがこちらをじっと見ている。道をふさぐように。",
+        "檻の前に、肉のかたまりが落ちている。手では届かなそうだ。"
       ], armLionTutorial);
     }
     function armLionTutorial() {
+      // 操作指示は出さない。閾値がゆるいので、少し動かせば自然に肉が滑る
       lionArmed = true;
       showMeat();
-      var acts = [{ label: "マップを開く", onClick: openMap }];
-      setActions(acts);
-      speak("", [
-        "端末を左に傾けて、肉をライオンの方へ滑らせよう。",
-        "（センサーが使えないときは、肉を左へドラッグしてもいい）"
-      ], function(){ /* 説明後もアクションは残す */ setActionsAfterLionIntro(acts); });
+      setActions([{ label: "マップを開く", onClick: openMap }]);
     }
-    function setActionsAfterLionIntro(acts) { setActions(acts); }
 
     function showMeat() {
       el.meat.classList.remove("hidden");
@@ -783,8 +779,7 @@
         A.track("meat_delivered", {});
         speak("", [
           "肉がすべって、ライオンの前まで転がった。",
-          "ライオンは満足そうに道をあけた。",
-          "そういえば――さっきの看板も、「傾ける」ことができるかもしれない。"
+          "ライオンは満足そうに道をあけた。"
         ], function () {
           setActions([
             { label: "中央広場へ戻る", primary: true, onClick: function(){ goArea("central"); } },
@@ -840,7 +835,7 @@
         el.bg.style.filter = "";
         var lines = ["大きなゲートが、固く閉ざされている。"];
         lines.push(state.signSolved
-          ? "看板の順――らいおん、とり、はちゅうるい――に回れば、開くのかもしれない。"
+          ? "看板に残った文字が示す順に回れば、開くのかもしれない。"
           : "鍵は見当たらない。何か手がかりがいるようだ。");
         speak("", lines, function () {
           setActions([{ label: "マップを開く", onClick: openMap }]);
@@ -910,8 +905,17 @@
     var signActive = false;
     var holdMs = 0;
     var lastTs = 0;
-    var lowFailCount = 0;
     var noticedTilt = false;
+    // 段階的ヒント用の状態（詰まった後にだけ後出しする）
+    var signFailCount = 0;   // 傾き不足のまま終わった試行回数
+    var signHintStage = 0;   // 出したヒントの段階（0=未提示）
+    var signOpenTime = 0;    // パズルを開いた時刻
+    var attemptMaxTilt = 0;  // いまの試行で到達した最大傾き
+
+    // 傾きセンサーが実質使えない環境か（ドラッグ案内はここでのみ許可）
+    function tiltUnsupported() {
+      return tiltDenied || typeof DeviceOrientationEvent === "undefined";
+    }
 
     function buildBoard() {
       el.board.innerHTML = "";
@@ -950,7 +954,6 @@
       mode = "sign";
       holdMs = 0;
       lastTs = 0;
-      lowFailCount = 0;
       noticedTilt = false;
       simTilt = 0; dragTilt = 0;
       buildBoard();
@@ -964,7 +967,7 @@
         el.board.querySelectorAll('.tile[data-keep="1"]').forEach(function (k) {
           k.classList.add("solved-keep");
         });
-        el.signCaption.textContent = "落ちずに残ったのは――らいおん / とり / はちゅうるい / でぐち。この順に回れ、ということだろうか。";
+        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。残った文字が、何かの順番に見える。";
         renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
         return;
       }
@@ -979,11 +982,15 @@
         return;
       }
 
-      // 通常パズル
+      // 通常パズル（操作指示は出さない。詩の雰囲気テキストのみ）
       signActive = true;
+      signFailCount = 0;
+      signHintStage = 0;
+      signOpenTime = performance.now();
+      attemptMaxTilt = 0;
       el.tiltmeter.style.display = "";
       el.tiltmeterBar.style.width = "0%";
-      el.signCaption.textContent = "端末を左に大きく傾け、そのまま保ち続けよう。（看板を長押しで左へドラッグしてもいい）";
+      el.signCaption.textContent = "「まっすぐ読むな」――さっきまで微動だにしなかった文字が、いまはなぜか、ぐらついて見える。";
       renderSignBtns([{ label: "やめる", act: closeSign }]);
     }
     function renderSignBtns(btns) {
@@ -1021,12 +1028,27 @@
       keeps.forEach(function (k) { k.classList.add("solved-keep"); });
       el.tiltmeter.classList.remove("armed");
       el.tiltmeterBar.style.width = "100%";
-      el.signCaption.textContent = "余分な文字が滑り落ちた。残ったのは――らいおん / とり / はちゅうるい / でぐち。";
+      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。";
       A.track("sign_solved", {});
       renderSignBtns([{ label: "看板から離れる", primary: true, act: function () {
         el.sign.classList.remove("show");
         goArea("central");
       } }]);
+    }
+
+    // 段階的ヒント（詰まった後にだけ後出しする。答えや操作は直接言わない）
+    function showSignHint() {
+      var stage = signFailCount >= 3 ? 2 : 1;
+      if (stage < signHintStage) stage = signHintStage;
+      signHintStage = stage;
+      var msg = (stage >= 2)
+        ? "ライオンの肉は、あんなに大きく滑って転がっていった……。"  // ライオン体験の想起（間接）
+        : "少し傾けるくらいでは足りないようだ。";                    // 企画書の第1ヒント
+      // センサーが実質使えない環境でのみ、複数回失敗後に代替操作を案内（詰み防止）
+      if (tiltUnsupported() && signFailCount >= 3) {
+        msg += "（看板を長押しして、左へ大きくドラッグしてみよう）";
+      }
+      el.signCaption.textContent = msg;
     }
 
     function updateSign(dt) {
@@ -1035,40 +1057,46 @@
       var meterPct = Math.min(100, (tilt / TILT_THRESHOLD) * 100);
       var armed = tilt >= TILT_THRESHOLD;
       el.tiltmeter.classList.toggle("armed", armed);
+      if (tilt > attemptMaxTilt) attemptMaxTilt = tilt;
 
       if (armed) {
         noticedTilt = true;
-        holdMs += dt;
+        holdMs += dt; // 傾けている間だけ蓄積（緩めても進捗は凍結し、続ければ再開）
         el.board.classList.toggle("charging", holdMs < HOLD_START);
         if (holdMs >= HOLD_START) {
           var p = Math.min(1, (holdMs - HOLD_START) / (HOLD_DONE - HOLD_START));
           el.board.classList.remove("charging");
           setBoardProgress(p);
           if (holdMs >= HOLD_DONE) { solveSign(); return; }
-          el.signCaption.textContent = "接着が外れていく……このまま傾け続けろ。";
+          el.signCaption.textContent = "接着が外れていく……。";     // 進行中の雰囲気のみ
         } else {
-          el.signCaption.textContent = "看板がわずかに震えだした。もっと傾けて保て。";
+          el.signCaption.textContent = "看板が、みしり、と鳴いた。"; // 進行中の雰囲気のみ
         }
-        // メーターは保持時間で満ちていく表現に切替
         var fillByHold = Math.min(100, (holdMs / HOLD_DONE) * 100);
         el.tiltmeterBar.style.width = Math.max(meterPct, fillByHold) + "%";
-      } else {
-        el.board.classList.remove("charging");
-        el.tiltmeterBar.style.width = meterPct + "%";
-        if (holdMs > 0) {
-          // 傾きが足りなくなった → 途中で止まる
-          if (holdMs >= HOLD_START) {
-            el.signCaption.textContent = "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。";
-          } else {
-            lowFailCount++;
-            if (lowFailCount >= 2) {
-              el.signCaption.textContent = "少し傾けるくらいでは足りないようだ。";
-            } else {
-              el.signCaption.textContent = "反応がない。もっと大きく、長く傾けてみよう。";
-            }
-          }
-          holdMs = 0; // 保持は途切れるが、落下進捗(--p)は現在位置で凍結
+        return;
+      }
+
+      // 傾きが閾値未満
+      el.board.classList.remove("charging");
+      el.tiltmeterBar.style.width = meterPct + "%";
+
+      if (attemptMaxTilt > 10 && tilt < 10) {
+        // ひとつの試行が終わった（傾けていたが緩めた）
+        if (holdMs >= HOLD_START) {
+          // 途中まで落ちたのに緩めた → 失敗フィードバック（維持）
+          el.signCaption.textContent = "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。";
+        } else {
+          // 閾値に届かないまま終えた → 段階ヒントを後出し
+          signFailCount++;
+          showSignHint();
         }
+        attemptMaxTilt = 0;
+      } else if (signHintStage === 0 && holdMs === 0 &&
+                 (performance.now() - signOpenTime) > 15000) {
+        // しばらく手詰まりのままなら、時間ベースで第1ヒントを後出し
+        signFailCount = Math.max(signFailCount, 1);
+        showSignHint();
       }
     }
 
