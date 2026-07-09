@@ -1,0 +1,42 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-gh-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build site
+        run: |
+          mkdir -p _site
+          rsync -a \
+            --exclude='DESIGN-*.md' \
+            --exclude='HANDOFF.md' \
+            --exclude='ASSETS-catalog.md' \
+            bookcafe-3d/ _site/bookcafe-3d/
+          cp -rL broken-web _site/broken-web
+          cp pages/index.html pages/robots.txt pages/CNAME _site/
+          cp pages/.nojekyll _site/.nojekyll
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          cname: games.escape-safari.com
+          commit_message: "deploy: ${{ github.event.head_commit.message }}"
