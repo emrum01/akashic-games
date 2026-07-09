@@ -488,17 +488,7 @@
 
     #floorCrackHotspot {
       z-index: 8;
-    }
-
-    #floorCrackHotspot {
-      overflow: visible;
-      background:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 112'%3E%3Cpath d='M204 54 L166 49 L132 60 L96 42 L58 52 L18 45' fill='none' stroke='%23040302' stroke-width='12' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M132 60 L144 32 L158 12 M96 42 L78 22 L66 8 M58 52 L42 78 L24 100 M166 49 L184 78' fill='none' stroke='%23040302' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M204 54 L166 49 L132 60 L96 42 L58 52 L18 45' fill='none' stroke='%23301b13' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' opacity='.85'/%3E%3C/svg%3E")
-        center / contain no-repeat;
-      filter:
-        drop-shadow(0 2px 2px rgba(0, 0, 0, 0.9))
-        drop-shadow(0 0 10px rgba(0, 0, 0, 0.65));
-      opacity: 0.96;
+      background: transparent;
     }
 
     #displayHotspot,
@@ -2484,11 +2474,11 @@
           ctx.stroke();
         }
 
-        strokeCrack([[392, 138], [318, 126], [252, 142], [186, 118], [118, 132], [52, 124]], 11, 0.92);
-        strokeCrack([[392, 138], [318, 126], [252, 142], [186, 118], [118, 132], [52, 124]], 5, 0.55);
-        strokeCrack([[252, 142], [268, 98], [284, 62]], 7, 0.88);
-        strokeCrack([[186, 118], [162, 88], [148, 58]], 5, 0.75);
-        strokeCrack([[118, 132], [96, 168], [72, 196]], 4, 0.7);
+        const mainCrack = [[448, 132], [382, 126], [322, 140], [262, 122], [206, 136], [148, 126], [82, 132], [34, 128]];
+        strokeCrack(mainCrack, 13, 0.95);
+        strokeCrack(mainCrack, 5, 0.62);
+        strokeCrack([[262, 122], [280, 100], [300, 84]], 5, 0.72);
+        strokeCrack([[148, 126], [132, 148], [110, 162]], 4, 0.66);
 
         const texture = new THREE.CanvasTexture(canvas);
         const decal = new THREE.Mesh(
@@ -2514,10 +2504,9 @@
           emissiveIntensity: 0.2
         });
         [
-          { size: [1.05, 0.018, 0.05], pos: [0, 0.006, 0], rot: 0 },
-          { size: [0.42, 0.014, 0.035], pos: [0.28, 0.005, 0.12], rot: 0.75 },
-          { size: [0.36, 0.014, 0.032], pos: [-0.22, 0.005, -0.08], rot: -0.62 },
-          { size: [0.28, 0.012, 0.028], pos: [0.08, 0.004, -0.14], rot: -0.35 }
+          { size: [1.28, 0.018, 0.045], pos: [0, 0.006, 0], rot: -0.02 },
+          { size: [0.34, 0.012, 0.026], pos: [0.12, 0.004, 0.09], rot: 0.56 },
+          { size: [0.28, 0.012, 0.022], pos: [-0.28, 0.004, -0.07], rot: -0.48 }
         ].forEach(({ size, pos, rot }) => {
           const gouge = new THREE.Mesh(new THREE.BoxGeometry(...size), gougeMaterial);
           gouge.position.set(pos[0], pos[1], pos[2]);
