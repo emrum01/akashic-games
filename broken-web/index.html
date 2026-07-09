@@ -2236,16 +2236,13 @@
         wallProbe.position.set(0.05, 2.7, -4.94);
         const tileFloorProbe = new THREE.Object3D();
         tileFloorProbe.position.set(0.05, 0.04, 1.18);
-        const floorProbe = new THREE.Object3D();
-        floorProbe.position.set(-2.35, 0.05, 1.38);
 
         buildRoom(scene, materials);
-        buildFloorCrack(scene, materials, floorProbe.position);
+        const floorCrack3d = buildFloorCrack(scene, materials);
         const kakejiku3d = buildKakejiku(scene, materials);
         const device3d = buildControlDevice(scene, materials, lampObjects, activationObject);
         scene.add(wallProbe);
         scene.add(tileFloorProbe);
-        scene.add(floorProbe);
         loadLampModels(lampObjects);
         if (device3d) device3d.visible = false;
 
@@ -2301,16 +2298,16 @@
             // 起動ボタン(.device-panel)は z-index:9 で常に最前面。
             projectHotspot(wallHotspot, wallProbe, 0.78, 0.5, 900, 230);
             projectHotspot(floorHotspot, tileFloorProbe, 0.9, 0.34, 780, 260);
-            // 床のひびは左奥へ移動。モバイルでは制御装置パネルと重ならないよう
-            // 当たり判定を小さめにし、deviceHotspot(z-index:7)より前面に出す。
+            // 床のひびは3Dオブジェクト（floorCrack3d.target）にホットスポットを同期。
+            // 制御装置表示後は deviceHotspot(z-index:7) より前面に出す。
             floorCrackHotspot.style.zIndex = state.deviceRevealed ? "8" : "6";
             projectHotspot(
               floorCrackHotspot,
-              floorProbe,
-              compact ? 0.28 : 0.44,
-              compact ? 0.08 : 0.12,
-              compact ? 120 : 220,
-              compact ? 64 : 96
+              floorCrack3d && floorCrack3d.target,
+              compact ? 0.24 : 0.3,
+              compact ? 0.11 : 0.14,
+              compact ? 108 : 150,
+              compact ? 56 : 72
             );
             projectHotspot(
               deviceHotspot,
@@ -2447,22 +2444,41 @@
         );
       }
 
-      function buildFloorCrack(scene, materials, position) {
+      function buildFloorCrack(scene, materials) {
         const crack = new THREE.Group();
-        const segment = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.012, 0.05), materials.black);
-        segment.position.set(0, 0, 0);
-        crack.add(segment);
-        const branchA = segment.clone();
-        branchA.rotation.y = 0.72;
-        branchA.position.set(0.16, 0, 0.08);
+        crack.position.set(-2.35, 0, 1.38);
+
+        const crackMaterial = new THREE.MeshStandardMaterial({
+          color: 0x090807,
+          roughness: 0.92,
+          metalness: 0.04
+        });
+        const main = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.018, 0.07), crackMaterial);
+        main.position.set(0, 0.01, 0);
+        main.castShadow = true;
+        main.receiveShadow = true;
+        crack.add(main);
+
+        const branchA = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.016, 0.05), crackMaterial);
+        branchA.rotation.y = 0.78;
+        branchA.position.set(0.22, 0.009, 0.1);
+        branchA.castShadow = true;
         crack.add(branchA);
-        const branchB = segment.clone();
-        branchB.rotation.y = -0.58;
-        branchB.position.set(-0.14, 0, -0.06);
+
+        const branchB = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.016, 0.05), crackMaterial);
+        branchB.rotation.y = -0.64;
+        branchB.position.set(-0.18, 0.009, -0.08);
+        branchB.castShadow = true;
         crack.add(branchB);
-        crack.position.copy(position);
-        crack.position.y = -0.055;
+
+        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 10), materials.black);
+        cable.rotation.z = Math.PI / 2;
+        cable.rotation.y = 0.34;
+        cable.position.set(0.08, 0.02, 0.14);
+        crack.add(cable);
+
         scene.add(crack);
+        return { group: crack, target: main };
       }
 
       function buildRoom(scene, materials) {
@@ -2493,14 +2509,6 @@
           const crossLine = new THREE.Mesh(new THREE.BoxGeometry(18, 0.01, 0.015), materials.metalEdge);
           crossLine.position.set(0, -0.06, i * 1.2);
           scene.add(crossLine);
-        }
-
-        for (let i = -4; i <= 4; i += 1) {
-          const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 3.4, 10), materials.black);
-          cable.rotation.z = Math.PI / 2;
-          cable.rotation.y = i % 2 ? 0.28 : -0.17;
-          cable.position.set(i * 0.78, 0.035, 2.8 + (i % 3) * 0.16);
-          scene.add(cable);
         }
       }
 
