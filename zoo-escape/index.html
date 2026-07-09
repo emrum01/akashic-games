@@ -321,7 +321,8 @@
       bottom: 20%;
       left: 46%;
       transform: translateX(-50%);
-      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));
+      /* 世界律モチーフ: 地面がわずかに傾いている → 影を斜めに落とす */
+      filter: drop-shadow(7px 7px 9px rgba(0,0,0,0.6));
       cursor: grab;
       touch-action: none;
       transition: none;
@@ -458,6 +459,83 @@
       font-weight: 700;
     }
 
+    /* ===== 世界律モチーフ: あらゆるものが少しずつ傾いている ===== */
+    /* タイトルの「な」だけがわずかに傾く */
+    #title h1 .tilt-na {
+      display: inline-block;
+      transform: rotate(4deg);
+      transform-origin: 50% 80%;
+    }
+    /* 落書きは後の文字ほど左下へ流れる（JSで1文字ずつ span 化して傾ける） */
+    #board-text .scribble span { display: inline-block; }
+
+    /* 植え込みに落ちた木の札 */
+    #fallen-tag {
+      position: absolute;
+      z-index: 25;               /* tap-catcher(20) より上でタップ可能 */
+      width: 8.5%;
+      max-width: 46px;
+      aspect-ratio: 5 / 4;
+      left: 60%;
+      bottom: 30%;
+      transform: rotate(-24deg);
+      border-radius: 2px;
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, rgba(0,0,0,0) 1px 5px),
+        linear-gradient(150deg, #5a4023, #3a2914);
+      border: 1px solid #74542e;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.92;
+    }
+    #fallen-tag.hidden { display: none; }
+    #fallen-tag span {
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      font-weight: 700;
+      font-size: 3.4vw;
+      color: rgba(232, 214, 180, 0.42);   /* かすれた一文字 */
+      text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+    }
+    @media (min-width: 481px) { #fallen-tag span { font-size: 16px; } }
+
+    /* 出口ゲートにぶら下がる札 */
+    #exit-tag {
+      position: absolute;
+      z-index: 16;               /* 背景の上、装飾（タップ不可） */
+      left: 50%;
+      top: 39%;
+      pointer-events: none;
+      transform-origin: 50% -40%; /* 上の吊り元を軸に揺れる */
+      transform: translateX(-50%) rotate(-8deg);
+      transition: transform 0.42s cubic-bezier(.34,1.56,.64,1); /* カタンと戻る軽いバウンス */
+    }
+    #exit-tag.level { transform: translateX(-50%) rotate(0deg); }
+    #exit-tag.hidden { display: none; }
+    #exit-tag::before {          /* 吊り紐 */
+      content: "";
+      position: absolute;
+      left: 50%; top: -46%;
+      width: 1px; height: 46%;
+      background: rgba(20,14,6,0.7);
+      transform: translateX(-50%);
+    }
+    #exit-tag span {
+      display: block;
+      padding: 3px 8px;
+      font: 700 11px/1 "Helvetica Neue", Arial, sans-serif;
+      letter-spacing: 0.18em;
+      color: #f3ead2;
+      background: linear-gradient(160deg, #4a3620, #2f2110);
+      border: 1px solid #75542d;
+      border-radius: 2px;
+      box-shadow: 0 3px 7px rgba(0,0,0,0.5);
+      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    }
+    @media (min-width: 481px) { #exit-tag span { font-size: 12px; } }
+
     @media (min-width: 481px) {
       #stage { box-shadow: 0 0 60px rgba(0,0,0,0.7); }
     }
@@ -481,6 +559,10 @@
       <img id="meat" class="hidden" alt="肉"
         src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2090'%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='%23a12a2a'/%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='none'%20stroke='%236f1717'%20stroke-width='3'/%3E%3Cellipse%20cx='58'%20cy='44'%20rx='34'%20ry='22'%20fill='%23c8443f'/%3E%3Cpath%20d='M40%2038q18%2010%2038%202'%20stroke='%23e08a86'%20stroke-width='4'%20fill='none'%20stroke-linecap='round'/%3E%3Cpath%20d='M42%2054q16%208%2034%201'%20stroke='%23e08a86'%20stroke-width='3'%20fill='none'%20stroke-linecap='round'/%3E%3Cellipse%20cx='102'%20cy='40'%20rx='12'%20ry='9'%20fill='%23f2e7cf'%20stroke='%23cbb98f'%20stroke-width='2'/%3E%3C/svg%3E">
       <div id="paw"><span></span><span></span><span></span></div>
+      <!-- 世界律モチーフ: 植え込みに落ちた、剥がれた木の札（中央広場のみ・巡回順とは無関係の一文字） -->
+      <div id="fallen-tag" class="hidden" role="button" tabindex="0" aria-label="木の札"><span>園</span></div>
+      <!-- 世界律モチーフ: 出口ゲートに斜めにぶら下がる札（クリアで水平に戻る） -->
+      <div id="exit-tag" class="hidden" aria-hidden="true"><span>EXIT</span></div>
 
       <div id="tap-catcher"></div>
 
@@ -510,7 +592,7 @@
       <!-- タイトル -->
       <div id="title">
         <div class="kicker">ESCAPE SAFARI</div>
-        <h1>まっすぐ読むな<span class="sub">― 動物園脱出 ―</span></h1>
+        <h1>まっすぐ読む<span class="tilt-na">な</span><span class="sub">― 動物園脱出 ―</span></h1>
         <p>閉園後の動物園に、迷い込んでしまった。<br>看板の言葉は「まっすぐ読むな」。<br>その意味を、まだ君は知らない。</p>
         <div class="btns" id="title-btns"></div>
       </div>
@@ -538,6 +620,8 @@
       actor: document.getElementById("actor"),
       meat: document.getElementById("meat"),
       paw: document.getElementById("paw"),
+      fallenTag: document.getElementById("fallen-tag"),
+      exitTag: document.getElementById("exit-tag"),
       tapCatcher: document.getElementById("tap-catcher"),
       areaName: document.getElementById("area-name"),
       textbox: document.getElementById("textbox"),
@@ -775,6 +859,10 @@
       el.paw.classList.remove("show");
       hidePaw();
       setBoardText(area === "central"); // 看板テキストは中央広場だけ表示
+      // 世界律モチーフの表示切り替え
+      el.fallenTag.classList.toggle("hidden", area !== "central");
+      el.exitTag.classList.toggle("hidden", area !== "exit");
+      if (area !== "exit") el.exitTag.classList.remove("level");
 
       A.track("area_enter", { area_id: area });
 
@@ -848,7 +936,8 @@
       el.meat.classList.remove("hidden");
       el.meat.style.left = "46%";
       el.meat.style.bottom = "20%";
-      el.meat.style.transform = "translateX(-50%)";
+      // 世界律モチーフ: 傾いた地面に乗っているようわずかに傾ける
+      el.meat.style.transform = "translateX(-50%) rotate(-6deg)";
     }
 
     function deliverMeat() {
@@ -882,6 +971,8 @@
       el.actor.style.left = "70%";
       el.actor.style.bottom = "46%";
       el.actor.style.height = "22%";
+      // 世界律モチーフ: 首をかしげているように傾ける
+      el.actor.style.transform = "translateX(-50%) rotate(12deg)";
       speak("", [
         "木の上から、何かがこちらを見ている気がする。",
         "オオハシの目が、月明かりにきらりと光った。"
@@ -897,6 +988,8 @@
       el.actor.style.left = "68%";
       el.actor.style.bottom = "22%";
       el.actor.style.height = "20%";
+      // 世界律モチーフ: 壁に斜めに張り付いているように傾ける
+      el.actor.style.transform = "translateX(-50%) rotate(-30deg)";
       speak("", [
         "生きているのかもわからないほど、微動だにしない。",
         "それでも、確かにこちらを見ている。"
@@ -1260,6 +1353,8 @@
     function doClear() {
       state.cleared = true; save();
       A.track("game_clear", {});
+      // 世界律モチーフ: クリア確定で出口の札がカタンと水平に戻る
+      el.exitTag.classList.add("level");
       el.flash.classList.add("on");
       // 主人公が外へ歩き出す
       el.actor.style.transition = "transform 1.6s ease, opacity 1.4s ease";
@@ -1341,6 +1436,17 @@
     el.btnMap.addEventListener("click", function () {
       if (mode === "area") openMap();
     });
+
+    // 世界律モチーフ: 落ちた木の札を調べる（中央広場・一文だけ）
+    function inspectFallenTag(ev) {
+      ev.stopPropagation();
+      if (mode !== "area" || state.area !== "central") return;
+      speak("", ["木の札だ。看板から剥がれ落ちたものらしい。"], showCentralActions);
+    }
+    el.fallenTag.addEventListener("click", inspectFallenTag);
+    el.fallenTag.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") inspectFallenTag(ev);
+    });
     el.btnReset.addEventListener("click", function () {
       if (confirm("はじめからやり直しますか？（進行状況は消えます）")) {
         state = defaultState(); save();
@@ -1363,6 +1469,22 @@
       start: startGame,
       setSim: function(v){ simTilt = v; }
     };
+
+    // 世界律モチーフ: 落書きを1文字ずつ span 化し、後の文字ほど左下へ流す
+    (function tiltScribble() {
+      var s = el.boardText.querySelector(".scribble");
+      if (!s) return;
+      var chars = s.textContent.split("");
+      s.textContent = "";
+      chars.forEach(function (ch, i) {
+        var sp = document.createElement("span");
+        sp.textContent = ch;
+        sp.style.transform =
+          "translate(" + (-i * 0.02).toFixed(3) + "em, " + (i * 0.085).toFixed(3) + "em) " +
+          "rotate(" + (-i * 1.1).toFixed(1) + "deg)";
+        s.appendChild(sp);
+      });
+    })();
 
     // ---------- 起動 ----------
     showTitle();
