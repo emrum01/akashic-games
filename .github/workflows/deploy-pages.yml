@@ -29,6 +29,7 @@ jobs:
             --exclude='ASSETS-catalog.md' \
             bookcafe-3d/ _site/bookcafe-3d/
           cp -rL broken-web _site/broken-web
+          cp -r zoo-escape _site/zoo-escape
           cp pages/index.html pages/robots.txt pages/CNAME _site/
           cp pages/.nojekyll _site/.nojekyll
 
