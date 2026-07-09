@@ -396,7 +396,7 @@
         linear-gradient(0deg, rgba(211, 172, 108, 0.14) 1px, transparent 1px) 0 0 / 100% 64px,
         linear-gradient(180deg, rgba(14, 12, 11, 0), rgba(0, 0, 0, 0.48));
       opacity: 0.78;
-      pointer-events: auto;
+      pointer-events: none;
     }
 
     .control-room::after {
@@ -2292,14 +2292,14 @@
             projectHotspot(
               floorCrackHotspot,
               floorCrack3d && floorCrack3d.target,
-              compact ? 0.24 : 0.3,
-              compact ? 0.11 : 0.14,
-              compact ? 108 : 150,
-              compact ? 56 : 72
+              compact ? 0.34 : 0.38,
+              compact ? 0.14 : 0.16,
+              compact ? 140 : 180,
+              compact ? 72 : 90
             );
             projectHotspot(
               deviceHotspot,
-              device3d && device3d.visible ? device3d : null,
+              device3d && device3d.visible && !state.deviceRevealed ? device3d : null,
               compact ? 0.34 : 0.46,
               compact ? 0.14 : 0.2,
               compact ? 200 : 180,
@@ -2434,7 +2434,8 @@
 
       function buildFloorCrack(scene, materials) {
         const crack = new THREE.Group();
-        crack.position.set(-2.35, 0, 1.38);
+        // 左寄り・やや奥。モバイルでも画面内に投影され、制御装置パネルと重なりにくい位置。
+        crack.position.set(1.05, 0, 1.95);
 
         const crackMaterial = new THREE.MeshStandardMaterial({
           color: 0x090807,
