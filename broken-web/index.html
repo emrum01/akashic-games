@@ -1816,6 +1816,12 @@
         }
         showFlavor("深い亀裂。奥は暗く、底が見えない。");
       });
+      deviceHotspot.addEventListener("click", () => {
+        if (!state.deviceRevealed || state.ended) return;
+        showFlavor(state.escapeArmed
+          ? "ロック解除。起動ボタンだけが淡く光る。"
+          : "古い制御装置。前面のランプが沈黙している。");
+      });
 
       memoLayer.addEventListener("click", () => {
         if (memoLayer.dataset.ready !== "true") return;
@@ -1993,7 +1999,6 @@
         puzzlePanel.classList.add("is-hidden");
         devicePanel.classList.remove("is-hidden", "is-available");
         deviceCopy.textContent = "制御装置が現れた。\n「赤青青で脱出」と裏面に書いてあった。";
-        deviceHotspot.style.pointerEvents = "none";
         objective.textContent = "目標：赤青青";
         threeScene.setDeviceVisible(true);
         threeScene.setActivationReady(false);
@@ -2232,7 +2237,7 @@
         scene.add(wallProbe);
         scene.add(tileFloorProbe);
         loadLampModels(lampObjects);
-        if (device3d) device3d.visible = false;
+        if (device3d) device3d.group.visible = false;
 
         function resize() {
           const rect = threeMount.getBoundingClientRect();
@@ -2299,11 +2304,11 @@
             );
             projectHotspot(
               deviceHotspot,
-              device3d && device3d.visible && !state.deviceRevealed ? device3d : null,
-              compact ? 0.34 : 0.46,
-              compact ? 0.14 : 0.2,
-              compact ? 200 : 180,
-              compact ? 88 : 150
+              device3d && device3d.group.visible ? device3d.target : null,
+              compact ? 0.38 : 0.44,
+              compact ? 0.16 : 0.18,
+              compact ? 220 : 260,
+              compact ? 96 : 110
             );
             renderer.render(scene, camera);
           } catch (error) {
@@ -2341,7 +2346,7 @@
 
         return {
           setDeviceVisible(visible) {
-            if (device3d) device3d.visible = visible;
+            if (device3d) device3d.group.visible = visible;
           },
           setActivationReady(ready) {
             if (!activationObject.button || !activationObject.light) return;
@@ -2649,7 +2654,7 @@
         device.scale.setScalar(0.82);
         device.position.set(0, 0.04, -0.42);
         scene.add(device);
-        return device;
+        return { group: device, target: frontPlate };
       }
 
     })();
