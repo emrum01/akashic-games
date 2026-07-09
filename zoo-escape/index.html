@@ -442,15 +442,20 @@
     }
     #board-text .scribble {
       margin-top: 0.12em;
-      align-self: flex-end;
-      margin-right: 0.6em;
+      align-self: flex-start;    /* 板面の暗い左下側へ（右はランプで明るく溶ける） */
+      margin-left: 0.6em;
       font-size: 0.58em;
       white-space: nowrap;       /* 折り返さず1行で全文表示 */
-      color: #5a2a12;
-      opacity: 0.82;
+      color: #160b03;            /* ほぼ黒。明暗どちらの木目でも沈まないよう濃く */
+      opacity: 1;
+      /* 薄い明色のにじみで縁取り、明部背景でも輪郭が出るように */
+      text-shadow:
+        0 0 1px rgba(247,232,203,0.95),
+        0 0 2px rgba(247,232,203,0.8),
+        0 1px 0 rgba(0,0,0,0.35);
       transform: rotate(-2.2deg);
-      transform-origin: right center;
-      font-weight: 600;
+      transform-origin: left center;
+      font-weight: 700;
     }
 
     @media (min-width: 481px) {
