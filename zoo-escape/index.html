@@ -298,6 +298,12 @@
       line-height: 1.6;
       max-width: 22em;
     }
+    /* ヒント内の強調（「明確に伝わったとき」等）。世界観を壊さない控えめな金色＋発光 */
+    #sign .caption .emph {
+      color: var(--glow);
+      font-weight: 700;
+      text-shadow: 0 0 8px rgba(255,224,138,0.55);
+    }
     #sign .signbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
     /* ライオンの肉 */
@@ -1221,24 +1227,34 @@
     }
 
     // 段階的ヒント（詰まった後にだけ後出しする。答えや操作は直接言わない）
-    // 傾けたが弱い場合のヒント
-    function showTiltHint() {
-      var stage = signFailCount >= 3 ? 2 : 1;
+    // 不完全な試行（弱い傾け or 途中で戻す）の後に段階的に出すヒント。
+    // 第1段=足りない系 / 第2段=意思ヒント（「明確に伝わったとき」を強調）/ 第3段=既存の最終ヒント
+    // partial: 今回の試行が「閾値は超えたが途中で戻した」ものか
+    function showTiltHint(partial) {
+      var stage = signFailCount >= 5 ? 3 : (signFailCount >= 3 ? 2 : 1);
       if (stage < signHintStage) stage = signHintStage;
       signHintStage = stage;
-      var msg;
-      if (stage >= 2) {
-        // ライオン体験があればそれを想起、なければ世界律（傾き）へ寄せる（ライオン前提にしない）
-        msg = state.lionSolved
+
+      if (stage >= 3) {
+        // 最終段: ライオン体験があれば想起、なければ世界律へ寄せる
+        var msg = state.lionSolved
           ? "ライオンの肉は、あんなに大きく滑って転がっていった……。"
           : "この動物園では、何もかもが少しずつ傾いている……もっと大胆に。";
+        if (tiltUnsupported() && signFailCount >= 5) {
+          msg += "（看板を長押しして、左へ大きくドラッグしてみよう）";
+        }
+        el.signCaption.textContent = msg;
+      } else if (stage === 2) {
+        // 意思ヒント: 中途半端が弾かれるのは物理でなく「意思の明確さ」の試験、というニュアンス
+        el.signCaption.innerHTML =
+          'なかば傾けるだけでは、届かない。「まっすぐ読むつもりはない」——その意思が' +
+          '<span class="emph">明確に伝わったとき</span>、看板は真の姿を現す。';
       } else {
-        msg = "少し傾けるくらいでは足りないようだ。"; // 企画書の第1ヒント
+        // 第1段: 足りない系（試行の種類に応じて）
+        el.signCaption.textContent = partial
+          ? "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。"
+          : "少し傾けるくらいでは足りないようだ。";
       }
-      if (tiltUnsupported() && signFailCount >= 3) {
-        msg += "（看板を長押しして、左へ大きくドラッグしてみよう）";
-      }
-      el.signCaption.textContent = msg;
     }
     // 看板の前で無操作が続いた場合は、探索へ誘導（ライオン等の伏線に気づかせる）
     function showIdleHint() {
@@ -1280,15 +1296,10 @@
       el.board.style.setProperty("--wob", "0");
 
       if (attemptMaxTilt > 10 && tilt < 10) {
-        // ひとつの試行が終わった（傾けていたが緩めた）
-        if (holdMs >= HOLD_START) {
-          // 途中まで落ちたのに緩めた → 失敗フィードバック（維持）
-          el.signCaption.textContent = "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。";
-        } else {
-          // 閾値に届かないまま終えた → 段階ヒントを後出し
-          signFailCount++;
-          showTiltHint();
-        }
+        // ひとつの不完全な試行が終わった（弱い傾け or 途中で戻す）→ 段階ヒントを後出し
+        var partial = (holdMs >= HOLD_START); // 閾値は超えたが途中で戻した
+        signFailCount++;
+        showTiltHint(partial);
         attemptMaxTilt = 0;
       } else if (signHintStage === 0 && holdMs === 0 &&
                  (performance.now() - signOpenTime) > 15000) {
