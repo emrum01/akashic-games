@@ -319,8 +319,8 @@
       transform: translateX(-50%);
       /* 世界律モチーフ: 地面がわずかに傾いている → 影を斜めに落とす */
       filter: drop-shadow(7px 7px 9px rgba(0,0,0,0.6));
-      cursor: grab;
-      touch-action: none;
+      cursor: pointer;
+      touch-action: manipulation;
       transition: none;
     }
     #meat.hidden { display: none; }
@@ -576,7 +576,7 @@
         <div class="scribble2 hidden">──よめたら、でられる</div>
       </div>
       <img class="actor" id="actor" alt="" hidden>
-      <img id="meat" class="hidden" alt="肉"
+      <img id="meat" class="hidden" alt="肉" draggable="false"
         src="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2090'%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='%23a12a2a'/%3E%3Cellipse%20cx='60'%20cy='48'%20rx='52'%20ry='36'%20fill='none'%20stroke='%236f1717'%20stroke-width='3'/%3E%3Cellipse%20cx='58'%20cy='44'%20rx='34'%20ry='22'%20fill='%23c8443f'/%3E%3Cpath%20d='M40%2038q18%2010%2038%202'%20stroke='%23e08a86'%20stroke-width='4'%20fill='none'%20stroke-linecap='round'/%3E%3Cpath%20d='M42%2054q16%208%2034%201'%20stroke='%23e08a86'%20stroke-width='3'%20fill='none'%20stroke-linecap='round'/%3E%3Cellipse%20cx='102'%20cy='40'%20rx='12'%20ry='9'%20fill='%23f2e7cf'%20stroke='%23cbb98f'%20stroke-width='2'/%3E%3C/svg%3E">
       <div id="paw"><span></span><span></span><span></span></div>
       <!-- 世界律モチーフ: 植え込みに落ちた、剥がれた木の札（中央広場のみ・巡回順とは無関係の一文字） -->
@@ -693,6 +693,7 @@
         started: false,
         area: "central",
         lionSolved: false,
+        meatTapCount: 0,
         signSolved: false,
         patrolIndex: 0,       // PATROL の何番目まで正しく踏んだか
         patrolComplete: false,
@@ -761,6 +762,11 @@
       return Math.sin(now / 1035) * 6; // ±6度相当のゆっくりした揺れ
     }
 
+    // ライオンの肉は実機の傾きだけで動かす。デバッグ時のみキー入力を許可する。
+    function lionTilt() {
+      return Math.max(deviceTilt, DEBUG ? simTilt : 0);
+    }
+
     function onOrientation(ev) {
       // gamma: 左右の傾き。左に倒すと負
       if (ev.gamma == null) return;
@@ -785,7 +791,9 @@
       if (tiltRequested) return;
       tiltRequested = true;
       if (typeof DeviceOrientationEvent === "undefined") {
-        // デスクトップ等: センサーなし。ドラッグ/キーで代替
+        // デスクトップ等: センサーなし。ライオンはドラッグでは代替しない
+        tiltDenied = true;
+        showToast("端末のセンサーを利用できません。この端末ではゲームを最後まで進められません。");
         return;
       }
       if (typeof DeviceOrientationEvent.requestPermission === "function") {
@@ -797,11 +805,11 @@
             orientationReady = true;
           } else {
             tiltDenied = true;
-            showToast("センサーは使えないようだ。それでも、指の操作だけで進められる。");
+            showToast("センサーの許可が必要です。許可しない場合、ゲームを最後まで進められません。");
           }
         }).catch(function () {
           tiltDenied = true;
-          showToast("センサーは使えないようだ。それでも、指の操作だけで進められる。");
+          showToast("センサーの許可が必要です。許可しない場合、ゲームを最後まで進められません。");
         });
       } else {
         // Android等: 許可不要。黙ってリスナー登録
@@ -930,6 +938,7 @@
     // ---------- エリア遷移 ----------
     function goArea(area, opts) {
       opts = opts || {};
+      if (area !== "lion") lionHintOpen = false;
       mode = "area";
       state.area = area;
       var cfg = AREAS[area];
@@ -991,7 +1000,9 @@
 
     // ライオンエリア
     var lionArmed = false;
+    var lionHintOpen = false;
     function enterLion(first) {
+      lionHintOpen = false;
       setActor("char_lion.png");
       // ライオンも園側の住人。ごくわずかに傾いた姿勢（クローズアップでも同じ）
       el.actor.style.transform = "translateX(-50%) rotate(5deg)";
@@ -1011,6 +1022,10 @@
       // 操作指示は出さない。閾値がゆるいので、少し動かせば自然に肉が滑る
       lionArmed = true;
       showMeat();
+      showLionActions();
+    }
+
+    function showLionActions() {
       setActions([{ label: "マップを開く", onClick: openMap }]);
     }
 
@@ -1022,8 +1037,60 @@
       el.meat.style.transform = "translateX(-50%) rotate(-6deg)";
     }
 
+    function restoreLionUI() {
+      lionHintOpen = false;
+      if (mode === "area" && state.area === "lion" && lionArmed && !state.lionSolved) {
+        showLionActions();
+      }
+    }
+
+    function inspectMeat(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (mode !== "area" || state.area !== "lion" || !lionArmed || state.lionSolved) return;
+
+      lionHintOpen = true;
+      state.meatTapCount = Math.min(2, (state.meatTapCount || 0) + 1);
+      save();
+
+      if (state.meatTapCount === 1) {
+        speak("", [
+          "ライオンが肉を食べたそうにしているが、大きすぎて動かすのは難しそうだ。"
+        ], restoreLionUI);
+        return;
+      }
+
+      speak("", ["肉を見ていると、ひらめいた。"]);
+      setActions([
+        { label: "ヒントを見る", primary: true, onClick: showMeatHint1 },
+        { label: "今は見ない", onClick: restoreLionUI }
+      ]);
+    }
+
+    function showMeatHint1() {
+      if (!lionHintOpen || state.lionSolved) return;
+      speak("", ["もしかして、傾けると動く……？"], askNextMeatHint);
+    }
+
+    function askNextMeatHint() {
+      if (!lionHintOpen || state.lionSolved) return;
+      speak("", ["次のヒントも見ますか？"]);
+      setActions([
+        { label: "次のヒントを見る", primary: true, onClick: showMeatHint2 },
+        { label: "今は見ない", onClick: restoreLionUI }
+      ]);
+    }
+
+    function showMeatHint2() {
+      if (!lionHintOpen || state.lionSolved) return;
+      speak("", [
+        "傾けるのは画面の中のものじゃなく、この世界自体……？"
+      ], restoreLionUI);
+    }
+
     function deliverMeat() {
       if (!lionArmed || state.lionSolved) return;
+      lionHintOpen = false;
       lionArmed = false;
       // 肉が左（ライオンの前）へ滑る演出
       el.meat.style.transition = "left 1.0s cubic-bezier(.4,.05,.25,1), bottom 1.0s ease, transform 1.0s ease";
@@ -1428,8 +1495,9 @@
 
       if (mode === "sign") {
         updateSign(dt);
-      } else if (mode === "area" && state.area === "lion" && lionArmed && !state.lionSolved) {
-        if (leftTilt() >= MEAT_TILT) {
+      } else if (mode === "area" && state.area === "lion" && lionArmed &&
+                 !lionHintOpen && !state.lionSolved) {
+        if (lionTilt() >= MEAT_TILT) {
           // 肉を左へ寄せる（傾きに応じて）
           deliverMeat();
         }
@@ -1464,7 +1532,9 @@
       target.addEventListener("pointerleave", end);
     }
     bindDrag(el.board);
-    bindDrag(el.meat);
+
+    el.meat.addEventListener("click", inspectMeat);
+    el.meat.addEventListener("dragstart", function (ev) { ev.preventDefault(); });
 
     // ---------- マップ ----------
     function openMap() {
