@@ -270,16 +270,19 @@
       margin: 2px 0;
     }
     .tile {
-      --fx: 0px; --fy: 0px; --rot: 0deg;
+      --fx: 0px; --fy: 0px; --rot: 0deg; --fall: 0;
       display: inline-block;
       font-size: clamp(15px, 4.4vw, 26px);
       font-weight: 800;
       color: #f6e6c4;
       text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 10px rgba(0,0,0,0.4);
       padding: 3px 2px;
+      /* 落下（--fx/--fy/--rot × --p）＋ ぐらつき（--wob × --fall。糊付きの keep 文字は --fall=0 で揺れない） */
       transform: translate(calc(var(--fx) * var(--p, 0)), calc(var(--fy) * var(--p, 0) * var(--p, 0)))
-                 rotate(calc(var(--rot) * var(--p, 0)));
-      transition: transform 0.05s linear, opacity 0.2s linear, color 0.4s ease;
+                 rotate(calc(var(--rot) * var(--p, 0)))
+                 rotate(calc(var(--wob, 0) * var(--fall) * 7deg))
+                 translateX(calc(var(--wob, 0) * var(--fall) * 2.5px));
+      transition: transform 0.04s linear, opacity 0.2s linear, color 0.4s ease;
     }
     .tile.fall { opacity: calc(1 - var(--p, 0) * 0.85); }
     .tile.solved-keep { color: var(--glow); text-shadow: 0 0 14px rgba(255,224,138,0.7); }
@@ -295,21 +298,6 @@
       line-height: 1.6;
       max-width: 22em;
     }
-    #sign .tiltmeter {
-      width: min(90%, 360px);
-      height: 8px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.1);
-      overflow: hidden;
-    }
-    #sign .tiltmeter > i {
-      display: block;
-      height: 100%;
-      width: 0%;
-      background: var(--accent);
-      transition: width 0.06s linear, background 0.2s ease;
-    }
-    #sign .tiltmeter.armed > i { background: var(--glow); }
     #sign .signbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
     /* ライオンの肉 */
@@ -583,7 +571,6 @@
       <!-- 看板パズル -->
       <div id="sign">
         <div class="board" id="board"></div>
-        <div class="tiltmeter" id="tiltmeter"><i></i></div>
         <div class="caption" id="sign-caption"></div>
         <div class="signbtns" id="sign-btns"></div>
       </div>
@@ -630,8 +617,6 @@
       actions: document.getElementById("actions"),
       sign: document.getElementById("sign"),
       board: document.getElementById("board"),
-      tiltmeter: document.getElementById("tiltmeter"),
-      tiltmeterBar: document.querySelector("#tiltmeter > i"),
       signCaption: document.getElementById("sign-caption"),
       signBtns: document.getElementById("sign-btns"),
       title: document.getElementById("title"),
@@ -654,8 +639,8 @@
     };
     var PATROL = ["lion", "bird", "reptile"]; // でぐち(exit)は巡回完了後の目的地
     var TILT_THRESHOLD = 55;   // 看板: 左傾き閾値(度)
-    var HOLD_START = 2000;     // 剥がれ演出開始(ms)
-    var HOLD_DONE = 4000;      // 落ち切る(ms)
+    var HOLD_START = 3000;     // 3秒: 文字がぐらつき始める(ms)
+    var HOLD_DONE = 5000;      // 5秒前後: 落ち切る(ms)
     var MEAT_TILT = 25;        // 肉が滑り出す傾き(度)
 
     // 看板の文面設計（README参照）
@@ -1147,6 +1132,7 @@
             t.style.setProperty("--fx", fx + "px");
             t.style.setProperty("--fy", fy + "px");
             t.style.setProperty("--rot", rot + "deg");
+            t.style.setProperty("--fall", "1"); // ぐらつきの対象（keep文字は0のまま揺れない）
           } else {
             t.dataset.keep = "1";
           }
@@ -1170,7 +1156,6 @@
 
       if (opts.review) {
         signActive = false;
-        el.tiltmeter.style.display = "none";
         el.board.classList.add("solved");
         setBoardProgress(1);
         el.board.querySelectorAll('.tile[data-keep="1"]').forEach(function (k) {
@@ -1189,8 +1174,7 @@
       signOpenTime = performance.now();
       attemptMaxTilt = 0;
       signBaselineGamma = deviceGamma; // この姿勢を0基準にする（相対判定）
-      el.tiltmeter.style.display = "";
-      el.tiltmeterBar.style.width = "0%";
+      el.board.style.setProperty("--wob", "0");
       el.signCaption.textContent = "「まっすぐ読むな」――さっきまで微動だにしなかった文字が、いまはなぜか、ぐらついて見える。";
       renderSignBtns([{ label: "やめる", act: closeSign }]);
     }
@@ -1225,10 +1209,9 @@
       el.board.classList.remove("charging");
       setBoardProgress(1);
       // 残る文字を軽く発光（吸着感）
+      el.board.style.setProperty("--wob", "0");
       var keeps = el.board.querySelectorAll('.tile[data-keep="1"]');
       keeps.forEach(function (k) { k.classList.add("solved-keep"); });
-      el.tiltmeter.classList.remove("armed");
-      el.tiltmeterBar.style.width = "100%";
       el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。……誰かの、見回りの順だろうか。";
       A.track("sign_solved", {});
       renderSignBtns([{ label: "看板から離れる", primary: true, act: function () {
@@ -1267,32 +1250,34 @@
     function updateSign(dt) {
       if (!signActive) return;
       var tilt = signLeftTilt(); // 相対傾き（開いた姿勢からの追加の左傾き）
-      var meterPct = Math.min(100, (tilt / TILT_THRESHOLD) * 100);
       var armed = tilt >= TILT_THRESHOLD;
-      el.tiltmeter.classList.toggle("armed", armed);
       if (tilt > attemptMaxTilt) attemptMaxTilt = tilt;
 
       if (armed) {
         noticedTilt = true;
         holdMs += dt; // 傾けている間だけ蓄積（緩めても進捗は凍結し、続ければ再開）
-        el.board.classList.toggle("charging", holdMs < HOLD_START);
         if (holdMs >= HOLD_START) {
+          // 3秒経過: ぐらつき＋落下。p は 3→5秒で 0→1
           var p = Math.min(1, (holdMs - HOLD_START) / (HOLD_DONE - HOLD_START));
           el.board.classList.remove("charging");
           setBoardProgress(p);
+          // ぐらつき: 揺れ幅は進捗とともに増す（3秒直後から見えるよう下限0.35）
+          var amp = 0.35 + 0.65 * p;
+          el.board.style.setProperty("--wob", (Math.sin(performance.now() / 22) * amp).toFixed(3));
           if (holdMs >= HOLD_DONE) { solveSign(); return; }
           el.signCaption.textContent = "接着が外れていく……。";     // 進行中の雰囲気のみ
         } else {
+          // 〜3秒: 反応なし（ごく控えめな軋みのみ。ぐらつきはまだ出さない）
+          el.board.classList.add("charging");
+          el.board.style.setProperty("--wob", "0");
           el.signCaption.textContent = "看板が、みしり、と鳴いた。"; // 進行中の雰囲気のみ
         }
-        var fillByHold = Math.min(100, (holdMs / HOLD_DONE) * 100);
-        el.tiltmeterBar.style.width = Math.max(meterPct, fillByHold) + "%";
         return;
       }
 
-      // 傾きが閾値未満
+      // 傾きが閾値未満: ぐらつき停止（文字は現在位置で凍結）
       el.board.classList.remove("charging");
-      el.tiltmeterBar.style.width = meterPct + "%";
+      el.board.style.setProperty("--wob", "0");
 
       if (attemptMaxTilt > 10 && tilt < 10) {
         // ひとつの試行が終わった（傾けていたが緩めた）
