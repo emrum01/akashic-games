@@ -970,6 +970,8 @@
     var lionArmed = false;
     function enterLion(first) {
       setActor("char_lion.png");
+      // ライオンも園側の住人。ごくわずかに傾いた姿勢（クローズアップでも同じ）
+      el.actor.style.transform = "translateX(-50%) rotate(5deg)";
       if (state.lionSolved) {
         speak("", ["ライオンは満足そうに寝そべっている。道はもう開いている。"], function () {
           setActions([{ label: "マップを開く", onClick: openMap }]);
@@ -1032,7 +1034,7 @@
       // 傾きへの首かしげは updateWorldReactions が毎フレーム反映（会話中の大写しでも継続）
       speak("", [
         "木の上から、何かがこちらを見ている気がする。",
-        "傾いたこの世界で、オオハシの目だけが、まっすぐ水平をとらえていた。"
+        "オオハシは、傾いだ枝の上で、傾いだまま平然とこちらを見ている。"
       ], function () {
         setActions([{ label: "マップを開く", onClick: openMap }]);
       });
@@ -1384,12 +1386,14 @@
           "translateX(-50%) rotate(" + exitAngle.toFixed(2) + "deg)";
       }
 
-      // 鳥: トゥーカンは傾きと逆に首を返して水平を保とうとする（最大±15度）
+      // 鳥: トゥーカンは園側の住人。傾いた世界に馴染み、常に少し傾いたまま、
+      // 端末の傾きと同じ向きにゆったり揺れる（水平を保とうとしない）。
       if (state.area === "bird" && !el.actor.hidden) {
-        var counter = Math.max(-15, Math.min(15, -t * 0.5));
-        el.actor.style.transform = "translateX(-50%) rotate(" + counter.toFixed(2) + "deg)";
+        var lean = 8 + Math.max(-12, Math.min(12, t * 0.5)); // 基準+8度＋同方向の揺れ
+        el.actor.style.transform = "translateX(-50%) rotate(" + lean.toFixed(2) + "deg)";
       }
-      // 爬虫類: トカゲは反応しない（「微動だにしない」の意図的な例外 → enterReptileの静的傾きのまま）
+      // 爬虫類: トカゲは園側の住人。斜面に平然と張りついたまま（enterReptileの静的傾き／無反応）
+      // 主人公・看板は「外から来た／外界とのIF」なので傾き反応の対象外＝常にまっすぐ（意図的）
     }
 
     function tick(ts) {
@@ -1490,7 +1494,7 @@
       el.title.querySelector(".kicker").textContent = "CLEAR";
       el.title.querySelector("h1").innerHTML = 'GAME CLEAR<span class="sub">動物園脱出 成功</span>';
       el.title.querySelector("p").textContent =
-        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。まっすぐだったのは、生き物たちだけだった。園は、次の夜もまた、誰かを招くのだろう。";
+        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。この園でまっすぐなのは、看板と、わたしだけだった。結局、ずいぶん働かされた気がする。園は、次の夜もまた、誰かを招くのだろう。";
       el.titleBtns.innerHTML = "";
       addTitleBtn("もういちど、招かれる", true, function () {
         state = defaultState(); save();
