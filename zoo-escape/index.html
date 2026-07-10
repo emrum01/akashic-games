@@ -1497,6 +1497,12 @@
     el.tapCatcher.addEventListener("click", function () {
       if (mode === "area") advanceDialogue();
     });
+    // メッセージボックス自体のタップでも送れる。
+    // ボタン（選択肢・「看板を調べる」等）は ev.stopPropagation() 済みなのでここには来ない。
+    // tap-catcher とは重ならない兄弟要素なので二重発火もしない。
+    el.textbox.addEventListener("click", function () {
+      if (mode === "area") advanceDialogue();
+    });
 
     el.btnMap.addEventListener("click", function () {
       if (mode === "area") openMap();
