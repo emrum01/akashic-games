@@ -282,7 +282,9 @@
                  rotate(calc(var(--rot) * var(--p, 0)))
                  rotate(calc(var(--wob, 0) * var(--fall) * 7deg))
                  translateX(calc(var(--wob, 0) * var(--fall) * 2.5px));
-      transition: transform 0.04s linear, opacity 0.2s linear, color 0.4s ease;
+      /* 半端な意思（25〜55度）では詩がにじむ。--txtblur は JS が傾き角に連動して設定 */
+      filter: blur(var(--txtblur, 0px));
+      transition: transform 0.04s linear, opacity 0.2s linear, color 0.4s ease, filter 0.08s linear;
     }
     .tile.fall { opacity: calc(1 - var(--p, 0) * 0.85); }
     .tile.solved-keep { color: var(--glow); text-shadow: 0 0 14px rgba(255,224,138,0.7); }
@@ -452,6 +454,25 @@
       transform-origin: left center;
       font-weight: 700;
     }
+    /* 2周目以降: 先人（＝前にクリアした自分）のもう一筆。別の筆跡・角度で */
+    #board-text .scribble2 {
+      margin-top: 0.05em;
+      align-self: flex-start;
+      margin-left: 1.4em;
+      font-size: 0.52em;
+      white-space: nowrap;
+      color: #1a0f05;
+      opacity: 0.92;
+      font-style: italic;
+      text-shadow:
+        0 0 1px rgba(247,232,203,0.9),
+        0 0 2px rgba(247,232,203,0.7),
+        0 1px 0 rgba(0,0,0,0.35);
+      transform: rotate(2.6deg);
+      transform-origin: left center;
+      font-weight: 700;
+    }
+    #board-text .scribble2.hidden { display: none; }
 
     /* ===== 世界律モチーフ: あらゆるものが少しずつ傾いている ===== */
     /* タイトルの「な」だけがわずかに傾く */
@@ -547,6 +568,7 @@
           <span>そこがでぐちだ</span>
         </div>
         <div class="scribble">──まっすぐよむな</div>
+        <div class="scribble2 hidden">──よめたら、でられる</div>
       </div>
       <img class="actor" id="actor" alt="" hidden>
       <img id="meat" class="hidden" alt="肉"
@@ -684,6 +706,16 @@
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
     }
 
+    // 「一度でもクリアした端末か」。SAVE_KEY とは別に保持し、「はじめから」でも消えない。
+    // → クリア済みの端末では、以後ずっと看板に先人（過去の自分）の走り書きが増えたまま。
+    var EVER_KEY = "zoo-escape:evercleared";
+    var everCleared = false;
+    try { everCleared = localStorage.getItem(EVER_KEY) === "1"; } catch (e) {}
+    function markEverCleared() {
+      everCleared = true;
+      try { localStorage.setItem(EVER_KEY, "1"); } catch (e) {}
+    }
+
     // ---------- 傾き入力 ----------
     var deviceTilt = 0;   // 左傾きの大きさ(度)。看板パズルの閾値判定に使用（従来どおり）
     var deviceGamma = 0;  // 生の gamma（署名付き。微反応用）
@@ -813,6 +845,9 @@
     }
     function setBoardText(show) {
       el.boardText.classList.toggle("show", !!show);
+      // 2周目以降（クリア履歴あり）は、先人のもう一筆を表示
+      var s2 = el.boardText.querySelector(".scribble2");
+      if (s2) s2.classList.toggle("hidden", !everCleared);
       if (show) layoutBoardText();
     }
     window.addEventListener("resize", layoutBoardText);
@@ -1160,6 +1195,7 @@
       buildBoard();
       el.sign.classList.add("show");
 
+      el.board.style.setProperty("--txtblur", "0px");
       if (opts.review) {
         signActive = false;
         el.board.classList.add("solved");
@@ -1216,6 +1252,7 @@
       setBoardProgress(1);
       // 残る文字を軽く発光（吸着感）
       el.board.style.setProperty("--wob", "0");
+      el.board.style.setProperty("--txtblur", "0px"); // 解読後は常にくっきり
       var keeps = el.board.querySelectorAll('.tile[data-keep="1"]');
       keeps.forEach(function (k) { k.classList.add("solved-keep"); });
       el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。……誰かの、見回りの順だろうか。";
@@ -1268,6 +1305,16 @@
       var tilt = signLeftTilt(); // 相対傾き（開いた姿勢からの追加の左傾き）
       var armed = tilt >= TILT_THRESHOLD;
       if (tilt > attemptMaxTilt) attemptMaxTilt = tilt;
+
+      // 半端な意思(おおよそ25〜55度)の間、詩がにじんで読みにくくなる（園が半端な覗き方を拒む）。
+      // まっすぐ(25度未満)で元通り、55度以上でにじみ0＝意思が伝わり真の姿へ。落下開始後は適用しない。
+      var falling = armed && holdMs >= HOLD_START;
+      if (falling) {
+        el.board.style.setProperty("--txtblur", "0px");
+      } else {
+        var bz = (tilt <= 25 || tilt >= TILT_THRESHOLD) ? 0 : (tilt - 25) / (TILT_THRESHOLD - 25);
+        el.board.style.setProperty("--txtblur", (bz * 3.2).toFixed(2) + "px");
+      }
 
       if (armed) {
         noticedTilt = true;
@@ -1418,6 +1465,7 @@
     // ---------- クリア ----------
     function doClear() {
       state.cleared = true; save();
+      markEverCleared(); // 以後この端末は「先人がいる」状態（走り書きが増える）
       A.track("game_clear", {});
       // 世界律モチーフ: クリア確定 → updateWorldReactions のバネが札を水平(0)へ戻す（カタンと）
       el.flash.classList.add("on");
@@ -1444,7 +1492,7 @@
       el.title.querySelector("p").textContent =
         "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。まっすぐだったのは、生き物たちだけだった。園は、次の夜もまた、誰かを招くのだろう。";
       el.titleBtns.innerHTML = "";
-      addTitleBtn("もう一度あそぶ", true, function () {
+      addTitleBtn("もういちど、招かれる", true, function () {
         state = defaultState(); save();
         el.title.querySelector(".kicker").textContent = "ESCAPE SAFARI";
         startGame(true);
@@ -1519,7 +1567,7 @@
       if (ev.key === "Enter" || ev.key === " ") inspectFallenTag(ev);
     });
     el.btnReset.addEventListener("click", function () {
-      if (confirm("はじめからやり直しますか？（進行状況は消えます）")) {
+      if (confirm("この夜のことを忘れて、はじめからやり直しますか？（進行状況は消えます）")) {
         state = defaultState(); save();
         el.sign.classList.remove("show");
         showTitle();
