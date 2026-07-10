@@ -570,7 +570,7 @@
 
     .trace-row {
       display: grid;
-      grid-template-columns: 3em minmax(0, 1fr);
+      grid-template-columns: 4.5em minmax(0, 1fr);
       align-items: center;
       gap: 12px;
       padding: 8px 0;
@@ -589,6 +589,14 @@
       font-weight: 800;
       text-align: right;
       white-space: nowrap;
+    }
+
+    .trace-arrow {
+      color: rgba(229, 184, 127, 0.62);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-align: center;
+      font-size: 0.9em;
+      margin: 2px 0;
     }
 
     .trace-output {
@@ -1395,7 +1403,7 @@
       }
 
       .trace-row {
-        grid-template-columns: 3em minmax(0, 1fr);
+        grid-template-columns: 4.5em minmax(0, 1fr);
         gap: 10px;
         padding: 7px 0;
       }
@@ -1530,12 +1538,14 @@
       <div class="objective" aria-live="polite">脱出経路：未確定</div>
 
       <section class="puzzle-panel is-hidden" id="puzzlePanel" aria-label="壊れたデータ">
-        <div class="puzzle-title">壊れたデータを見つけた。<br>起点から終端までの操作を入力し、修復せよ。</div>
+        <div class="puzzle-title">復旧ログ：上から順に変化した記録だ。<br>この操作順を、矢印で入力せよ。</div>
         <div class="puzzle-lines" aria-label="矢印の謎">
           <div class="trace-caption">ログ</div>
-          <div class="trace-row"><span class="trace-input">起点</span><span class="trace-output"><span class="chip mark0">未</span><span class="chip mark0">未</span><span class="chip mark0">未</span></span></div>
-          <div class="trace-row"><span class="trace-input">中間</span><span class="trace-output"><span class="chip mark1">+</span><span class="chip mark1">+</span><span class="chip mark1">+</span></span></div>
-          <div class="trace-row is-question"><span class="trace-input">終端</span><span class="trace-output"><span class="chip mark1">+</span><span class="chip mark2">-</span><span class="chip mark2">-</span></span></div>
+          <div class="trace-row"><span class="trace-input">操作前</span><span class="trace-output"><span class="chip mark0">未</span><span class="chip mark0">未</span><span class="chip mark0">未</span></span></div>
+          <div class="trace-arrow">↓</div>
+          <div class="trace-row"><span class="trace-input">途中経過</span><span class="trace-output"><span class="chip mark1">+</span><span class="chip mark1">+</span><span class="chip mark1">+</span></span></div>
+          <div class="trace-arrow">↓</div>
+          <div class="trace-row is-question"><span class="trace-input">操作後</span><span class="trace-output"><span class="chip mark1">+</span><span class="chip mark2">-</span><span class="chip mark2">-</span></span></div>
           <div class="target-row">修復</div>
         </div>
         <form class="puzzle-form" id="puzzleForm">
@@ -1692,9 +1702,9 @@
         analytics.track("first_action");
       }
       const puzzleHints = [
-        "中間は、起点から3回同じ操作をした状態。",
-        "終端は、中間から右側の2つだけが反転した状態。",
-        "入力できる記号は → と ← だけ。"
+        "操作後の並びをそのまま写しても直らない。上下の行を見比べて、どこがいくつ変わったかを探そう。",
+        "＋は先へ進んだ跡、－はそこから戻った跡。",
+        "まず3つすべてを右へ進め、そのあと右端から2つを左へ戻す。"
       ];
 
       explosionVideo.addEventListener("error", () => {
@@ -1732,7 +1742,9 @@
           revealDevice();
           return;
         }
-        puzzleStatus.textContent = "不一致";
+        puzzleStatus.textContent = answer === "→←←"
+          ? "記号をそのまま写しても直らない。途中経過を経由した操作を追え。"
+          : "不一致";
         state.wrongCount += 1;
         analytics.track("wrong_answer", {
           answer_length: answer.length,
