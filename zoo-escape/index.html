@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>まっすぐ読むな｜動物園脱出</title>
-  <meta name="description" content="閉園後の動物園から脱出せよ。看板の言葉は「まっすぐ読むな」。傾けて落ちた文字が、本当の道順を隠している。モバイル向けWEB謎解きゲーム。">
+  <meta name="description" content="夜ごと人を招く、動物園という名の怪異。看板の言葉は「まっすぐ読むな」。まっすぐ読むつもりのない者にだけ、園は真の姿を見せる。モバイル向けWEB謎解きゲーム。">
   <meta property="og:type" content="website">
   <meta property="og:title" content="まっすぐ読むな｜動物園脱出">
-  <meta property="og:description" content="閉園後の動物園から脱出せよ。看板の言葉は「まっすぐ読むな」。傾けて落ちた文字が、本当の道順を隠している。">
+  <meta property="og:description" content="夜ごと人を招く、動物園という名の怪異。看板の言葉は「まっすぐ読むな」。まっすぐ読むつもりのない者にだけ、園は真の姿を見せる。">
   <meta property="og:image" content="https://games.escape-safari.com/zoo-escape/assets/bg_central_sign.jpg">
   <meta property="og:url" content="https://games.escape-safari.com/zoo-escape/">
   <meta property="og:site_name" content="escape-safari">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="まっすぐ読むな｜動物園脱出">
-  <meta name="twitter:description" content="閉園後の動物園から脱出せよ。看板の言葉は「まっすぐ読むな」。">
+  <meta name="twitter:description" content="夜ごと人を招く、動物園という名の怪異。看板の言葉は「まっすぐ読むな」。">
   <meta name="twitter:image" content="https://games.escape-safari.com/zoo-escape/assets/bg_central_sign.jpg">
   <style>
     :root {
@@ -585,7 +585,7 @@
       <div id="title">
         <div class="kicker">ESCAPE SAFARI</div>
         <h1>まっすぐ読む<span class="tilt-na">な</span><span class="sub">― 動物園脱出 ―</span></h1>
-        <p>閉園後の動物園に、迷い込んでしまった。<br>看板の言葉は「まっすぐ読むな」。<br>その意味を、まだ君は知らない。</p>
+        <p>入ったつもりはないのに、閉園後の動物園の中にいた。<br>看板の言葉は「まっすぐ読むな」。<br>その意味を、まだ君は知らない。</p>
         <div class="btns" id="title-btns"></div>
       </div>
 
@@ -914,7 +914,7 @@
       el.actor.style.bottom = "28%";
       el.actor.style.height = "36%";
       var intro = first
-        ? ["閉園時間は、とっくに過ぎている。", "動物園に迷い込んでしまった。出口を探そう。", "広場の真ん中に、大きな看板が立っている。", "園内はまだ、誰かの手入れを待っているように静まりかえっている。"]
+        ? ["閉園時間は、とっくに過ぎている。", "入ったつもりはないのに、いつのまにか園の中にいた。出口を探そう。", "広場の真ん中に、大きな看板が立っている。", "園はまるで、誰かが来るのを待っていたように静まりかえっている。"]
         : ["中央広場。「まっすぐ読むな」の看板が立っている。"];
       speak("", intro, showCentralActions);
     }
@@ -978,7 +978,7 @@
         speak("", [
           "肉がすべって、ライオンの前まで転がった。",
           "ライオンは危なげなく受け止め、満足そうに身を退けた。",
-          "餌やりは、本来なら誰かの仕事のはずだ。"
+          "まるで、この仕事を園に待たれていたようだ。"
         ], function () {
           setActions([
             { label: "中央広場へ戻る", primary: true, onClick: function(){ goArea("central"); } },
@@ -1442,7 +1442,7 @@
       el.title.querySelector(".kicker").textContent = "CLEAR";
       el.title.querySelector("h1").innerHTML = 'GAME CLEAR<span class="sub">動物園脱出 成功</span>';
       el.title.querySelector("p").textContent =
-        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。まっすぐだったのは、生き物たちだけだった。";
+        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。まっすぐだったのは、生き物たちだけだった。園は、次の夜もまた、誰かを招くのだろう。";
       el.titleBtns.innerHTML = "";
       addTitleBtn("もう一度あそぶ", true, function () {
         state = defaultState(); save();
