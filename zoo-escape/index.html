@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>まっすぐ読むな｜動物園脱出</title>
-  <meta name="description" content="閉園後の動物園から脱出せよ。看板の言葉は「まっすぐ読むな」。傾けて落ちた文字が、本当の道順を隠している。モバイル向けWEB謎解きゲーム。">
+  <meta name="description" content="夜ごと人を招く、動物園という名の怪異。看板の言葉は「まっすぐ読むな」。まっすぐ読むつもりのない者にだけ、園は真の姿を見せる。モバイル向けWEB謎解きゲーム。">
   <meta property="og:type" content="website">
   <meta property="og:title" content="まっすぐ読むな｜動物園脱出">
-  <meta property="og:description" content="閉園後の動物園から脱出せよ。看板の言葉は「まっすぐ読むな」。傾けて落ちた文字が、本当の道順を隠している。">
+  <meta property="og:description" content="夜ごと人を招く、動物園という名の怪異。看板の言葉は「まっすぐ読むな」。まっすぐ読むつもりのない者にだけ、園は真の姿を見せる。">
   <meta property="og:image" content="https://games.escape-safari.com/zoo-escape/assets/bg_central_sign.jpg">
   <meta property="og:url" content="https://games.escape-safari.com/zoo-escape/">
   <meta property="og:site_name" content="escape-safari">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="まっすぐ読むな｜動物園脱出">
-  <meta name="twitter:description" content="閉園後の動物園から脱出せよ。看板の言葉は「まっすぐ読むな」。">
+  <meta name="twitter:description" content="夜ごと人を招く、動物園という名の怪異。看板の言葉は「まっすぐ読むな」。">
   <meta name="twitter:image" content="https://games.escape-safari.com/zoo-escape/assets/bg_central_sign.jpg">
   <style>
     :root {
@@ -270,16 +270,21 @@
       margin: 2px 0;
     }
     .tile {
-      --fx: 0px; --fy: 0px; --rot: 0deg;
+      --fx: 0px; --fy: 0px; --rot: 0deg; --fall: 0;
       display: inline-block;
       font-size: clamp(15px, 4.4vw, 26px);
       font-weight: 800;
       color: #f6e6c4;
       text-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 10px rgba(0,0,0,0.4);
       padding: 3px 2px;
+      /* 落下（--fx/--fy/--rot × --p）＋ ぐらつき（--wob × --fall。糊付きの keep 文字は --fall=0 で揺れない） */
       transform: translate(calc(var(--fx) * var(--p, 0)), calc(var(--fy) * var(--p, 0) * var(--p, 0)))
-                 rotate(calc(var(--rot) * var(--p, 0)));
-      transition: transform 0.05s linear, opacity 0.2s linear, color 0.4s ease;
+                 rotate(calc(var(--rot) * var(--p, 0)))
+                 rotate(calc(var(--wob, 0) * var(--fall) * 7deg))
+                 translateX(calc(var(--wob, 0) * var(--fall) * 2.5px));
+      /* 半端な意思（25〜55度）では詩がにじむ。--txtblur は JS が傾き角に連動して設定 */
+      filter: blur(var(--txtblur, 0px));
+      transition: transform 0.04s linear, opacity 0.2s linear, color 0.4s ease, filter 0.08s linear;
     }
     .tile.fall { opacity: calc(1 - var(--p, 0) * 0.85); }
     .tile.solved-keep { color: var(--glow); text-shadow: 0 0 14px rgba(255,224,138,0.7); }
@@ -295,21 +300,12 @@
       line-height: 1.6;
       max-width: 22em;
     }
-    #sign .tiltmeter {
-      width: min(90%, 360px);
-      height: 8px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.1);
-      overflow: hidden;
+    /* ヒント内の強調（「明確に伝わったとき」等）。世界観を壊さない控えめな金色＋発光 */
+    #sign .caption .emph {
+      color: var(--glow);
+      font-weight: 700;
+      text-shadow: 0 0 8px rgba(255,224,138,0.55);
     }
-    #sign .tiltmeter > i {
-      display: block;
-      height: 100%;
-      width: 0%;
-      background: var(--accent);
-      transition: width 0.06s linear, background 0.2s ease;
-    }
-    #sign .tiltmeter.armed > i { background: var(--glow); }
     #sign .signbtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
     /* ライオンの肉 */
@@ -458,6 +454,25 @@
       transform-origin: left center;
       font-weight: 700;
     }
+    /* 2周目以降: 先人（＝前にクリアした自分）のもう一筆。別の筆跡・角度で */
+    #board-text .scribble2 {
+      margin-top: 0.05em;
+      align-self: flex-start;
+      margin-left: 1.4em;
+      font-size: 0.52em;
+      white-space: nowrap;
+      color: #1a0f05;
+      opacity: 0.92;
+      font-style: italic;
+      text-shadow:
+        0 0 1px rgba(247,232,203,0.9),
+        0 0 2px rgba(247,232,203,0.7),
+        0 1px 0 rgba(0,0,0,0.35);
+      transform: rotate(2.6deg);
+      transform-origin: left center;
+      font-weight: 700;
+    }
+    #board-text .scribble2.hidden { display: none; }
 
     /* ===== 世界律モチーフ: あらゆるものが少しずつ傾いている ===== */
     /* タイトルの「な」だけがわずかに傾く */
@@ -553,6 +568,7 @@
           <span>そこがでぐちだ</span>
         </div>
         <div class="scribble">──まっすぐよむな</div>
+        <div class="scribble2 hidden">──よめたら、でられる</div>
       </div>
       <img class="actor" id="actor" alt="" hidden>
       <img id="meat" class="hidden" alt="肉"
@@ -583,7 +599,6 @@
       <!-- 看板パズル -->
       <div id="sign">
         <div class="board" id="board"></div>
-        <div class="tiltmeter" id="tiltmeter"><i></i></div>
         <div class="caption" id="sign-caption"></div>
         <div class="signbtns" id="sign-btns"></div>
       </div>
@@ -592,7 +607,7 @@
       <div id="title">
         <div class="kicker">ESCAPE SAFARI</div>
         <h1>まっすぐ読む<span class="tilt-na">な</span><span class="sub">― 動物園脱出 ―</span></h1>
-        <p>閉園後の動物園に、迷い込んでしまった。<br>看板の言葉は「まっすぐ読むな」。<br>その意味を、まだ君は知らない。</p>
+        <p>入ったつもりはないのに、閉園後の動物園の中にいた。<br>看板の言葉は「まっすぐ読むな」。<br>その意味を、まだ君は知らない。</p>
         <div class="btns" id="title-btns"></div>
       </div>
 
@@ -630,8 +645,6 @@
       actions: document.getElementById("actions"),
       sign: document.getElementById("sign"),
       board: document.getElementById("board"),
-      tiltmeter: document.getElementById("tiltmeter"),
-      tiltmeterBar: document.querySelector("#tiltmeter > i"),
       signCaption: document.getElementById("sign-caption"),
       signBtns: document.getElementById("sign-btns"),
       title: document.getElementById("title"),
@@ -654,8 +667,8 @@
     };
     var PATROL = ["lion", "bird", "reptile"]; // でぐち(exit)は巡回完了後の目的地
     var TILT_THRESHOLD = 55;   // 看板: 左傾き閾値(度)
-    var HOLD_START = 2000;     // 剥がれ演出開始(ms)
-    var HOLD_DONE = 4000;      // 落ち切る(ms)
+    var HOLD_START = 3000;     // 3秒: 文字がぐらつき始める(ms)
+    var HOLD_DONE = 5000;      // 5秒前後: 落ち切る(ms)
     var MEAT_TILT = 25;        // 肉が滑り出す傾き(度)
 
     // 看板の文面設計（README参照）
@@ -693,6 +706,16 @@
       try { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); } catch (e) {}
     }
 
+    // 「一度でもクリアした端末か」。SAVE_KEY とは別に保持し、「はじめから」でも消えない。
+    // → クリア済みの端末では、以後ずっと看板に先人（過去の自分）の走り書きが増えたまま。
+    var EVER_KEY = "zoo-escape:evercleared";
+    var everCleared = false;
+    try { everCleared = localStorage.getItem(EVER_KEY) === "1"; } catch (e) {}
+    function markEverCleared() {
+      everCleared = true;
+      try { localStorage.setItem(EVER_KEY, "1"); } catch (e) {}
+    }
+
     // ---------- 傾き入力 ----------
     var deviceTilt = 0;   // 左傾きの大きさ(度)。看板パズルの閾値判定に使用（従来どおり）
     var deviceGamma = 0;  // 生の gamma（署名付き。微反応用）
@@ -701,9 +724,20 @@
     var simTilt = 0;      // デバッグ用キーボード（左が正）
     var orientationReady = false;
 
-    // 看板パズル用（左傾きの大きさ・従来仕様のまま変更しない）
+    // ライオンの肉など（左傾きの絶対量）
     function leftTilt() {
       return Math.max(deviceTilt, dragTilt, simTilt);
+    }
+
+    // 看板パズル用の「相対」左傾き。看板ビューを開いた瞬間の端末角を0とし、
+    // そこからさらに左へ傾けた量で判定する。寝転がり/机置きで gamma が
+    // 常時大きい端末でも、開いた姿勢のままでは 0 のままなので事故クリアを防ぐ。
+    var signBaselineGamma = 0; // 看板ビューを開いた時点の gamma（基準）
+    function signLeftTilt() {
+      var deviceRel = deviceSeen
+        ? Math.max(0, Math.min(90, signBaselineGamma - deviceGamma)) // より左へ倒した分
+        : 0;
+      return Math.max(deviceRel, dragTilt, simTilt); // ドラッグ/キーは元から相対
     }
 
     // 微反応用の署名付き傾き（左が正）。世界がプレイヤーの傾きに追従するために使う
@@ -811,6 +845,9 @@
     }
     function setBoardText(show) {
       el.boardText.classList.toggle("show", !!show);
+      // 2周目以降（クリア履歴あり）は、先人のもう一筆を表示
+      var s2 = el.boardText.querySelector(".scribble2");
+      if (s2) s2.classList.toggle("hidden", !everCleared);
       if (show) layoutBoardText();
     }
     window.addEventListener("resize", layoutBoardText);
@@ -911,8 +948,8 @@
       el.actor.style.left = "13%";
       el.actor.style.bottom = "28%";
       el.actor.style.height = "36%";
-      var intro = first && !state.lionSolved
-        ? ["閉園時間は、とっくに過ぎている。", "動物園に迷い込んでしまった。出口を探そう。", "広場の真ん中に、大きな看板が立っている。"]
+      var intro = first
+        ? ["閉園時間は、とっくに過ぎている。", "入ったつもりはないのに、いつのまにか園の中にいた。出口を探そう。", "広場の真ん中に、大きな看板が立っている。", "園はまるで、誰かが来るのを待っていたように静まりかえっている。"]
         : ["中央広場。「まっすぐ読むな」の看板が立っている。"];
       speak("", intro, showCentralActions);
     }
@@ -924,8 +961,8 @@
     }
 
     function inspectSign() {
+      // ライオン前提のロックは撤廃。最初から傾ければ解ける
       if (state.signSolved) { openSign({ review: true }); return; }
-      if (!state.lionSolved) { openSign({ locked: true }); return; }
       openSign({});
     }
 
@@ -933,6 +970,8 @@
     var lionArmed = false;
     function enterLion(first) {
       setActor("char_lion.png");
+      // ライオンも園側の住人。ごくわずかに傾いた姿勢（クローズアップでも同じ）
+      el.actor.style.transform = "translateX(-50%) rotate(5deg)";
       if (state.lionSolved) {
         speak("", ["ライオンは満足そうに寝そべっている。道はもう開いている。"], function () {
           setActions([{ label: "マップを開く", onClick: openMap }]);
@@ -975,7 +1014,8 @@
         A.track("meat_delivered", {});
         speak("", [
           "肉がすべって、ライオンの前まで転がった。",
-          "ライオンは満足そうに道をあけた。"
+          "ライオンは危なげなく受け止め、満足そうに身を退けた。",
+          "まるで、この仕事を園に待たれていたようだ。"
         ], function () {
           setActions([
             { label: "中央広場へ戻る", primary: true, onClick: function(){ goArea("central"); } },
@@ -994,7 +1034,7 @@
       // 傾きへの首かしげは updateWorldReactions が毎フレーム反映（会話中の大写しでも継続）
       speak("", [
         "木の上から、何かがこちらを見ている気がする。",
-        "オオハシの目が、月明かりにきらりと光った。"
+        "オオハシは、傾いだ枝の上で、傾いだまま平然とこちらを見ている。"
       ], function () {
         setActions([{ label: "マップを開く", onClick: openMap }]);
       });
@@ -1010,7 +1050,7 @@
       el.actor.style.transform = "translateX(-50%) rotate(-30deg)";
       speak("", [
         "生きているのかもわからないほど、微動だにしない。",
-        "それでも、確かにこちらを見ている。"
+        "斜めの岩肌に平然と張りついたまま、それでも確かにこちらを見ている。"
       ], function () {
         // 姿勢は維持（大写しでも斜めのまま）。次エリアの setActor でリセットされる
         setActions([{ label: "マップを開く", onClick: openMap }]);
@@ -1024,7 +1064,7 @@
         setBackground(AREAS.exit.bg);
         el.bg.style.filter = "saturate(1.15) brightness(1.12)";
         speak("", [
-          "足跡が導いた先で、固かったゲートがゆっくりと開いていく。",
+          "決まった順に見回りを終えると、固かったゲートがひとりでに開いていった。",
           "夜風が、外から吹き込んできた。"
         ], function () {
           setActions([{ label: "外へ出る", primary: true, onClick: doClear }]);
@@ -1135,6 +1175,7 @@
             t.style.setProperty("--fx", fx + "px");
             t.style.setProperty("--fy", fy + "px");
             t.style.setProperty("--rot", rot + "deg");
+            t.style.setProperty("--fall", "1"); // ぐらつきの対象（keep文字は0のまま揺れない）
           } else {
             t.dataset.keep = "1";
           }
@@ -1144,9 +1185,8 @@
       });
     }
 
-    // opts.locked: ライオン攻略前（全文は読めるが傾けても反応しない）
     // opts.review: 攻略済み（落ちた後の状態で眺める）
-    // それ以外: 通常のパズル（傾けて解く）
+    // それ以外: 通常のパズル（最初から傾けて解ける）
     function openSign(opts) {
       opts = opts || {};
       mode = "sign";
@@ -1157,38 +1197,29 @@
       buildBoard();
       el.sign.classList.add("show");
 
+      el.board.style.setProperty("--txtblur", "0px");
       if (opts.review) {
         signActive = false;
-        el.tiltmeter.style.display = "none";
         el.board.classList.add("solved");
         setBoardProgress(1);
         el.board.querySelectorAll('.tile[data-keep="1"]').forEach(function (k) {
           k.classList.add("solved-keep");
         });
-        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。残った文字が、何かの順番に見える。";
+        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。……これは、誰かの見回りの順だろうか。";
         renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
         return;
       }
 
       setBoardProgress(0);
-      if (opts.locked) {
-        // 全文は読めるが、傾けても微動だにしない
-        signActive = false;
-        el.tiltmeter.style.display = "none";
-        el.signCaption.textContent = "「まっすぐ読むな」――ほかにも、こまかな文字がびっしり書かれている。傾けようとしても、看板はびくともしない。今はまだ、意味が分からない。";
-        renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
-        return;
-      }
-
-      // 通常パズル（操作指示は出さない。詩の雰囲気テキストのみ）
+      // 通常パズル（操作指示は出さない。詩の雰囲気テキストのみ）。最初から解ける
       signActive = true;
       signFailCount = 0;
       signHintStage = 0;
       signOpenTime = performance.now();
       attemptMaxTilt = 0;
-      el.tiltmeter.style.display = "";
-      el.tiltmeterBar.style.width = "0%";
-      el.signCaption.textContent = "「まっすぐ読むな」――さっきまで微動だにしなかった文字が、いまはなぜか、ぐらついて見える。";
+      signBaselineGamma = deviceGamma; // この姿勢を0基準にする（相対判定）
+      el.board.style.setProperty("--wob", "0");
+      el.signCaption.textContent = "「まっすぐ読むな」――大きな文字の下に、こまかな文字がびっしりと並んでいる。";
       renderSignBtns([{ label: "やめる", act: closeSign }]);
     }
     function renderSignBtns(btns) {
@@ -1222,11 +1253,11 @@
       el.board.classList.remove("charging");
       setBoardProgress(1);
       // 残る文字を軽く発光（吸着感）
+      el.board.style.setProperty("--wob", "0");
+      el.board.style.setProperty("--txtblur", "0px"); // 解読後は常にくっきり
       var keeps = el.board.querySelectorAll('.tile[data-keep="1"]');
       keeps.forEach(function (k) { k.classList.add("solved-keep"); });
-      el.tiltmeter.classList.remove("armed");
-      el.tiltmeterBar.style.width = "100%";
-      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。";
+      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。……誰かの、見回りの順だろうか。";
       A.track("sign_solved", {});
       renderSignBtns([{ label: "看板から離れる", primary: true, act: function () {
         el.sign.classList.remove("show");
@@ -1235,66 +1266,94 @@
     }
 
     // 段階的ヒント（詰まった後にだけ後出しする。答えや操作は直接言わない）
-    function showSignHint() {
-      var stage = signFailCount >= 3 ? 2 : 1;
+    // 不完全な試行（弱い傾け or 途中で戻す）の後に段階的に出すヒント。
+    // 第1段=足りない系 / 第2段=意思ヒント（「明確に伝わったとき」を強調）/ 第3段=既存の最終ヒント
+    // partial: 今回の試行が「閾値は超えたが途中で戻した」ものか
+    function showTiltHint(partial) {
+      var stage = signFailCount >= 5 ? 3 : (signFailCount >= 3 ? 2 : 1);
       if (stage < signHintStage) stage = signHintStage;
       signHintStage = stage;
-      var msg = (stage >= 2)
-        ? "ライオンの肉は、あんなに大きく滑って転がっていった……。"  // ライオン体験の想起（間接）
-        : "少し傾けるくらいでは足りないようだ。";                    // 企画書の第1ヒント
-      // センサーが実質使えない環境でのみ、複数回失敗後に代替操作を案内（詰み防止）
-      if (tiltUnsupported() && signFailCount >= 3) {
-        msg += "（看板を長押しして、左へ大きくドラッグしてみよう）";
+
+      if (stage >= 3) {
+        // 最終段: ライオン体験があれば想起、なければ世界律へ寄せる
+        var msg = state.lionSolved
+          ? "ライオンの肉は、あんなに大きく滑って転がっていった……。"
+          : "この動物園では、何もかもが少しずつ傾いている……もっと大胆に。";
+        if (tiltUnsupported() && signFailCount >= 5) {
+          msg += "（看板を長押しして、左へ大きくドラッグしてみよう）";
+        }
+        el.signCaption.textContent = msg;
+      } else if (stage === 2) {
+        // 意思ヒント: 中途半端が弾かれるのは物理でなく「意思の明確さ」の試験、というニュアンス
+        el.signCaption.innerHTML =
+          'なかば傾けるだけでは、届かない。「まっすぐ読むつもりはない」——その意思が' +
+          '<span class="emph">明確に伝わったとき</span>、看板は真の姿を現す。';
+      } else {
+        // 第1段: 足りない系（試行の種類に応じて）
+        el.signCaption.textContent = partial
+          ? "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。"
+          : "少し傾けるくらいでは足りないようだ。";
       }
-      el.signCaption.textContent = msg;
+    }
+    // 看板の前で無操作が続いた場合は、探索へ誘導（ライオン等の伏線に気づかせる）
+    function showIdleHint() {
+      if (signHintStage > 0) return;
+      signHintStage = 1;
+      el.signCaption.textContent = "看板の前で立ち尽くしていても始まらない。園内を、見て回ろう。";
     }
 
     function updateSign(dt) {
       if (!signActive) return;
-      var tilt = leftTilt();
-      var meterPct = Math.min(100, (tilt / TILT_THRESHOLD) * 100);
+      var tilt = signLeftTilt(); // 相対傾き（開いた姿勢からの追加の左傾き）
       var armed = tilt >= TILT_THRESHOLD;
-      el.tiltmeter.classList.toggle("armed", armed);
       if (tilt > attemptMaxTilt) attemptMaxTilt = tilt;
+
+      // 半端な意思(おおよそ25〜55度)の間、詩がにじんで読みにくくなる（園が半端な覗き方を拒む）。
+      // まっすぐ(25度未満)で元通り、55度以上でにじみ0＝意思が伝わり真の姿へ。落下開始後は適用しない。
+      var falling = armed && holdMs >= HOLD_START;
+      if (falling) {
+        el.board.style.setProperty("--txtblur", "0px");
+      } else {
+        var bz = (tilt <= 25 || tilt >= TILT_THRESHOLD) ? 0 : (tilt - 25) / (TILT_THRESHOLD - 25);
+        el.board.style.setProperty("--txtblur", (bz * 3.2).toFixed(2) + "px");
+      }
 
       if (armed) {
         noticedTilt = true;
         holdMs += dt; // 傾けている間だけ蓄積（緩めても進捗は凍結し、続ければ再開）
-        el.board.classList.toggle("charging", holdMs < HOLD_START);
         if (holdMs >= HOLD_START) {
+          // 3秒経過: ぐらつき＋落下。p は 3→5秒で 0→1
           var p = Math.min(1, (holdMs - HOLD_START) / (HOLD_DONE - HOLD_START));
           el.board.classList.remove("charging");
           setBoardProgress(p);
+          // ぐらつき: 揺れ幅は進捗とともに増す（3秒直後から見えるよう下限0.35）
+          var amp = 0.35 + 0.65 * p;
+          el.board.style.setProperty("--wob", (Math.sin(performance.now() / 22) * amp).toFixed(3));
           if (holdMs >= HOLD_DONE) { solveSign(); return; }
           el.signCaption.textContent = "接着が外れていく……。";     // 進行中の雰囲気のみ
         } else {
+          // 〜3秒: 反応なし（ごく控えめな軋みのみ。ぐらつきはまだ出さない）
+          el.board.classList.add("charging");
+          el.board.style.setProperty("--wob", "0");
           el.signCaption.textContent = "看板が、みしり、と鳴いた。"; // 進行中の雰囲気のみ
         }
-        var fillByHold = Math.min(100, (holdMs / HOLD_DONE) * 100);
-        el.tiltmeterBar.style.width = Math.max(meterPct, fillByHold) + "%";
         return;
       }
 
-      // 傾きが閾値未満
+      // 傾きが閾値未満: ぐらつき停止（文字は現在位置で凍結）
       el.board.classList.remove("charging");
-      el.tiltmeterBar.style.width = meterPct + "%";
+      el.board.style.setProperty("--wob", "0");
 
       if (attemptMaxTilt > 10 && tilt < 10) {
-        // ひとつの試行が終わった（傾けていたが緩めた）
-        if (holdMs >= HOLD_START) {
-          // 途中まで落ちたのに緩めた → 失敗フィードバック（維持）
-          el.signCaption.textContent = "文字が途中で止まってしまった。落ち切るまで、傾け続ける必要がありそうだ。";
-        } else {
-          // 閾値に届かないまま終えた → 段階ヒントを後出し
-          signFailCount++;
-          showSignHint();
-        }
+        // ひとつの不完全な試行が終わった（弱い傾け or 途中で戻す）→ 段階ヒントを後出し
+        var partial = (holdMs >= HOLD_START); // 閾値は超えたが途中で戻した
+        signFailCount++;
+        showTiltHint(partial);
         attemptMaxTilt = 0;
       } else if (signHintStage === 0 && holdMs === 0 &&
                  (performance.now() - signOpenTime) > 15000) {
-        // しばらく手詰まりのままなら、時間ベースで第1ヒントを後出し
-        signFailCount = Math.max(signFailCount, 1);
-        showSignHint();
+        // 無操作が続く → 探索へ誘導（ライオン等の伏線に気づかせる）
+        showIdleHint();
       }
     }
 
@@ -1327,12 +1386,14 @@
           "translateX(-50%) rotate(" + exitAngle.toFixed(2) + "deg)";
       }
 
-      // 鳥: トゥーカンは傾きと逆に首を返して水平を保とうとする（最大±15度）
+      // 鳥: トゥーカンは園側の住人。傾いた世界に馴染み、常に少し傾いたまま、
+      // 端末の傾きと同じ向きにゆったり揺れる（水平を保とうとしない）。
       if (state.area === "bird" && !el.actor.hidden) {
-        var counter = Math.max(-15, Math.min(15, -t * 0.5));
-        el.actor.style.transform = "translateX(-50%) rotate(" + counter.toFixed(2) + "deg)";
+        var lean = 8 + Math.max(-12, Math.min(12, t * 0.5)); // 基準+8度＋同方向の揺れ
+        el.actor.style.transform = "translateX(-50%) rotate(" + lean.toFixed(2) + "deg)";
       }
-      // 爬虫類: トカゲは反応しない（「微動だにしない」の意図的な例外 → enterReptileの静的傾きのまま）
+      // 爬虫類: トカゲは園側の住人。斜面に平然と張りついたまま（enterReptileの静的傾き／無反応）
+      // 主人公・看板は「外から来た／外界とのIF」なので傾き反応の対象外＝常にまっすぐ（意図的）
     }
 
     function tick(ts) {
@@ -1408,6 +1469,7 @@
     // ---------- クリア ----------
     function doClear() {
       state.cleared = true; save();
+      markEverCleared(); // 以後この端末は「先人がいる」状態（走り書きが増える）
       A.track("game_clear", {});
       // 世界律モチーフ: クリア確定 → updateWorldReactions のバネが札を水平(0)へ戻す（カタンと）
       el.flash.classList.add("on");
@@ -1432,9 +1494,9 @@
       el.title.querySelector(".kicker").textContent = "CLEAR";
       el.title.querySelector("h1").innerHTML = 'GAME CLEAR<span class="sub">動物園脱出 成功</span>';
       el.title.querySelector("p").textContent =
-        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。";
+        "まっすぐ読んでいたら、出口にはたどり着けなかった。傾けて落ちた文字が、本当の道順を隠していた。この園でまっすぐなのは、看板と、わたしだけだった。結局、ずいぶん働かされた気がする。園は、次の夜もまた、誰かを招くのだろう。";
       el.titleBtns.innerHTML = "";
-      addTitleBtn("もう一度あそぶ", true, function () {
+      addTitleBtn("もういちど、招かれる", true, function () {
         state = defaultState(); save();
         el.title.querySelector(".kicker").textContent = "ESCAPE SAFARI";
         startGame(true);
@@ -1487,6 +1549,12 @@
     el.tapCatcher.addEventListener("click", function () {
       if (mode === "area") advanceDialogue();
     });
+    // メッセージボックス自体のタップでも送れる。
+    // ボタン（選択肢・「看板を調べる」等）は ev.stopPropagation() 済みなのでここには来ない。
+    // tap-catcher とは重ならない兄弟要素なので二重発火もしない。
+    el.textbox.addEventListener("click", function () {
+      if (mode === "area") advanceDialogue();
+    });
 
     el.btnMap.addEventListener("click", function () {
       if (mode === "area") openMap();
@@ -1503,7 +1571,7 @@
       if (ev.key === "Enter" || ev.key === " ") inspectFallenTag(ev);
     });
     el.btnReset.addEventListener("click", function () {
-      if (confirm("はじめからやり直しますか？（進行状況は消えます）")) {
+      if (confirm("この夜のことを忘れて、はじめからやり直しますか？（進行状況は消えます）")) {
         state = defaultState(); save();
         el.sign.classList.remove("show");
         showTitle();
@@ -1522,7 +1590,10 @@
       solveSign: solveSign,
       deliverMeat: deliverMeat,
       start: startGame,
-      setSim: function(v){ simTilt = v; }
+      setSim: function(v){ simTilt = v; },
+      // 検証用: 端末 gamma を直接注入し、相対傾き判定を確認できるようにする
+      setGamma: function(v){ onOrientation({ gamma: v }); },
+      signLeftTilt: function(){ return signLeftTilt(); }
     };
 
     // 世界律モチーフ: 落書きを1文字ずつ span 化し、後の文字ほど左下へ流す
