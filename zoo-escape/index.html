@@ -437,6 +437,11 @@
       /* 灯りに照らされた墨字っぽく、わずかなにじみとハイライト */
       text-shadow: 0 0.5px 0 rgba(255,225,170,0.35), 0 -0.5px 0.5px rgba(0,0,0,0.25);
     }
+    /* 解読後: 残った文字は少しだけ発光（＝落ちずに残った＝真の道順） */
+    #board-text .poem.solved span {
+      color: #3a2408;
+      text-shadow: 0 0 6px rgba(255,224,138,0.5), 0 0.5px 0 rgba(255,225,170,0.4);
+    }
     #board-text .scribble {
       margin-top: 0.12em;
       align-self: flex-start;    /* 板面の暗い左下側へ（右はランプで明るく溶ける） */
@@ -843,8 +848,26 @@
       // 4行＋落書きが板面に収まるようフォントを板面高さから決める
       bt.style.fontSize = (FACE.h * dH * 0.165) + "px";
     }
+    // 中央広場の引きで見える看板テキストを、解読状態に合わせて描き分ける。
+    // 未解読=詩の全文 / 解読済み=余分な文字が落ちた後（残った文字だけ）。
+    function renderBoardText() {
+      var poem = el.boardText.querySelector(".poem");
+      if (!poem) return;
+      var solved = !!state.signSolved;
+      poem.innerHTML = "";
+      SIGN_ROWS.forEach(function (row) {
+        var line = solved
+          ? row.keep.map(function (i) { return row.text[i]; }).join("")
+          : row.text;
+        var span = document.createElement("span");
+        span.textContent = line;
+        poem.appendChild(span);
+      });
+      poem.classList.toggle("solved", solved);
+    }
     function setBoardText(show) {
       el.boardText.classList.toggle("show", !!show);
+      renderBoardText(); // 解読状態に応じて全文／残った文字だけを描く
       // 2周目以降（クリア履歴あり）は、先人のもう一筆を表示
       var s2 = el.boardText.querySelector(".scribble2");
       if (s2) s2.classList.toggle("hidden", !everCleared);
