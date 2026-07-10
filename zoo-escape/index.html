@@ -1205,7 +1205,7 @@
         el.board.querySelectorAll('.tile[data-keep="1"]').forEach(function (k) {
           k.classList.add("solved-keep");
         });
-        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。……これは、誰かの見回りの順だろうか。";
+        el.signCaption.textContent = "余分な文字は、もう落ちてしまった。残った文字が、何かの順番に見える。";
         renderSignBtns([{ label: "看板から離れる", primary: true, act: closeSign }]);
         return;
       }
@@ -1257,7 +1257,7 @@
       el.board.style.setProperty("--txtblur", "0px"); // 解読後は常にくっきり
       var keeps = el.board.querySelectorAll('.tile[data-keep="1"]');
       keeps.forEach(function (k) { k.classList.add("solved-keep"); });
-      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。……誰かの、見回りの順だろうか。";
+      el.signCaption.textContent = "余分な文字が滑り落ちた。残った文字が、何かの順番に見える。";
       A.track("sign_solved", {});
       renderSignBtns([{ label: "看板から離れる", primary: true, act: function () {
         el.sign.classList.remove("show");
