@@ -377,6 +377,11 @@
       position: relative;
       height: 100vh;
       height: 100dvh;
+      /* --vvh is set from window.visualViewport so the interactive area tracks
+         the *actually visible* region. In X's in-app browser the bottom ~30%
+         is covered by X's own chrome; binding the room to the visible height
+         keeps the 3D scene and every hotspot above that chrome. */
+      height: var(--vvh, 100dvh);
       display: block;
       padding: clamp(18px, 4vw, 48px);
       overflow: hidden;
@@ -1346,12 +1351,12 @@
 
     @media (max-width: 680px) {
       .app {
-        height: 100dvh;
+        height: var(--vvh, 100dvh);
         padding: 0;
       }
 
       .control-room {
-        height: 100dvh;
+        height: var(--vvh, 100dvh);
         padding: 0;
       }
 
@@ -1484,6 +1489,37 @@
 
       .clear-word {
         font-size: clamp(1.7rem, 9vw, 2.3rem);
+      }
+    }
+
+    /* 縦が短いビューポート（例: 横長スマホ 852x600 や、下部UIで縮んだ縦600px）では
+       幅に関係なく制御装置ダイアログをコンパクト化し、床のヒビを覆う面積を減らす。
+       max-width:680px のモバイル指定は横長時（幅>680）に効かないため、高さ基準で
+       別途詰める。カメラのフレーミング補正（frameCamera）と併せてヒビの可視・
+       タップ可能を担保する。 */
+    @media (max-height: 640px) {
+      .device-panel {
+        bottom: max(8px, env(safe-area-inset-bottom));
+      }
+
+      .device-plate {
+        min-height: 0;
+        padding: 12px clamp(16px, 3vw, 26px);
+      }
+
+      .device-title {
+        margin-bottom: 8px;
+      }
+
+      .device-panel .device-copy {
+        max-height: 92px;
+        font-size: 0.92rem;
+        line-height: 1.5;
+      }
+
+      .activation-button {
+        min-height: 38px;
+        margin-top: 10px;
       }
     }
 
@@ -1815,16 +1851,18 @@
       });
       floorCrackHotspot.addEventListener("click", (event) => {
         event.stopPropagation();
+        state.floorCrackChecks += 1;
+        // 掛け軸のヒント（＝ブラウザの進む/戻る, browserHintSeen）を見た後は、
+        // ヒビを「初めて調べた時点」からメモ（スワイプ操作のヒント）導線を出す。
+        // 掛け軸ヒント未読の段階では従来どおりフレーバーのみ＝無条件開放にはせず、
+        // 「詰まった後に段階的後出し」の設計方針を維持する。
         if (state.browserHintSeen) {
-          state.floorCrackChecks += 1;
-          if (state.floorCrackChecks % 2 === 0) {
-            showFlavor("亀裂にメモが挟まっている。", {
-              title: "メモ",
-              actionLabel: "読む",
-              onAction: showSwipeHint
-            });
-            return;
-          }
+          showFlavor("亀裂にメモが挟まっている。", {
+            title: "メモ",
+            actionLabel: "読む",
+            onAction: showSwipeHint
+          });
+          return;
         }
         showFlavor("深い亀裂。奥は暗く、底が見えない。");
       });
@@ -2014,6 +2052,9 @@
         objective.textContent = "目標：赤青青";
         threeScene.setDeviceVisible(true);
         threeScene.setActivationReady(false);
+        // 制御装置パネルが下部に出た。パネルがヒビを覆わないようフレーミングを
+        // 再計算する（掛け軸→ヒビのヒント連鎖は device 出現後に起きるため必須）。
+        threeScene.reframe();
         updateHud();
       }
 
@@ -2091,6 +2132,8 @@
         deviceCopy.textContent = "脱出可能\n起動せよ";
         objective.textContent = "脱出経路：開放";
         threeScene.setActivationReady(true);
+        // 文言変化でパネル高さが変わり得るので再フレーム。
+        threeScene.reframe();
       }
 
       function showMemo() {
@@ -2198,7 +2241,7 @@
 
       function initThreeScene() {
         if (!window.THREE || !threeMount) {
-          return { setDeviceVisible() {}, setActivationReady() {}, setLamps() {} };
+          return { setDeviceVisible() {}, setActivationReady() {}, setLamps() {}, reframe() {} };
         }
 
         const scene = new THREE.Scene();
@@ -2208,6 +2251,15 @@
         const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 80);
         camera.position.set(0, 2.55, 8.8);
         camera.lookAt(0, 1.08, -0.2);
+
+        // 実際に見えている領域（visualViewport）を追従するための現在値。
+        // renderer サイズ・カメラのフレーミング・ホットスポット投影すべてで
+        // window.innerHeight ではなくこの値を使い、X アプリ内ブラウザの下部UIに
+        // 隠れない可視領域だけを使う。
+        let viewW = Math.max(1, window.innerWidth || 1);
+        let viewH = Math.max(1, window.innerHeight || 1);
+        let lastVisH = -1;
+        let lastVW = -1;
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
@@ -2249,15 +2301,87 @@
         loadLampModels(lampObjects);
         if (device3d) device3d.group.visible = false;
 
+        // ヒビ（floorCrack3d.target）のワールド座標を現在のカメラで投影し、
+        // 画面上端からのピクセルY（可視高さ height 基準）を返す。
+        function projectScreenY(target, height) {
+          if (!target) return 0;
+          const v = new THREE.Vector3();
+          target.getWorldPosition(v);
+          v.project(camera);
+          return (1 - v.y) * height * 0.5;
+        }
+
+        // 画面下部を占有し、ヒビを覆ってはならないオーバーレイ（制御装置パネル）の
+        // 上端Y(px)を返す。無ければ height を返す。
+        // 重要: ヒントの連鎖（掛け軸→ヒビのメモ）は deviceRevealed 後にしか
+        // 起きないため、制御装置パネル表示中もヒビは必ず発見可能である必要がある。
+        // 注: initThreeScene() は const state の宣言より前に呼ばれる（初回 resize が
+        // 走る）。ここで state を参照すると TDZ エラーになるため、パネルの表示判定は
+        // is-hidden クラスのみで行う（初期状態は is-hidden 付きで height を返す）。
+        function overlayTopY(height) {
+          if (devicePanel && !devicePanel.classList.contains("is-hidden")) {
+            const r = devicePanel.getBoundingClientRect();
+            if (Number.isFinite(r.top)) return r.top;
+          }
+          return height;
+        }
+
+        function frameCamera(width, height) {
+          const compact = width < 720;
+          const aspect = width / height;
+          camera.aspect = aspect;
+          let camZ = compact ? 9.8 : 8.8;
+          let camY = compact ? 2.85 : 2.55;
+          const lookY = 1.08;
+          // セーフゾーン設計: 可視領域が縦に狭くなる（＝可視アスペクトが横長化
+          // する）ほどカメラを後方へ引き、わずかに持ち上げる。これにより床の
+          // ヒビ（最下部にある進行必須オブジェクト）が、可視高さが通常の 7 割
+          // 程度まで縮んでも画面内に収まる。オブジェクト座標は動かさず、
+          // カメラフレーミングだけで解決して世界観を保つ。
+          const refAspect = compact ? 0.52 : 0.9;
+          const shorten = Math.max(0, aspect - refAspect);
+          camZ += shorten * (compact ? 12 : 8);
+          camY += shorten * 2.0;
+          camera.position.set(0, camY, camZ);
+          camera.lookAt(0, lookY, -0.2);
+          camera.updateProjectionMatrix();
+
+          // 制御装置パネル等の下部固定UIが出ている間、そのパネルがヒビを覆わない
+          // よう、ヒビの投影Yがパネル上端より上に来るまでカメラを引き＋持ち上げる
+          // （注視点は据え置き＝より俯瞰にして床のヒビを画面上方へ押し上げる）。
+          // X のUI被りとは別に、自前ダイアログによる被りをここで解消する。
+          // マージンはヒビのタップ領域（ホットスポットの半径 ≈ 最大52px）を
+          // 上回らせ、ヒビの当たり判定の下端までパネルに掛からないようにする。
+          const target = floorCrack3d && floorCrack3d.target;
+          const limitY = overlayTopY(height) - Math.max(64, height * 0.08);
+          if (target && limitY < height) {
+            for (let i = 0; i < 48; i += 1) {
+              if (projectScreenY(target, height) <= limitY) break;
+              camera.position.z += 0.6;
+              camera.position.y += 0.24;
+              camera.lookAt(0, lookY, -0.2);
+              camera.updateProjectionMatrix();
+            }
+          }
+        }
+
         function resize() {
+          const vv = window.visualViewport;
+          const visH = Math.max(1, Math.round(vv ? vv.height : (window.innerHeight || threeMount.clientHeight)));
+          const vw = Math.round(window.innerWidth || threeMount.clientWidth || 1);
+          if (visH === lastVisH && vw === lastVW) return;
+          lastVisH = visH;
+          lastVW = vw;
+          // 可視高さを CSS 変数へ反映（.control-room / .app が var(--vvh) を使う）。
+          // この直後の getBoundingClientRect() が同期リフローを起こすため、
+          // threeMount は新しい高さで測定される。
+          document.documentElement.style.setProperty("--vvh", `${visH}px`);
           const rect = threeMount.getBoundingClientRect();
           const width = Math.max(1, rect.width);
           const height = Math.max(1, rect.height);
-          camera.aspect = width / height;
-          camera.position.z = width < 720 ? 9.8 : 8.8;
-          camera.position.y = width < 720 ? 2.85 : 2.55;
-          camera.lookAt(0, 1.08, -0.2);
-          camera.updateProjectionMatrix();
+          viewW = width;
+          viewH = height;
+          frameCamera(width, height);
           if (terminal && terminal.monitor) {
             const compact = width < 520;
             terminal.monitor.position.set(compact ? 1.72 : 3.55, 0.62, compact ? -3.28 : -3.55);
@@ -2284,8 +2408,8 @@
                 lamp.light.intensity = lamp.light.userData.baseIntensity + Math.sin(elapsed * 7 + index) * 0.035;
               }
             });
-            const compact = (window.innerWidth || threeMount.clientWidth) < 720;
-            const heightBase = window.innerHeight || threeMount.clientHeight;
+            const compact = viewW < 720;
+            const heightBase = viewH;
             projectHotspot(displayHotspot, terminal && terminal.screen, 0.078, 0.052);
             // 掛け軸（紙 1.55x2.62 world units）は画面上で 幅≈14vw / 高さ≈22-24vh
             // に見える。旧値 (0.16, 0.24, max 180x150) はモバイルで 62x94px と
@@ -2363,8 +2487,8 @@
           target.getWorldPosition(center);
           center.project(camera);
           const parentRect = hotspot.offsetParent.getBoundingClientRect();
-          const widthBase = window.innerWidth || parentRect.width;
-          const heightBase = window.innerHeight || parentRect.height;
+          const widthBase = viewW || parentRect.width;
+          const heightBase = viewH || parentRect.height;
           const x = (center.x + 1) * widthBase * 0.5 - parentRect.left;
           const y = (1 - center.y) * heightBase * 0.5 - parentRect.top;
           const width = Math.max(44, Math.min(maxWidth, widthBase * widthScale));
@@ -2380,12 +2504,25 @@
         }
 
         window.addEventListener("resize", resize);
+        // X アプリ内ブラウザなどで下部UIが被さる／消えると innerHeight は変わらず
+        // visualViewport.height だけが変化することがある。visualViewport の
+        // resize / scroll を購読して可視領域の変化に追従する。
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener("resize", resize);
+          window.visualViewport.addEventListener("scroll", resize);
+        }
         resize();
         animate();
 
         return {
           setDeviceVisible(visible) {
             if (device3d) device3d.group.visible = visible;
+          },
+          // 下部ダイアログの表示/非表示・文言変化でパネル高さが変わった時に、
+          // 現在の可視サイズでフレーミングを再計算する（resize のガードを介さず
+          // 必ず再フレームする）。
+          reframe() {
+            frameCamera(viewW, viewH);
           },
           setActivationReady(ready) {
             if (!activationObject.button || !activationObject.light) return;
