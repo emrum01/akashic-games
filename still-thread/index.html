@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b0f">
+  <title>流れないスレ｜SAFARI オカルト板</title>
+  <meta name="description" content="スクロールしても画面に貼りついて動かない黒いシミ。流すほど、それだけが際立つ。留まって読む、3〜5分のブラウザ謎解き。">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="流れないスレ｜SAFARI オカルト板">
+  <meta property="og:description" content="スクロールしても画面に貼りついて動かない黒いシミ。流すほど、それだけが際立つ。留まって読む、3〜5分のブラウザ謎解き。">
+  <meta property="og:image" content="https://games.escape-safari.com/still-thread/assets/ogp.jpg">
+  <meta property="og:image:secure_url" content="https://games.escape-safari.com/still-thread/assets/ogp.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://games.escape-safari.com/still-thread/">
+  <meta property="og:site_name" content="SAFARI オカルト板">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="流れないスレ｜SAFARI オカルト板">
+  <meta name="twitter:description" content="スクロールしても画面に貼りついて動かない黒いシミ。流すほど、それだけが際立つ。">
+  <meta name="twitter:image" content="https://games.escape-safari.com/still-thread/assets/ogp.jpg">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23080b0f'/%3E%3Cellipse cx='32' cy='30' rx='13' ry='16' fill='%23cfd8dc'/%3E%3Cellipse cx='27' cy='24' rx='4' ry='6' fill='%23080b0f'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --app-height: 100vh;
+      --bg-0: #080b0f;
+      --bg-1: #0d1319;
+      --board: #0f161d;
+      --line: #1c2731;
+      --ink-muted: #8894a0;
+      --ink-dim: #79838f;    /* AA(4.5:1)未達を回避し実測5.12:1へ。--ink-muted より一段暗く階層維持 */
+      --ink-bright: #e9f0f4;
+      --stain: #3b434c;      /* 未完成のシミ（黒い汚れに見える） */
+      --stain-glow: #eef5f8; /* 完成した墨字 */
+      --accent: #d9455f;     /* CTA・囮の脈動だけ高彩度（周囲はセカンダリ） */
+      --accent-soft: #6b8794;
+      --safe-shimi: 32%;     /* 固定シミの縦位置（上部70%セーフゾーン内） */
+      --flow-blur: 0px;
+      --flow-fade: 0;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-0);
+      color: var(--ink-muted);
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior-y: none;
+      touch-action: manipulation; /* ダブルタップズーム等の遅延・誤爆を抑止 */
+    }
+
+    /* プレイ面はテキスト選択・長押しコールアウトを抑止（press-and-hold と競合させない） */
+    #thread, .post, .glyph, #fixed-layer, .shimi-row, .ink-row, #decoy {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    /* ただしオーバーレイの回収コピーは選択可能を維持 */
+    .overlay p, .overlay h1, .overlay h2 {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    body { min-height: 100dvh; }
+
+    /* ===== 背景の水流（速度連動でスクロールに応じ流れる） ===== */
+    #water-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(120% 80% at 50% -10%, #12202b 0%, transparent 55%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 60%, #05070a 100%),
+        /* 画像があれば重ねる。無くても上のグラデで成立 */
+        var(--bg-image, none);
+      background-size: cover, cover, cover;
+      background-position: center, center, center 0px;
+    }
+    #water-bg::after {
+      content: "";
+      position: absolute;
+      inset: -20% 0;
+      background: repeating-linear-gradient(
+        180deg,
+        rgba(120, 150, 170, 0.05) 0px,
+        rgba(120, 150, 170, 0.0) 3px,
+        rgba(120, 150, 170, 0.0) 22px,
+        rgba(120, 150, 170, 0.05) 26px
+      );
+      transform: translateY(var(--water-y, 0px));
+      opacity: var(--water-strength, 0.4);
+    }
+
+    /* ===== スレッド本体（縦スクロール空間） ===== */
+    .thread {
+      position: relative;
+      z-index: 1;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 14px calc(64px + env(safe-area-inset-bottom));
+    }
+    .thread-head {
+      padding: 14px 4px 10px;
+      border-bottom: 1px solid var(--line);
+      color: var(--ink-muted);
+      font-size: 12px;
+      letter-spacing: .06em;
+    }
+    .thread-head b { color: var(--ink-muted); }
+
+    /* 流れる投稿。速度連動で blur / 脱色（シミは別レイヤなので影響しない） */
+    .post {
+      position: relative;
+      margin: 12px 0;
+      padding: 10px 12px;
+      background: rgba(16, 22, 29, 0.72);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--ink-muted);
+      filter: blur(var(--flow-blur));
+      opacity: calc(1 - var(--flow-fade) * 0.55);
+      transition: filter .12s linear;
+    }
+    .post .meta {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-bottom: 4px;
+    }
+    .post .no { color: var(--accent-soft); }
+    .post .name { color: #7fa38d; }
+
+    /* 例外＝先人の固定投稿。流れず・滲まず、常に鮮明 */
+    .post.relic {
+      filter: none !important;
+      opacity: 1 !important;
+      background: rgba(30, 26, 20, 0.88);
+      border-color: #4a3f2c;
+      color: #d8cbb0;
+      box-shadow: 0 0 0 1px rgba(120, 96, 54, 0.25), inset 0 0 24px rgba(0,0,0,0.5);
+    }
+    .post.relic .name { color: #c9a86a; }
+    .post.relic .relic-line {
+      font-size: 16px;
+      letter-spacing: .12em;
+      color: #efe6cf;
+    }
+
+    /* 流れる側の墨（補完墨）の行。中身は JS が生成 */
+    .ink-row {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: clamp(6px, 2.2vw, 14px);
+      margin: 26px 0;
+      min-height: 90px;
+      filter: blur(var(--flow-blur));
+      transition: filter .12s linear;
+    }
+    .ink-row[hidden] { display: none; }
+
+    .spacer { height: 42vh; }
+    .spacer.tall { height: 78vh; }
+
+    /* フッター誘い（囮）。通常はスレ末尾。本番完成後は choice-layer に浮上 */
+    .thread-footer {
+      margin: 30px 0 10px;
+      text-align: center;
+      color: var(--ink-muted);
+      font-size: 12px;
+    }
+
+    /* ===== 固定層（シミ）: visualViewport 追従で上部70%に貼りつく ===== */
+    #fixed-layer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: var(--app-height); /* top:% を可視高さ基準で解決させる（シミを32%線に固定） */
+      z-index: 5;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .shimi-row {
+      position: absolute;
+      top: var(--safe-shimi);
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: clamp(6px, 2.2vw, 14px);
+      width: min(94vw, 600px);
+    }
+    /* 完成時、シミ行がタップ対象（本物）になる */
+    .shimi-row.touchable { pointer-events: auto; cursor: pointer; }
+    .shimi-row.touchable::after {
+      content: "";
+      position: absolute;
+      inset: -22px -18px;
+      border-radius: 12px;
+    }
+
+    /* 1文字ぶんのグリフ。fixed=左片割れ / ink=右片割れ を clip-path で分割 */
+    .glyph {
+      position: relative;
+      display: inline-block;
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+      font-weight: 700;
+      line-height: 1;
+      font-size: clamp(42px, 13vw, 66px);
+      width: 0.92em;
+      height: 1.05em;
+    }
+    .glyph span {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* 固定側（シミ）左片割れ：黒い汚れに見える。ブラーは絶対に掛けない */
+    .shimi-char span {
+      color: var(--stain);
+      clip-path: polygon(0 0, 56% 0, 44% 100%, 0 100%);
+      text-shadow: 0 0 2px rgba(0,0,0,0.6);
+      transition: color .5s ease, clip-path .5s ease, text-shadow .5s ease, transform .5s ease;
+      filter: none;
+    }
+    /* 流れる側（補完墨）右片割れ */
+    .ink-char span {
+      color: #2b3138;
+      clip-path: polygon(56% 0, 100% 0, 100% 100%, 44% 100%);
+      transition: color .3s ease, opacity .3s ease;
+    }
+    /* 近接して静止＝結合の予兆（微発光の脈動） */
+    .shimi-char.near span { color: #6b7681; }
+    /* 練習で「重なりかけて離脱」した瞬間、シミの脈動を一度だけ強める（手触りFB・"止まれ"とは言わない） */
+    .shimi-row.brush .shimi-char:not(.done) span {
+      animation: brushOnce 1.1s ease-out 1;
+    }
+    @keyframes brushOnce {
+      0%   { color: var(--stain); text-shadow: 0 0 2px rgba(0,0,0,0.6); }
+      40%  { color: #9aa6b0; text-shadow: 0 0 14px rgba(150,180,200,0.7); }
+      100% { color: var(--stain); text-shadow: 0 0 2px rgba(0,0,0,0.6); }
+    }
+    /* 完成：片割れが晴れて全文字が鮮明な墨字に結合し微かに発光 */
+    .shimi-char.done span {
+      color: var(--stain-glow);
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+      text-shadow: 0 0 10px rgba(190, 220, 235, 0.55), 0 0 2px rgba(255,255,255,0.7);
+    }
+    .ink-char.done span { color: var(--stain-glow); opacity: 0; }
+
+    /* シミの質感：sumi_ink.png を mask にして「きれいな半文字」を「濡れた汚れ」に見せる。
+       画像ロード成功時のみ html.ink-masked が付く（404/未対応時は素の表示にフォールバック）。 */
+    html.ink-masked .shimi-char span,
+    html.ink-masked .ink-char.done span {
+      -webkit-mask-image: url("./assets/sumi_ink.png");
+      mask-image: url("./assets/sumi_ink.png");
+      -webkit-mask-size: 180% 180%;
+      mask-size: 180% 180%;
+      -webkit-mask-position: center;
+      mask-position: center;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      -webkit-mask-mode: alpha;
+      mask-mode: alpha;
+    }
+    /* 完成した墨字は粗く大きめのマスクで濡れた縁だけ残し、字形の可読性を担保 */
+    html.ink-masked .shimi-char.done span {
+      -webkit-mask-size: 320% 320%;
+      mask-size: 320% 320%;
+    }
+
+    .shimi-row.pulse .shimi-char.done span {
+      animation: breathe 1.9s ease-in-out infinite;
+    }
+    @keyframes breathe {
+      0%, 100% { text-shadow: 0 0 8px rgba(190, 220, 235, 0.4), 0 0 2px rgba(255,255,255,0.6); }
+      50% { text-shadow: 0 0 18px rgba(190, 220, 235, 0.8), 0 0 4px rgba(255,255,255,0.9); }
+    }
+
+    /* 最終選択への遷移時、完成文字へ一度だけ縁の微光が走り・わずかに浮く（説明テキストは足さない） */
+    .shimi-row.reveal-once .shimi-char.done span {
+      animation: revealOnce 0.9s ease-out 1;
+    }
+    @keyframes revealOnce {
+      0%   { transform: translateY(0); text-shadow: 0 0 8px rgba(190,220,235,0.4), 0 0 2px rgba(255,255,255,0.6); }
+      35%  { transform: translateY(-3px); text-shadow: 0 0 26px rgba(210,235,248,0.95), 0 0 6px rgba(255,255,255,1); }
+      100% { transform: translateY(0); text-shadow: 0 0 8px rgba(190,220,235,0.4), 0 0 2px rgba(255,255,255,0.6); }
+    }
+
+    /* 保持リング（本番の press-and-hold の進捗） */
+    #hold-ring {
+      position: absolute;
+      top: var(--safe-shimi);
+      left: 50%;
+      width: 78px;
+      height: 78px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .2s ease;
+    }
+    #hold-ring.on { opacity: 1; }
+    #hold-ring circle { fill: none; stroke-width: 3; }
+    #hold-ring .track { stroke: rgba(120,150,170,0.25); }
+    #hold-ring .fill {
+      stroke: var(--accent);
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: center;
+    }
+
+    /* ささやき（詰み検知後のヒント・失敗フィードバック）。上部70%内 */
+    #whisper {
+      position: absolute;
+      top: 46%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(88vw, 460px);
+      text-align: center;
+      color: var(--accent-soft);
+      font-size: 15px;
+      letter-spacing: .08em;
+      text-shadow: 0 0 12px rgba(0,0,0,0.9);
+      opacity: 0;
+      transition: opacity .8s ease;
+      pointer-events: none;
+    }
+    #whisper.show { opacity: 1; }
+
+    /* ===== オーバーレイ（タイトル・選択・クリア・失敗） ===== */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 6vh 22px calc(8vh + env(safe-area-inset-bottom));
+      background: radial-gradient(120% 90% at 50% 30%, rgba(8,11,15,0.86), rgba(4,6,9,0.97));
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+      overflow-y: auto;
+    }
+    .overlay[hidden] { display: none; }
+
+    .kicker {
+      font-size: 11px;
+      letter-spacing: .28em;
+      color: var(--ink-dim);
+      margin-bottom: 18px;
+    }
+    .overlay h1, .overlay h2 {
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      color: var(--ink-bright);
+      font-weight: 700;
+      line-height: 1.3;
+      margin: 0 0 16px;
+    }
+    #title-screen h1 { font-size: clamp(34px, 12vw, 58px); letter-spacing: .06em; }
+    .overlay p { margin: 8px 0; line-height: 1.8; font-size: 15px; color: var(--ink-muted); }
+    .overlay p.lede { color: var(--ink-dim); font-size: 14px; letter-spacing: .04em; }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: rgba(20, 28, 36, 0.9);
+      color: var(--ink-bright);
+      font: inherit;
+      font-size: 16px;
+      padding: 14px 26px;
+      min-height: 48px;
+      min-width: 200px;
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: .04em;
+      margin-top: 14px;
+      transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn--bright {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-size: 19px;      /* 大テキスト扱いで 3:1 コントラスト基準に載せる（accent色は変えない） */
+      font-weight: 700;
+      box-shadow: 0 6px 22px rgba(217, 69, 95, 0.35);
+    }
+    .btn--ghost {
+      background: transparent;
+      border-color: transparent;
+      color: var(--ink-dim);
+      min-width: auto;
+      min-height: 44px;
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    /* キーボードフォーカスの可視化 */
+    .btn:focus-visible,
+    #shimi-row:focus-visible,
+    #decoy:focus-visible {
+      outline: 2px solid var(--stain-glow);
+      outline-offset: 3px;
+    }
+
+    /* 導入のシミのプレビュー（タイトルに置く「動かない黒い点」） */
+    .title-stain {
+      width: 26px; height: 34px;
+      margin: 0 auto 22px;
+      border-radius: 48% 52% 45% 55% / 55% 48% 52% 45%;
+      background: radial-gradient(circle at 40% 35%, #454b52, #24282d 70%);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+    }
+
+    /* ===== 最終選択レイヤ（囮 / 本物 を分離配置。互いを覆わない） ===== */
+    #choice-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 12;
+      pointer-events: none;
+    }
+    #choice-layer[hidden] { display: none; }
+    /* 囮の「次スレへ ▶」。シミ(32%)と重ならぬよう下寄り(上部70%内の58%)に浮上 */
+    #decoy {
+      position: absolute;
+      top: 58%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+      appearance: none;
+      border: 1px solid rgba(217, 69, 95, 0.55);
+      background: rgba(24, 12, 16, 0.9);
+      color: #f2b9c3;
+      font: inherit;
+      font-size: 16px;
+      letter-spacing: .06em;
+      padding: 13px 30px;
+      min-height: 48px;
+      border-radius: 999px;
+      cursor: pointer;
+      animation: decoyPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes decoyPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(217,69,95,0.0); transform: translate(-50%,-50%) scale(1); }
+      50% { box-shadow: 0 0 26px 2px rgba(217,69,95,0.45); transform: translate(-50%,-50%) scale(1.04); }
+    }
+
+    /* ===== デバッグ HUD ===== */
+    #debug-hud {
+      position: fixed;
+      left: 6px;
+      bottom: 6px;
+      z-index: 50;
+      max-width: 46vw;
+      font: 11px/1.45 ui-monospace, Menlo, monospace;
+      color: #9ff0c0;
+      background: rgba(0,0,0,0.72);
+      padding: 6px 8px;
+      border-radius: 4px;
+      white-space: pre;
+      pointer-events: none;
+    }
+    #debug-hud[hidden] { display: none; }
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); border: 0;
+    }
+
+    /* ===== reduced-motion: ブラー/ドリフト/水流を軽減 ===== */
+    @media (prefers-reduced-motion: reduce) {
+      .post, .ink-row { filter: none !important; transition: none; }
+      #water-bg::after { animation: none; opacity: 0.15; }
+      .shimi-row.pulse .shimi-char.done span,
+      .shimi-row.reveal-once .shimi-char.done span,
+      .shimi-row.brush .shimi-char:not(.done) span,
+      #decoy { animation: none; }
+      .title-stain { box-shadow: none; }
+    }
+
+    /* 縦が短い環境（600px 等）でオーバーレイを圧縮し、進行必須を上部70%に保つ */
+    @media (max-height: 640px) {
+      .overlay { padding-top: 4vh; padding-bottom: 4vh; }
+      .overlay p { font-size: 14px; margin: 6px 0; }
+      #title-screen h1 { font-size: clamp(30px, 10vh, 46px); }
+      :root { --safe-shimi: 30%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="water-bg" aria-hidden="true"></div>
+
+  <!-- 固定層：スクロールに追従せず上部70%に貼りつくシミ -->
+  <div id="fixed-layer" aria-hidden="false">
+    <div id="shimi-row" class="shimi-row" role="group" aria-label="画面に貼りついた黒いシミ"></div>
+    <svg id="hold-ring" viewBox="0 0 78 78" aria-hidden="true">
+      <circle class="track" cx="39" cy="39" r="35"></circle>
+      <circle class="fill" cx="39" cy="39" r="35" pathLength="100"
+              stroke-dasharray="100" stroke-dashoffset="100"></circle>
+    </svg>
+    <p id="whisper" role="status" aria-live="polite"></p>
+  </div>
+
+  <!-- スレッド本体（1本の連続スクロール空間） -->
+  <main id="thread" class="thread" aria-label="SAFARI オカルト板 スレッド">
+    <div class="thread-head">
+      <div><b>【怪異】画面に動かない黒い点があるスレ 3</b></div>
+      <div>SAFARI オカルト板 ／ 全レス表示</div>
+    </div>
+
+    <article class="post"><div class="meta"><span class="no">1</span><span class="name">イッチ</span></div>
+      画面に、動かない黒い点がある。ゴミ……？　拭いても取れん。スレ立てとく。</article>
+    <article class="post"><div class="meta"><span class="no">2</span><span class="name">名無し</span></div>
+      え、どこ</article>
+    <article class="post"><div class="meta"><span class="no">3</span><span class="name">凸ニキ</span></div>
+      画面よごれてね？</article>
+    <article class="post"><div class="meta"><span class="no">4</span><span class="name">超絶ジジイ</span></div>
+      儂のにも黒い点があるぞ</article>
+    <article class="post"><div class="meta"><span class="no">5</span><span class="name">名無し</span></div>
+      みんなに見えてるならただの汚れやろ</article>
+    <article class="post"><div class="meta"><span class="no">6</span><span class="name">怪異好きオネーサン</span></div>
+      ……この板、流すと変じゃない？</article>
+
+    <div class="spacer"></div>
+
+    <!-- 練習領域：1〜2片が完成しやすい地点。止まるだけで完成（伏線） -->
+    <div id="practice-ink" class="ink-row" role="group" aria-label="流れてくる墨"></div>
+
+    <article class="post"><div class="meta"><span class="no">7</span><span class="name">名無し</span></div>
+      さっき一瞬、点が字みたいに見えた気がする</article>
+    <article class="post"><div class="meta"><span class="no">8</span><span class="name">凸ニキ</span></div>
+      気のせいやろ。スクロールしすぎ</article>
+
+    <div class="spacer"></div>
+
+    <!-- 例外：先人の固定投稿（流れず・滲まず固定） -->
+    <article class="post relic"><div class="meta"><span class="no">???</span><span class="name">（読めない名前）</span></div>
+      <div class="relic-line">それは よごれじゃない</div></article>
+
+    <article class="post"><div class="meta"><span class="no">9</span><span class="name">超絶ジジイ</span></div>
+      今の誰の書き込みじゃ。日付が無いぞ</article>
+    <article class="post"><div class="meta"><span class="no">10</span><span class="name">怪異好きオネーサン</span></div>
+      速く流すほど、点だけ、はっきりしてくる……</article>
+
+    <div class="spacer tall"></div>
+
+    <!-- 本番領域：4片すべてが重なる唯一の地点。下方向ドリフトあり -->
+    <div id="main-ink" class="ink-row" role="group" aria-label="流れてくる墨" hidden></div>
+
+    <article class="post"><div class="meta"><span class="no">11</span><span class="name">名無し</span></div>
+      なんか下に引っぱられる。勝手にスクロールしてる？</article>
+    <article class="post"><div class="meta"><span class="no">12</span><span class="name">イッチ</span></div>
+      止まれない。ずっと次へ、次へ、行かされてる</article>
+
+    <!-- 本番の墨を上部70%(32%線)まで確実に引き上げられるよう、どのビューポート高でも足りる余白 -->
+    <div class="spacer tall"></div>
+
+    <div class="thread-footer" id="footer-slot">
+      <span>――このスレは間もなく過去ログへ流れます――</span>
+    </div>
+  </main>
+
+  <!-- 最終選択：囮の「次スレへ」＋ 本物（シミ行はタップ可能に切替） -->
+  <div id="choice-layer" hidden>
+    <button id="decoy" type="button">次スレへ ▶</button>
+    <span class="sr-only" id="choice-hint">画面上のふたつのうち、どちらかに触れてください。</span>
+  </div>
+
+  <!-- タイトル／導入 -->
+  <section id="title-screen" class="overlay" aria-labelledby="title-h">
+    <div class="title-stain" aria-hidden="true"></div>
+    <p class="kicker">SAFARI OCCULT BOARD</p>
+    <h1 id="title-h">流れない<br>スレ</h1>
+    <p class="lede">画面に、動かない黒い点がある。ゴミ……？</p>
+    <button id="start-btn" class="btn btn--bright" type="button">スレをひらく</button>
+  </section>
+
+  <!-- クリア -->
+  <section id="clear-screen" class="overlay" aria-labelledby="clear-h" hidden>
+    <p class="kicker">STILL</p>
+    <h2 id="clear-h">ながれるな</h2>
+    <p id="clear-1">流れていたものは、みんな、うそだった。</p>
+    <p id="clear-2">留まっていたものだけが、ほんとうだった。</p>
+    <p class="lede" id="clear-3">このスレも、いずれ流れて消える。——でも、あなたは留まった。</p>
+    <p class="lede" style="margin-top:20px">この板をつくったチームは、店舗開催の謎解き公演もひらいています。</p>
+    <a id="lp-link" class="btn btn--bright" href="https://invite.escape-safari.com/bookcafe/?utm_source=webnazo&utm_medium=game&utm_campaign=weekly_webnazo_still_thread&utm_content=clear_card" target="_blank" rel="noopener">公演情報を見る</a>
+    <button id="share-btn" class="btn" type="button">結果をシェア</button>
+    <button id="restart-btn" class="btn btn--ghost" type="button">もう一度ひらく</button>
+  </section>
+
+  <!-- ソフト失敗（次スレへを押した時） -->
+  <section id="softfail-screen" class="overlay" aria-labelledby="softfail-h" hidden>
+    <p class="kicker">――</p>
+    <h2 id="softfail-h" style="font-size:26px">……流してしまった。</h2>
+    <p class="lede" id="softfail-void">次スレは、空だった。</p>
+    <button id="softfail-back" class="btn" type="button">戻る</button>
+  </section>
+
+  <output id="debug-hud" hidden></output>
+
+  <script src="./analytics.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    /* ============================================================
+     * 流れないスレ — DOM/CSS ベース単体実装
+     * 芯: 固定シミ(position:fixed) と 流れる補完墨(scroll flow) の重なり＋静止で完成
+     * ============================================================ */
+
+    var params = new URLSearchParams(location.search);
+    var DEBUG = params.has("debug") && params.get("debug") !== "0";
+    var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    var A = window.AkashicAnalytics || { track: function () {} };
+
+    // ---- 完成語（設計: 練習=いる / 本番=ながれるな） ----
+    var WORDS = {
+      practice: ["い", "る"],
+      main: ["な", "が", "れ", "る", "な"]
+    };
+
+    // ---- DOM 参照 ----
+    var el = {
+      fixedLayer: document.getElementById("fixed-layer"),
+      shimiRow: document.getElementById("shimi-row"),
+      holdRing: document.getElementById("hold-ring"),
+      holdFill: document.querySelector("#hold-ring .fill"),
+      whisper: document.getElementById("whisper"),
+      water: document.getElementById("water-bg"),
+      thread: document.getElementById("thread"),
+      practiceInk: document.getElementById("practice-ink"),
+      mainInk: document.getElementById("main-ink"),
+      choiceLayer: document.getElementById("choice-layer"),
+      decoy: document.getElementById("decoy"),
+      title: document.getElementById("title-screen"),
+      clear: document.getElementById("clear-screen"),
+      softfail: document.getElementById("softfail-screen"),
+      debug: document.getElementById("debug-hud"),
+      startBtn: document.getElementById("start-btn"),
+      restartBtn: document.getElementById("restart-btn"),
+      shareBtn: document.getElementById("share-btn"),
+      softfailBack: document.getElementById("softfail-back")
+    };
+
+    // ---- 状態 ----
+    var state = {
+      phase: "title",        // title | practice | main | choice | clear | softfail
+      practiceDone: false,
+      mainDone: false,
+      fragments: [],         // アクティブ語の各片完成フラグ
+      holdMs: 0,
+      pressing: false,
+      scrollY: 0,
+      velocity: 0,           // px/s
+      still: false,
+      aligned: false,
+      err: 0,
+      // 詰み検知
+      startT: 0,
+      fastPass: 0,
+      lastZoneSide: 0,
+      decoyCount: 0,
+      hintFlags: { fast: false, invert: false, mainHelp: false, decoy: false, holdHint: false },
+      mainEnterT: 0,
+      nearStillLatched: false, // 練習で整列窓に近く静止した状態を掴んでいるか
+      brushShown: false        // 「重なりかけて離脱」FBを既に出したか（1回だけ）
+    };
+
+    // ---- パラメータ（世界内の意味付き数値） ----
+    var HOLD_TARGET = 2000;        // 保持2秒＝留まる意思の証明
+    var TOL_PRACTICE = 64;         // 練習は許容誤差広め
+    var TOL_MAIN = 30;             // 本番は狭く（ただし snap 補助あり）
+    var STILL_V = 26;              // これ未満を「静止」とみなす px/s
+    var DRIFT = reduceMotion ? 0 : 46; // 本番の下方向ドリフト px/s（怪異が流す）。reduced では 0
+    var MAX_BLUR = reduceMotion ? 0 : 6;
+
+    /* ---------------- グリフ生成 ---------------- */
+    function buildRow(container, chars, kind) {
+      container.innerHTML = "";
+      state.fragments = chars.map(function () { return false; });
+      chars.forEach(function (ch, i) {
+        var g = document.createElement("span");
+        g.className = "glyph " + (kind === "shimi" ? "shimi-char" : "ink-char");
+        g.dataset.idx = String(i);
+        var s = document.createElement("span");
+        s.textContent = ch;
+        g.appendChild(s);
+        container.appendChild(g);
+      });
+    }
+
+    function setActiveWord(word) {
+      var chars = WORDS[word];
+      buildRow(el.shimiRow, chars, "shimi");
+      // 流れる側の対応する ink 行も同語で生成
+      if (word === "practice") buildRow(el.practiceInk, chars, "ink");
+      if (word === "main") buildRow(el.mainInk, chars, "ink");
+    }
+
+    function activeInk() {
+      if (state.phase === "practice") return el.practiceInk;
+      if (state.phase === "main" || state.phase === "choice") return el.mainInk;
+      return null;
+    }
+
+    /* ---------------- visualViewport 追従（固定層をズレさせない） ---------------- */
+    function syncViewport() {
+      var vv = window.visualViewport;
+      var h = vv ? vv.height : window.innerHeight;
+      var offTop = vv ? vv.offsetTop : 0;
+      document.documentElement.style.setProperty("--app-height", h + "px");
+      // position:fixup はレイアウトビューポート基準なので offsetTop 分だけ補正して可視領域上部70%に留める
+      el.fixedLayer.style.transform = "translateY(" + offTop + "px)";
+    }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", syncViewport);
+      window.visualViewport.addEventListener("scroll", syncViewport);
+    }
+    window.addEventListener("resize", syncViewport);
+
+    /* ---------------- アラインメント計測 ---------------- */
+    function measureAlign() {
+      var ink = activeInk();
+      if (!ink || ink.hidden) { state.aligned = false; state.err = Infinity; return; }
+      var shimiRect = el.shimiRow.getBoundingClientRect();
+      var inkRect = ink.getBoundingClientRect();
+      // ink 中心を shimi 中心に合わせる
+      var inkMid = inkRect.top + inkRect.height / 2;
+      var shimiMid = shimiRect.top + shimiRect.height / 2;
+      state.err = inkMid - shimiMid;
+      var tol = state.phase === "practice" ? TOL_PRACTICE : TOL_MAIN;
+      state.aligned = Math.abs(state.err) <= tol;
+    }
+
+    // スクロールを、アクティブ ink がちょうど重なる位置へ動かす量を返す
+    function alignScrollTarget() {
+      var ink = activeInk();
+      if (!ink) return window.scrollY;
+      measureAlign();
+      return window.scrollY + state.err; // err 分スクロールすると重なる
+    }
+
+    /* ---------------- 完成処理 ---------------- */
+    function completePractice() {
+      if (state.practiceDone) return;
+      state.practiceDone = true;
+      markAllDone(el.shimiRow);
+      markAllDone(el.practiceInk);
+      A.track("fragment_align", { word: "いる", area: "practice" });
+      showWhisper("");
+      // 少し余韻を置いて本番を解放
+      setTimeout(function () { enterMain(); }, 1400);
+    }
+
+    function completeMain() {
+      if (state.mainDone) return;
+      state.mainDone = true;
+      state.holdMs = HOLD_TARGET;
+      markAllDone(el.shimiRow);
+      markAllDone(el.mainInk);
+      el.shimiRow.classList.add("pulse");
+      A.track("stay_proven", { word: "ながれるな" });
+      setTimeout(function () { enterChoice(); }, 900);
+    }
+
+    function markAllDone(row) {
+      Array.prototype.forEach.call(row.children, function (g) { g.classList.add("done"); });
+      state.fragments = state.fragments.map(function () { return true; });
+    }
+
+    /* ---------------- フェーズ遷移 ---------------- */
+    function startGame() {
+      hideOverlay(el.title);
+      window.scrollTo(0, 0);
+      state.phase = "practice";
+      state.startT = performance.now();
+      setActiveWord("practice");
+      A.track("game_start", {});
+    }
+
+    function enterMain() {
+      state.phase = "main";
+      state.mainEnterT = performance.now();
+      el.mainInk.hidden = false;
+      el.shimiRow.classList.remove("pulse");
+      setActiveWord("main");
+      // 本番の墨まで誘導（ドリフトが引きずるので、少し手前に置く）
+      var t = el.mainInk.getBoundingClientRect().top + window.scrollY;
+      var to = t - window.innerHeight * 0.62;
+      window.scrollTo(0, Math.max(0, to));
+      showWhisper("");
+    }
+
+    function enterChoice() {
+      state.phase = "choice";
+      el.choiceLayer.hidden = false;
+      el.shimiRow.classList.add("touchable");
+      // 完成文字へ一度だけ縁の微光を走らせてから常時の pulse に戻す（説明テキストは足さない）
+      el.shimiRow.classList.remove("pulse");
+      el.shimiRow.classList.add("reveal-once");
+      setTimeout(function () {
+        el.shimiRow.classList.remove("reveal-once");
+        el.shimiRow.classList.add("pulse");
+      }, 950);
+      el.shimiRow.setAttribute("role", "button");
+      el.shimiRow.setAttribute("tabindex", "0");
+      el.shimiRow.setAttribute("aria-label", "留まった文字（ながれるな）に触れる");
+      // ドリフトで完成語を見失わないよう、シミ位置へ寄せて固定
+      var to = alignScrollTarget();
+      window.scrollTo(0, to);
+    }
+
+    function doClear() {
+      if (state.phase === "clear") return;
+      state.phase = "clear";
+      el.choiceLayer.hidden = true;
+      A.track("game_clear", {});
+      // 流れる投稿が水のように引いて消える → シミだけ残す
+      document.documentElement.style.setProperty("--flow-fade", "1");
+      el.thread.style.transition = "opacity 1.1s ease";
+      el.thread.style.opacity = "0.06";
+      setTimeout(function () { showOverlay(el.clear); }, 1100);
+    }
+
+    function tapDecoy() {
+      state.decoyCount += 1;
+      A.track("decoy_tapped", { count: state.decoyCount });
+      el.choiceLayer.hidden = true;
+      showOverlay(el.softfail);
+      if (state.decoyCount >= 2 && !state.hintFlags.decoy) {
+        state.hintFlags.decoy = true;
+        document.getElementById("softfail-void").textContent = "次へ進むほど、遠ざかる。";
+      }
+    }
+
+    function backFromSoftfail() {
+      hideOverlay(el.softfail);
+      state.phase = "choice";
+      el.choiceLayer.hidden = false;
+      var to = alignScrollTarget();
+      window.scrollTo(0, to);
+    }
+
+    function restart() {
+      location.reload();
+    }
+
+    /* ---------------- オーバーレイ ---------------- */
+    function showOverlay(node) { node.hidden = false; }
+    function hideOverlay(node) { node.hidden = true; }
+
+    /* ---------------- ささやき（ヒント/フィードバック） ---------------- */
+    var whisperTimer = null;
+    function showWhisper(text) {
+      if (!text) { el.whisper.classList.remove("show"); return; }
+      el.whisper.textContent = text;
+      el.whisper.classList.add("show");
+      if (whisperTimer) clearTimeout(whisperTimer);
+      whisperTimer = setTimeout(function () { el.whisper.classList.remove("show"); }, 5200);
+    }
+
+    /* ---------------- 詰み検知 ---------------- */
+    function checkHints(now) {
+      if (state.phase === "practice") {
+        // 練習を高速通過し続ける → 観察の提示
+        if (!state.hintFlags.fast && state.fastPass >= 3) {
+          state.hintFlags.fast = true;
+          showWhisper("速く流すほど、あの点だけが、はっきりする。");
+        }
+        // 20〜25秒どのシミも完成しない → 反転ヒント（学習の谷を早めに埋める）
+        if (!state.hintFlags.invert && now - state.startT > 22000 && !state.practiceDone) {
+          state.hintFlags.invert = true;
+          showWhisper("点は動かない。動いているのは、こっちだ。");
+        }
+      } else if (state.phase === "main") {
+        // 本番で位置合わせ＋保持ができない → やや直接
+        if (!state.hintFlags.mainHelp && now - state.mainEnterT > 22000 && !state.mainDone) {
+          state.hintFlags.mainHelp = true;
+          showWhisper("止まって、待ってみたら？ 流されないように。");
+        }
+        // 代替操作（長押し）の案内は失敗が重なった後にだけ後出し。
+        // reduced-motion はドリフト0で難度が落ちる分、長押しヒントを早めに出して詰みを防ぐ。
+        if (!state.hintFlags.holdHint && now - state.mainEnterT > (reduceMotion ? 25000 : 40000) && !state.mainDone) {
+          state.hintFlags.holdHint = true;
+          showWhisper("長押しで、その場に留まれる。");
+        }
+      }
+    }
+
+    /* ---------------- 入力（press-and-hold） ---------------- */
+    function onPressStart(e) {
+      // オーバーレイ上・囮ボタン上では無効
+      if (e.target.closest(".overlay")) return;
+      if (e.target.closest("#decoy")) return;
+      state.pressing = true;
+    }
+    function onPressEnd() {
+      if (state.pressing && state.phase === "main" && !state.mainDone && state.holdMs > 250 && state.holdMs < HOLD_TARGET) {
+        showWhisper("途中で、また流れてしまった。");
+      }
+      state.pressing = false;
+      state.holdMs = 0;
+    }
+    window.addEventListener("pointerdown", onPressStart, { passive: true });
+    window.addEventListener("pointerup", onPressEnd, { passive: true });
+    window.addEventListener("pointercancel", onPressEnd, { passive: true });
+
+    // シミ（本物）タップ／キーで決着
+    el.shimiRow.addEventListener("click", function () {
+      if (state.phase === "choice") doClear();
+    });
+    el.shimiRow.addEventListener("keydown", function (e) {
+      if (state.phase === "choice" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); doClear(); }
+    });
+    el.decoy.addEventListener("click", function () { if (state.phase === "choice") tapDecoy(); });
+
+    el.startBtn.addEventListener("click", startGame);
+    el.restartBtn.addEventListener("click", restart);
+    el.softfailBack.addEventListener("click", backFromSoftfail);
+    el.shareBtn.addEventListener("click", shareResult);
+
+    function shareResult() {
+      var text = "「流れないスレ」を留まってクリアした。流れるものは偽物で、留まるものだけが本物だった。";
+      var url = "https://games.escape-safari.com/still-thread/";
+      if (navigator.share) {
+        navigator.share({ title: "流れないスレ", text: text, url: url }).catch(function () {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(text + " " + url).then(function () {
+          el.shareBtn.textContent = "コピーしました";
+          setTimeout(function () { el.shareBtn.textContent = "結果をシェア"; }, 1800);
+        }).catch(function () {});
+      } else {
+        window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url), "_blank");
+      }
+    }
+
+    /* ---------------- メインループ ---------------- */
+    var lastY = 0, lastT = performance.now();
+    var prevAligned = false;
+    var lastBlur = -1; // --flow-blur を 0.1px 単位の変化時のみ書き込むための直近値
+    var driftAcc = 0;  // ドリフトの浮動小数残差を積算し、1px 以上溜まった分だけ scrollBy（120Hz でも停止しない）
+
+    function loop(now) {
+      requestAnimationFrame(loop);
+      try {
+        var dt = Math.min(64, now - lastT);
+        lastT = now;
+
+        var y = window.scrollY || window.pageYOffset || 0;
+        var vRaw = dt > 0 ? Math.abs(y - lastY) / (dt / 1000) : 0;
+        // 速度を平滑化
+        state.velocity = state.velocity * 0.7 + vRaw * 0.3;
+        state.scrollY = y;
+
+        // 速度連動：投稿ブラー＋脱色＋背景水流（シミは非ブラー）
+        var vNorm = Math.min(1, state.velocity / 1400);
+        var blurPx = (state.phase === "clear" ? MAX_BLUR : MAX_BLUR * vNorm);
+        if (lastBlur < 0 || Math.abs(blurPx - lastBlur) >= 0.1) {
+          document.documentElement.style.setProperty("--flow-blur", blurPx.toFixed(2) + "px");
+          lastBlur = blurPx;
+        }
+        if (state.phase !== "clear") document.documentElement.style.setProperty("--flow-fade", (0.5 * vNorm).toFixed(3));
+        // 背景水流を下方向へ流す（速度が高いほど速く）
+        var wy = (parseFloat(el.water.style.getPropertyValue("--water-y")) || 0);
+        wy = (wy - (2 + vNorm * 20)) % 26;
+        el.water.style.setProperty("--water-y", wy + "px");
+        el.water.style.setProperty("--water-strength", (0.28 + vNorm * 0.5).toFixed(2));
+
+        state.still = state.velocity < STILL_V;
+        measureAlign();
+
+        // 近接プレビュー（静止時に近いシミが脈動）
+        var near = state.aligned || Math.abs(state.err) < (state.phase === "practice" ? TOL_PRACTICE * 1.6 : TOL_MAIN * 2.2);
+        Array.prototype.forEach.call(el.shimiRow.children, function (g) {
+          if (!g.classList.contains("done")) g.classList.toggle("near", near && state.still);
+        });
+
+        // --- 練習：止まるだけで自動 2秒完成 ---
+        if (state.phase === "practice" && !state.practiceDone) {
+          // 整列窓の近くに静止→離脱した瞬間、シミの脈動を一度だけ強め弱い一言を添える（伏線の手触り）
+          if (near && state.still) {
+            state.nearStillLatched = true;
+          } else if (state.nearStillLatched && !state.brushShown) {
+            state.nearStillLatched = false;
+            state.brushShown = true;
+            el.shimiRow.classList.add("brush");
+            setTimeout(function () { el.shimiRow.classList.remove("brush"); }, 1200);
+            showWhisper("…いま、なにか重なりかけた。");
+          }
+          if (state.aligned && state.still) {
+            state.holdMs += dt;
+            // 静止でスナップ補助（正しい位置へ穏やかに吸着）
+            if (Math.abs(state.err) > 2) window.scrollBy(0, state.err * 0.12);
+            if (state.holdMs >= HOLD_TARGET) completePractice();
+          } else {
+            state.holdMs = 0;
+            // 高速で練習帯を通過したらカウント（詰み検知）
+            var side = state.err < 0 ? -1 : 1;
+            if (state.velocity > 700 && side !== state.lastZoneSide && state.lastZoneSide !== 0) state.fastPass += 1;
+            state.lastZoneSide = side;
+          }
+        }
+
+        // --- 本番：ドリフト＋press-and-hold で 2秒完成 ---
+        if (state.phase === "main" && !state.mainDone) {
+          var holding = state.pressing && state.aligned && state.still;
+          if (holding) {
+            state.holdMs += dt;
+            if (Math.abs(state.err) > 2) window.scrollBy(0, state.err * 0.12); // 吸着
+            if (state.holdMs >= HOLD_TARGET) completeMain();
+          } else {
+            // 保持が崩れたらリセット
+            if (state.pressing && state.aligned && !state.still && state.holdMs > 250) {
+              // スクロールで流された
+              state.holdMs = 0;
+            } else if (!state.pressing) {
+              state.holdMs = 0;
+            } else {
+              state.holdMs = 0;
+            }
+            // ドリフト（怪異が下へ流す）。押していない間だけ。
+            // 浮動小数の移動量を残差として積算し、1px 以上溜まった整数分だけ scrollBy する。
+            // これで 120Hz（~0.38px/frame）でもブラウザの整数丸めで停止せず、60/120Hz で実効速度が一致する。
+            if (!state.pressing) {
+              driftAcc += DRIFT * dt / 1000;
+              var driftStep = Math.floor(driftAcc);
+              if (driftStep > 0) { window.scrollBy(0, driftStep); driftAcc -= driftStep; }
+            } else {
+              driftAcc = 0;
+            }
+          }
+          // 保持リング更新
+          var ratio = Math.min(1, state.holdMs / HOLD_TARGET);
+          el.holdRing.classList.toggle("on", state.pressing && state.aligned);
+          el.holdFill.setAttribute("stroke-dashoffset", String(100 - ratio * 100));
+        } else {
+          el.holdRing.classList.remove("on");
+        }
+
+        // 選択フェーズ：シミを見失わないよう位置維持
+        if (state.phase === "choice") {
+          if (Math.abs(state.err) > 3 && Math.abs(state.err) < 400) window.scrollBy(0, state.err * 0.2);
+        }
+
+        checkHints(now);
+        updateDebug();
+
+        lastY = y;
+        prevAligned = state.aligned;
+      } catch (e) {
+        if (DEBUG) console.error("loop error", e);
+      }
+    }
+
+    /* ---------------- デバッグ HUD ---------------- */
+    function updateDebug() {
+      // 常にヘッドレス検証用のグローバル状態を公開
+      window.__GAME_STATE__ = {
+        phase: state.phase,
+        activeWord: state.phase === "practice" ? "いる" : (state.mainDone || state.phase === "main" || state.phase === "choice" ? "ながれるな" : ""),
+        fragments: Array.prototype.map.call(el.shimiRow.children, function (g) { return g.classList.contains("done"); }),
+        practiceDone: state.practiceDone,
+        mainDone: state.mainDone,
+        holdMs: Math.round(state.holdMs),
+        scrollY: Math.round(state.scrollY),
+        velocity: Math.round(state.velocity),
+        aligned: state.aligned,
+        err: Math.round(state.err)
+      };
+      if (!DEBUG) return;
+      el.debug.hidden = false;
+      var s = window.__GAME_STATE__;
+      el.debug.textContent =
+        "phase:   " + s.phase + "\n" +
+        "word:    " + s.activeWord + "\n" +
+        "frags:   [" + s.fragments.map(function (b) { return b ? "1" : "0"; }).join("") + "]\n" +
+        "scrollY: " + s.scrollY + "\n" +
+        "vel:     " + s.velocity + " px/s" + (state.still ? " (still)" : "") + "\n" +
+        "aligned: " + s.aligned + "  err:" + s.err + "\n" +
+        "holdMs:  " + s.holdMs + " / " + HOLD_TARGET + "\n" +
+        "pDone:" + s.practiceDone + " mDone:" + s.mainDone + " decoy:" + state.decoyCount;
+    }
+
+    /* ---------------- 検証用フック ---------------- */
+    window.__DEBUG__ = {
+      setScroll: function (yy) { window.scrollTo(0, yy); },
+      getState: function () { return window.__GAME_STATE__; },
+      start: function () { if (state.phase === "title") startGame(); },
+      // アクティブ ink をシミへ重ねる位置までスクロール
+      forceAlign: function () {
+        var to = alignScrollTarget();
+        window.scrollTo(0, to);
+        measureAlign();
+        return { scrollY: window.scrollY, err: Math.round(state.err), aligned: state.aligned };
+      },
+      // 現フェーズの保持完成を即成立させる
+      forceHold: function () {
+        if (state.phase === "practice") completePractice();
+        else if (state.phase === "main") completeMain();
+      },
+      press: function (v) { state.pressing = !!v; },
+      tapStay: function () { if (state.phase === "choice") doClear(); },
+      tapDecoy: function () { if (state.phase === "choice") tapDecoy(); },
+      enterMain: enterMain,
+      enterChoice: enterChoice
+    };
+
+    /* ---------------- 任意の背景画像を onerror セーフに読み込む ---------------- */
+    // 画像が存在すれば --bg-image に差し込む。無ければ CSS の多重グラデのみで成立。
+    (function loadOptionalBg() {
+      var img = new Image();
+      img.onload = function () {
+        el.water.style.setProperty("--bg-image", "url('./assets/bg_thread.jpg')");
+        // グラデを土台に残しつつ画像を最背面に重ねる（脱色・不気味に）
+        el.water.style.backgroundBlendMode = "normal, multiply, normal";
+      };
+      img.onerror = function () { /* 未配置：グラデのみで成立 */ };
+      img.src = "./assets/bg_thread.jpg";
+    })();
+
+    /* ---------------- シミ質感マスク（sumi_ink.png）を onerror セーフに配線 ---------------- */
+    // 画像ロード成功時だけ html.ink-masked を付与し mask を有効化。404/未対応なら素の表示のまま壊れない。
+    (function loadInkMask() {
+      var supportsMask = ("maskImage" in document.documentElement.style) ||
+                         ("webkitMaskImage" in document.documentElement.style);
+      if (!supportsMask) return;
+      var img = new Image();
+      img.onload = function () { document.documentElement.classList.add("ink-masked"); };
+      img.onerror = function () { /* 未配置：マスク無しで成立 */ };
+      img.src = "./assets/sumi_ink.png";
+    })();
+
+    /* ---------------- 初期化 ---------------- */
+    syncViewport();
+    setActiveWord("practice"); // タイトル背後にシミを見せておく（動かない黒い点）
+    if (DEBUG) el.debug.hidden = false;
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

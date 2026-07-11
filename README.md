@@ -19,6 +19,21 @@ python3 -m http.server
 
 ---
 
+## still-thread — 流れないスレ
+
+スクロールしても画面に貼りついて動かない黒いシミ。流すほど、それだけが際立つ——流れに逆らって留まると読めてくる、3〜5分のWeb謎。
+静的HTML/CSS/JavaScriptのみで動作し、Xアプリ内ブラウザ・縦600pxのセーフゾーンにも対応。
+
+### 遊び方
+
+```bash
+python3 -m http.server
+```
+
+ブラウザで http://localhost:8000/still-thread/ を開く。
+
+---
+
 ## bookcafe-3d — ブックカフェ思想改造ゲーム
 
 Three.js製の三人称ステルスゲーム。本を平積みに入れ替えながら店を思想改造する。
