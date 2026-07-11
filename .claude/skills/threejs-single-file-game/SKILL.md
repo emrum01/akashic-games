@@ -136,6 +136,70 @@ function animate() {
 
 GLBキャラクターを複数インスタンス化する際は `THREE.SkeletonUtils.clone(gltf.scene)` を使う。
 
+## Xアプリ内ブラウザ対応（セーフゾーン実装）
+
+主プレイ経路は X の投稿リンクから開く**X アプリ内ブラウザ**（iOS/Android）。
+画面下部の約25〜30%を X 自身の UI（URLバー＋元ポストのシート）が恒常的に覆うため、
+進行必須オブジェクト・UI は可視領域の**上部70%（セーフゾーン）**に収まるようカメラ・
+レイアウトを設計する（設計判断そのものは `akashic-nazo-design` スキルの
+Phase 3「プレイ環境前提」が正）。ここでは実装要件のみ扱う。
+
+- `100vh` は使わない。`100dvh` を基本にし、非対応ブラウザ向けフォールバック
+  （例: JSで `window.innerHeight` を計測してCSS変数に反映）を用意する。
+  ```css
+  height: 100dvh; /* フォールバック */
+  height: var(--app-height, 100vh);
+  ```
+- `window.visualViewport` の `resize` イベントを監視し、可視高さの変化に追従して
+  キャンバス・カメラを再計算する:
+  ```javascript
+  function onViewportResize() {
+      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      renderer.setSize(window.innerWidth, vh);
+      camera.aspect = window.innerWidth / vh;
+      camera.updateProjectionMatrix();
+      reframeCameraForSafeZone(vh); // 進行必須オブジェクトが上部70%に収まるよう再調整
+  }
+  if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onViewportResize);
+  } else {
+      window.addEventListener('resize', onViewportResize);
+  }
+  ```
+- **セーフゾーンは外部UI（X下部25〜30%）だけでなく自前の固定オーバーレイUIの実測占有域も
+  含めて計算する**。閉じるボタンのない恒常表示パネル（制御装置UI等）が下部を覆い、
+  外部UI対策だけでは進行必須オブジェクトが隠れて詰む事故が実機で確認された
+  （broken-web、2026-07-12）。オーバーレイ表示中はその上端Yを `getBoundingClientRect()`
+  で取得し、進行必須オブジェクトの投影Yが「上端 − タップ領域分マージン
+  （`Math.max(64, height * 0.08)` 目安）」より上に来るまでカメラを引き＋俯瞰化する
+  反復補正を行う（オブジェクトの座標自体は動かさず、フレーミングのみ調整する）:
+  ```javascript
+  function reframeAvoidingOverlay(overlayEl, targetObject) {
+      if (!overlayEl || overlayEl.classList.contains('is-hidden')) return;
+      const overlayTop = overlayEl.getBoundingClientRect().top;
+      const margin = Math.max(64, window.innerHeight * 0.08);
+      let guard = 0;
+      while (projectToScreenY(targetObject) > overlayTop - margin && guard++ < 20) {
+          pullCameraBackAndTiltDown(); // カメラのみ調整、オブジェクト座標は不変
+      }
+  }
+  ```
+- **オーバーレイの出現・文言変化のたびに再フレーミングを明示的に発火する**（`resize`
+  イベント頼みにしない）。オーバーレイの表示切り替え関数内で `reframeAvoidingOverlay()`
+  相当の明示フックを呼ぶ。
+- **縦が短い環境では `@media (max-height: ...)` でオーバーレイ自体を圧縮する**。
+  `max-width` ベースの縮小だけでは横長スマホ（例: 852×600）で効かず、パネルが
+  大きいまま床のヒビ等を覆い続けた事例がある。
+- **サポートする最小ビューポートの目安は縦600px**（縦持ち390×600・横持ち852×600）。
+  この解像度でゲームが成立することを実装完了の基準にする。
+- **state初期化前に走る構成でのオーバーレイ表示判定はDOMクラスで行う**（`is-hidden`等）。
+  `initThreeScene` 等が state 定義より先に実行される構成で state 変数を参照すると
+  TDZ（Temporal Dead Zone）エラーになるため、判定は state ではなく DOM のクラス付与で行う。
+- `env(safe-area-inset-bottom)` をレイアウトの下部余白計算に含める（ノッチ・
+  ホームインジケータとXのUIが二重に食い込むケースがある）。
+- カメラは固定フレーミングにせず、可視高さの変化に応じて動的にフレーミングし直す
+  （`reframeCameraForSafeZone` 相当の関数を持つ）。下部が隠れる構図を放置しない。
+
 ## まとめ: 設計方針
 
 「httpサーバ経由なら実素材、file://直開きでもフォールバックで完動」の二段設計が堅い。
