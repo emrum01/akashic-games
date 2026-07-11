@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10191b">
+  <title>夜間窓口｜SAFARI観測記録局</title>
+  <meta name="description" content="自分の観測記録に誤配された大量のダイアログ。管理人を呼び出して記録を取り戻す、3〜5分のブラウザ謎解きゲーム。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%2310191b'/%3E%3Cpath d='M13 16h38v32H13z' fill='%23cce6df'/%3E%3Cpath d='M19 22h26M19 29h20M19 36h23' stroke='%2310191b' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app" class="app" data-phase="title">
+    <section id="title-screen" class="title-screen" aria-labelledby="game-title">
+      <div class="archive-mark" aria-hidden="true">
+        <span>S</span><i></i><i></i><i></i>
+      </div>
+      <div class="title-copy">
+        <p class="system-label">SAFARI OBSERVATION ARCHIVE / TERMINAL 07</p>
+        <h1 id="game-title">夜間<br>窓口</h1>
+        <p>あなたの観測記録が届いています。<br>内容を確認してください。</p>
+        <button id="start-button" class="action-button action-button--bright" type="button">観測記録をひらく</button>
+      </div>
+      <p class="title-footnote">このゲームは途中でマイクの利用を選べます。音声は録音・保存・送信されません。</p>
+    </section>
+
+    <section id="game-screen" class="game-screen" aria-label="SAFARI観測記録端末" hidden>
+      <header class="status-bar">
+        <div class="brand-lockup">
+          <span class="brand-symbol" aria-hidden="true">S</span>
+          <span>SAFARI<br><b>観測記録局</b></span>
+        </div>
+        <div class="record-status">
+          <span id="phase-label">記録閲覧</span>
+          <strong id="notice-count">管理人宛 8件</strong>
+        </div>
+      </header>
+
+      <section id="record-room" class="record-room" aria-label="観測記録">
+        <div class="lightbox-shell">
+          <div class="lightbox-edge" aria-hidden="true">
+            <span>TRANSMITTED SPECIMEN RECORD</span>
+            <i></i>
+          </div>
+          <article id="record-document" class="record-document" aria-hidden="true">
+            <header>
+              <p>SAFARI 夜間観測記録</p>
+              <span>RECORD 0711-N</span>
+            </header>
+            <h2>被観測者<br>返還記録</h2>
+            <dl>
+              <div><dt>被観測者</dt><dd>あなた</dd></div>
+              <div><dt>最終観測</dt><dd>画面のこちら側</dd></div>
+              <div><dt>生存確認</dt><dd id="breath-proof">未確認</dd></div>
+              <div><dt>処理</dt><dd id="return-state">保留</dd></div>
+            </dl>
+            <p class="record-note">生きているものだけを、記録の外へ返す。</p>
+          </article>
+          <div id="dialog-field" class="dialog-field" aria-label="管理人宛に誤配されたダイアログ"></div>
+          <div id="pressure-wave" class="pressure-wave" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+
+        <aside id="record-console" class="record-console">
+          <p class="console-kicker">MISROUTED MESSAGES</p>
+          <h2>宛先が違います。</h2>
+          <p id="record-guidance">あなたの記録に、管理人宛の連絡が重なっています。</p>
+          <button id="contact-button" class="action-button" type="button">夜間管理人を呼ぶ</button>
+          <div id="record-mic-slot" class="record-mic-slot" hidden></div>
+        </aside>
+      </section>
+
+      <section id="reception-room" class="reception-room" aria-labelledby="reception-title" hidden>
+        <div class="reception-sign">
+          <p class="system-label">NIGHT RECEPTION / LINE 00</p>
+          <h2 id="reception-title">夜間管理人<br>伝言窓口</h2>
+          <p id="reception-copy">管理人は席を外しています。音声伝言を残せます。</p>
+        </div>
+
+        <div class="reception-window">
+          <div class="empty-chair" aria-hidden="true">
+            <span></span><i></i>
+          </div>
+          <article id="reception-slip" class="system-dialog tutorial-dialog" tabindex="-1">
+            <header>
+              <span>伝言受付票</span>
+              <small>宛先：夜間管理人</small>
+            </header>
+            <p>受付票を発行しました。<br>マイクに向かって伝言してください。</p>
+            <div class="dialog-footer"><span>RECEPTION 00</span></div>
+          </article>
+          <p id="empty-window-message" class="empty-window-message" hidden>窓口は、最初から空でした。</p>
+          <div id="reception-pressure" class="pressure-wave" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+
+        <div class="reception-controls">
+          <button id="connect-button" class="action-button action-button--bright" type="button">音声窓口に接続</button>
+          <div id="reception-mic-slot"></div>
+          <button id="return-record-button" class="text-button" type="button" hidden>観測記録へ戻る</button>
+        </div>
+      </section>
+
+      <section id="mic-console" class="mic-console" aria-label="音声伝言操作" hidden>
+        <div class="mic-readout">
+          <span id="mic-state-label">回線待機</span>
+          <strong id="mic-status">押している間だけ、音声を確認します</strong>
+          <div id="breath-progress" class="breath-progress" aria-hidden="true"><i></i></div>
+        </div>
+        <button id="mic-button" class="mic-button" type="button" aria-label="押している間、管理人へ音声伝言">
+          <span aria-hidden="true"></span>
+          <b>押して話す</b>
+        </button>
+      </section>
+
+      <aside id="response-panel" class="response-panel" role="status" aria-live="polite" hidden>
+        <span id="response-label">窓口応答</span>
+        <p id="response-text"></p>
+        <button id="response-close" type="button">閉じる</button>
+      </aside>
+
+      <aside id="fallback-panel" class="fallback-panel" hidden>
+        <p>音声窓口を使わず続けますか？</p>
+        <button id="enable-manual-button" type="button">手動整理を使う</button>
+      </aside>
+
+      <output id="debug-panel" class="debug-panel" hidden></output>
+    </section>
+
+    <section id="clear-screen" class="clear-screen" aria-labelledby="clear-title" hidden>
+      <div class="archive-mark archive-mark--clear" aria-hidden="true">
+        <span>S</span><i></i><i></i><i></i>
+      </div>
+      <p class="system-label">OBSERVATION COMPLETE / RETURNED</p>
+      <h2 id="clear-title">生存を<br>確認。</h2>
+      <p>あなたを、記録の外へ返しました。</p>
+      <p id="clear-detail" class="clear-detail"></p>
+      <button id="restart-button" class="action-button action-button--bright" type="button">もう一度ひらく</button>
+    </section>
+  </main>
+
+  <script src="./game.js"></script>
+</body>
+</html>

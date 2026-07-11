@@ -1,6 +1,21 @@
 # akashic-games
 
-3Dブラウザゲーム置き場。各ゲームはサブディレクトリに格納。
+ブラウザゲーム置き場。各ゲームはサブディレクトリに格納。
+
+---
+
+## notification-gale — 未製本通知
+
+SAFARI記録局の重要記録を覆う大量の通知を、マイクへの息で吹き飛ばす3〜5分のWeb謎。
+静的HTML/CSS/JavaScriptのみで動作し、マイクが使えない環境向けの手動整理も備える。
+
+### 遊び方
+
+```bash
+python3 -m http.server
+```
+
+ブラウザで http://localhost:8000/notification-gale/ を開く。
 
 ---
 
