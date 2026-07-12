@@ -138,6 +138,46 @@
     }
     .post .no { color: var(--accent-soft); }
     .post .name { color: #7fa38d; }
+    /* v2-3 推理: レス番号の隣に日付。低彩度・小さめ、右寄せ。空なら「日付が無い」＝流れに乗らない本物の証 */
+    .post .meta .date { margin-left: auto; color: var(--ink-dim); font-size: 11px; letter-spacing: .01em; }
+
+    /* v2-1 段階開示: 本番投稿は「いる」完成まで隠し、enterMain で新着として現れる */
+    .post.deferred[hidden] { display: none; }
+    .post.arrive { animation: postArrive .55s ease-out 1; }
+    @keyframes postArrive {
+      0% { opacity: 0; transform: translateY(8px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .thread-head .newbadge {
+      display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 3px;
+      background: rgba(217,69,95,.85); color: #fff; font-size: 10px; letter-spacing: .04em;
+    }
+
+    /* v2-2 ホラー段階: 流し続けた総量で #thread が濁り・崩れ・揺れる */
+    #thread { transition: filter .6s ease; }
+    #thread[data-horror="1"] { filter: saturate(.85); }
+    #thread[data-horror="2"] { filter: saturate(.6) hue-rotate(-8deg); }
+    #thread[data-horror="3"] { filter: saturate(.5) hue-rotate(-12deg) brightness(.92); animation: horrorShake .5s linear infinite; }
+    @keyframes horrorShake {
+      0%,100% { transform: translateY(0); }
+      25% { transform: translateY(1.5px); }
+      75% { transform: translateY(-1.5px); }
+    }
+    .post.horror-post { border-color: #3a2530; background: rgba(28,18,22,.8); color: #b49aa4; }
+    .post.horror-post .name { color: #a56b7a; }
+
+    /* ホラーのヴィネット層（進行必須の上には被らせない＝pointer-events none・中央は透過） */
+    #horror-veil {
+      position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0;
+      transition: opacity .6s ease, box-shadow .6s ease;
+      box-shadow: inset 0 0 120px 20px rgba(0,0,0,0.0);
+    }
+    #horror-veil[data-horror="1"] { opacity: .5; box-shadow: inset 0 0 140px 30px rgba(0,0,0,.55); }
+    #horror-veil[data-horror="2"] { opacity: .8; box-shadow: inset 0 0 170px 50px rgba(0,0,0,.72); }
+    #horror-veil[data-horror="3"] { opacity: 1; box-shadow: inset 0 0 200px 70px rgba(60,0,10,.82); }
+
+    /* バッドエンド: 全投稿が下へ吸い込まれ流れ落ちる */
+    #thread.suck-away { transition: transform 1s ease-in, opacity 1s ease-in; transform: translateY(60vh); opacity: 0; }
 
     /* 例外＝先人の固定投稿。流れず・滲まず、常に鮮明 */
     .post.relic {
@@ -508,8 +548,13 @@
       .shimi-row.reveal-once .shimi-char.done span,
       .shimi-row.brush .shimi-char:not(.done) span,
       .thread-footer.restless,
+      .post.arrive,
+      #thread[data-horror="3"],
       #decoy { animation: none; }
       .title-stain { box-shadow: none; }
+      /* ホラーの視覚演出は弱める（論理＝バッドエンドは維持）。揺れ・強フィルタを外す */
+      #thread[data-horror] { filter: saturate(.8); }
+      #horror-veil[data-horror="3"] { box-shadow: inset 0 0 160px 40px rgba(40,0,8,.6); }
     }
 
     /* 縦が短い環境（600px 等）でオーバーレイを圧縮し、進行必須を上部70%に保つ */
@@ -523,6 +568,9 @@
 </head>
 <body>
   <div id="water-bg" aria-hidden="true"></div>
+
+  <!-- ホラー段階のヴィネット（段階に応じて濃くなる／段階3で赤み）。進行必須の上には被らせない -->
+  <div id="horror-veil" aria-hidden="true"></div>
 
   <!-- 固定層：スクロールに追従せず上部70%に貼りつくシミ -->
   <div id="fixed-layer" aria-hidden="false">
@@ -542,17 +590,17 @@
       <div>SAFARI オカルト板 ／ 全レス表示</div>
     </div>
 
-    <article class="post"><div class="meta"><span class="no">1</span><span class="name">イッチ</span></div>
+    <article class="post"><div class="meta"><span class="no">1</span><span class="name">イッチ</span><span class="date">2026/07/12(土) 03:11</span></div>
       画面に、動かない黒い点がある。ゴミ……？　拭いても取れん。スレ立てとく。</article>
-    <article class="post"><div class="meta"><span class="no">2</span><span class="name">名無し</span></div>
+    <article class="post"><div class="meta"><span class="no">2</span><span class="name">名無し</span><span class="date">2026/07/12(土) 03:11</span></div>
       え、どこ</article>
-    <article class="post"><div class="meta"><span class="no">3</span><span class="name">凸ニキ</span></div>
+    <article class="post"><div class="meta"><span class="no">3</span><span class="name">凸ニキ</span><span class="date">2026/07/12(土) 03:12</span></div>
       画面よごれてね？</article>
-    <article class="post"><div class="meta"><span class="no">4</span><span class="name">超絶ジジイ</span></div>
+    <article class="post"><div class="meta"><span class="no">4</span><span class="name">超絶ジジイ</span><span class="date">2026/07/12(土) 03:12</span></div>
       儂のにも黒い点があるぞ</article>
-    <article class="post"><div class="meta"><span class="no">5</span><span class="name">名無し</span></div>
+    <article class="post"><div class="meta"><span class="no">5</span><span class="name">名無し</span><span class="date">2026/07/12(土) 03:13</span></div>
       みんなに見えてるならただの汚れやろ</article>
-    <article class="post"><div class="meta"><span class="no">6</span><span class="name">怪異好きオネーサン</span></div>
+    <article class="post"><div class="meta"><span class="no">6</span><span class="name">怪異好きオネーサン</span><span class="date">2026/07/12(土) 03:14</span></div>
       ……この板、流すと変じゃない？</article>
 
     <div class="spacer"></div>
@@ -560,31 +608,55 @@
     <!-- 練習領域：1〜2片が完成しやすい地点。止まるだけで完成（伏線） -->
     <div id="practice-ink" class="ink-row" role="group" aria-label="流れてくる墨"></div>
 
-    <article class="post"><div class="meta"><span class="no">7</span><span class="name">名無し</span></div>
+    <article class="post"><div class="meta"><span class="no">7</span><span class="name">名無し</span><span class="date">2026/07/12(土) 03:15</span></div>
       さっき一瞬、点が字みたいに見えた気がする</article>
-    <article class="post"><div class="meta"><span class="no">8</span><span class="name">凸ニキ</span></div>
+    <article class="post"><div class="meta"><span class="no">8</span><span class="name">凸ニキ</span><span class="date">2026/07/12(土) 03:15</span></div>
       気のせいやろ。スクロールしすぎ</article>
 
     <div class="spacer"></div>
 
-    <!-- 例外：先人の固定投稿（流れず・滲まず固定） -->
-    <article class="post relic"><div class="meta"><span class="no">???</span><span class="name">（読めない名前）</span></div>
+    <!-- 例外＝先人の固定投稿（流れず・滲まず固定）。本物1: 番号も日付も「流れ」に無い -->
+    <article class="post relic truth"><div class="meta"><span class="no">???</span><span class="name">（読めない名前）</span><span class="date"></span></div>
       <div class="relic-line">それは よごれじゃない</div></article>
 
-    <article class="post"><div class="meta"><span class="no">9</span><span class="name">超絶ジジイ</span></div>
+    <!-- 本物2: 日付が空＝流れに乗っていない（自らそれを言う証言） -->
+    <article class="post truth"><div class="meta"><span class="no">9</span><span class="name">超絶ジジイ</span><span class="date"></span></div>
       今の誰の書き込みじゃ。日付が無いぞ</article>
-    <article class="post"><div class="meta"><span class="no">10</span><span class="name">怪異好きオネーサン</span></div>
+    <article class="post"><div class="meta"><span class="no">10</span><span class="name">怪異好きオネーサン</span><span class="date">2026/07/12(土) 03:16</span></div>
       速く流すほど、点だけ、はっきりしてくる……</article>
+    <!-- 本物3: 番号だけ先へ飛び、日付が未来＝流れの先には何も無い -->
+    <article class="post truth"><div class="meta"><span class="no">14</span><span class="name">名無し</span><span class="date">2026/07/13(日) --:--</span></div>
+      &gt;&gt;次スレ は もう ない</article>
+    <!-- 本物4: 番号が重複し日付が過去へ戻る＝流れに逆らって留まった者 -->
+    <article class="post truth"><div class="meta"><span class="no">4</span><span class="name">名無し</span><span class="date">2026/07/11(金) 23:59</span></div>
+      わたしは ここに とどまった</article>
 
     <div class="spacer tall"></div>
 
     <!-- 本番領域：4片すべてが重なる唯一の地点。下方向ドリフトあり -->
     <div id="main-ink" class="ink-row" role="group" aria-label="流れてくる墨" hidden></div>
 
-    <article class="post"><div class="meta"><span class="no">11</span><span class="name">名無し</span></div>
+    <!-- v2-1追加: 「いる」完成直後、本番予告の前に「いる」という言葉そのものへの反応・考察を挟む。
+         誰が/何が「いる」のかは断定しない含みに留める（答え・操作指示は書かない）。 -->
+    <article class="post deferred" hidden data-reveal="iru"><div class="meta"><span class="no">11</span><span class="name">名無し</span><span class="date">2026/07/12(土) 03:18</span></div>
+      おい、今シミが字になった</article>
+    <article class="post deferred" hidden data-reveal="iru"><div class="meta"><span class="no">12</span><span class="name">名無し</span><span class="date">2026/07/12(土) 03:18</span></div>
+      「いる」…？ 何がだよ</article>
+    <article class="post deferred" hidden data-reveal="iru"><div class="meta"><span class="no">13</span><span class="name">怪異好きオネーサン</span><span class="date">2026/07/12(土) 03:19</span></div>
+      居る、じゃなくて視てる、かもね</article>
+
+    <!-- v2-1: 本番（流される）関連の投稿は「いる」完成まで隠し、enterMain で新着として出す -->
+    <article class="post deferred" hidden data-reveal="iru"><div class="meta"><span class="no">15</span><span class="name">名無し</span><span class="date">2026/07/12(土) 03:19</span></div>
       なんか下に引っぱられる。勝手にスクロールしてる？</article>
-    <article class="post"><div class="meta"><span class="no">12</span><span class="name">イッチ</span></div>
+    <article class="post deferred" hidden data-reveal="iru"><div class="meta"><span class="no">16</span><span class="name">イッチ</span><span class="date">2026/07/12(土) 03:19</span></div>
       止まれない。ずっと次へ、次へ、行かされてる</article>
+
+    <!-- v2-1追加: 「ながれるな」完成直後（choiceフェーズ突入）に完成語そのものへの反応を挟む。
+         最終二択の正解は指示せず、「次スレ＝流れる」への疑念だけを漂わせる（推理要素と整合）。 -->
+    <article class="post deferred" hidden data-reveal="choice"><div class="meta"><span class="no">18</span><span class="name">名無し</span><span class="date">2026/07/12(土) 03:20</span></div>
+      ながれるな、って…俺たちに言ってるのか</article>
+    <article class="post deferred" hidden data-reveal="choice"><div class="meta"><span class="no">19</span><span class="name">イッチ</span><span class="date">2026/07/12(土) 03:20</span></div>
+      もう次スレは、やめとく</article>
 
     <!-- 本番の墨を上部70%(32%線)まで確実に引き上げられるよう、どのビューポート高でも足りる余白 -->
     <div class="spacer tall"></div>
@@ -632,6 +704,15 @@
     <button id="softfail-back" class="btn" type="button">戻る</button>
   </section>
 
+  <!-- バッドエンド（流し続けた末路。前兆＋救済を無視して流し切った時のみ） -->
+  <section id="badend-screen" class="overlay" aria-labelledby="badend-h" hidden>
+    <p class="kicker">――</p>
+    <h2 id="badend-h" style="font-size:26px">あなたも、ながれていった。</h2>
+    <p class="lede">どれが自分の書き込みか、もう、わからない。</p>
+    <p class="lede" style="opacity:.55">次へ。次へ。……</p>
+    <button id="badend-retry" class="btn" type="button">スレを立て直す</button>
+  </section>
+
   <output id="debug-hud" hidden></output>
 
   <script src="./analytics.js"></script>
@@ -677,7 +758,12 @@
       startBtn: document.getElementById("start-btn"),
       restartBtn: document.getElementById("restart-btn"),
       shareBtn: document.getElementById("share-btn"),
-      softfailBack: document.getElementById("softfail-back")
+      softfailBack: document.getElementById("softfail-back"),
+      threadHead: document.querySelector(".thread-head"),
+      horrorVeil: document.getElementById("horror-veil"),
+      badend: document.getElementById("badend-screen"),
+      badendRetry: document.getElementById("badend-retry"),
+      badendH: document.getElementById("badend-h")
     };
 
     // ---- 状態 ----
@@ -705,7 +791,16 @@
       driftDir: 1,             // 本番ドリフトの向き（+1=下スクロール/ink上へ, -1=上へ戻す）。判定ゾーンで往復
       mainInWindow: false,     // 本番で整列窓に入っている状態を掴んでいるか（ミス検知用ラッチ）
       mainMissCount: 0,        // 整列窓に入ったのに完成せず流された回数
-      footerNudged: false      // 本番未完成で最下部到達→住人レス追記＋脈動を済ませたか（1回だけ）
+      footerNudged: false,     // 本番未完成で最下部到達→住人レス追記＋脈動を済ませたか（1回だけ）
+      // ---- v2-2 ホラー計測（進行度と無関係。流し続けた総量で段階・死が決まる） ----
+      flowAccum: 0,            // ユーザーの高速フリックの累積量
+      horrorStage: 0,          // 0=平常 / 1=不穏 / 2=崩れ / 3=臨界(前兆)
+      stillHoldMs: 0,          // 連続静止時間（減衰・救済用）
+      stillEntryStage: 0,      // 静止し始めた瞬間の horrorStage（救済判定のレース回避用）
+      rescuedThisStill: false,// 今回の静止継続中に救済を発火済みか（再発火防止）
+      programmaticFrame: false,// 大ジャンプ直後の1フレームは計測から除外
+      badEnded: false,
+      h1Posted: false, h2Posted: false, h3Warned: false // 段階ごとの一度きり演出
     };
 
     // ---- パラメータ（世界内の意味付き数値） ----
@@ -715,6 +810,15 @@
     var STILL_V = 26;              // これ未満を「静止」とみなす px/s
     var DRIFT = reduceMotion ? 0 : 32; // 本番の下方向ドリフト px/s（46→32 に減速。取りこぼし連発を緩和）。reduced では 0
     var MAX_BLUR = reduceMotion ? 0 : 6;
+
+    // ---- v2-2 ホラー段階の閾値（px。要テストプレイ調整。攻略は必ず止まって完成→減衰し S1 未満に留まる） ----
+    var FLOW_V = 650;              // これを超える速度のフリックだけを「流れに身を任せた」と見なす
+    var FLOW_S1 = 14000;           // 段階1 不穏
+    var FLOW_S2 = 26000;           // 段階2 崩れ
+    var FLOW_S3 = 38000;           // 段階3 臨界（前兆）
+    var FLOW_DEAD = 46000;         // バッドエンド
+    var STILL_HOLD = 1200;         // これ以上静止し続けたら flowAccum を減衰（止まれば必ず減る）
+    var STILL_SAVE = 1500;         // 段階3で静止維持→救済
 
     /* ---------------- グリフ生成 ---------------- */
     function buildRow(container, chars, kind) {
@@ -814,6 +918,7 @@
     function startGame() {
       hideOverlay(el.title);
       window.scrollTo(0, 0);
+      state.programmaticFrame = true;
       state.phase = "practice";
       state.startT = performance.now();
       setActiveWord("practice");
@@ -830,16 +935,43 @@
       el.mainInk.hidden = false;
       el.shimiRow.classList.remove("pulse");
       setActiveWord("main");
+      revealDeferredPosts("iru"); // v2-1: 「いる」完成を契機に、言葉への反応→本番予告の順で新着として出す
       // 本番の墨まで誘導（ドリフトが引きずるので、少し手前に置く）
       var t = el.mainInk.getBoundingClientRect().top + window.scrollY;
       var to = t - window.innerHeight * 0.62;
-      window.scrollTo(0, Math.max(0, to));
+      jumpTo(Math.max(0, to));
       showWhisper("");
+    }
+
+    // v2-1: 指定グループの投稿を隠し状態から新着として現す。
+    // group="iru": 「いる」完成契機（言葉への反応3件→本番予告2件、DOM順で表示）
+    // group="choice": 「ながれるな」完成契機（choiceフェーズ突入時の反応2件）
+    function revealDeferredPosts(group) {
+      var sel = ".post.deferred[hidden][data-reveal=\"" + group + "\"]";
+      var posts = el.thread.querySelectorAll(sel);
+      Array.prototype.forEach.call(posts, function (p) {
+        p.hidden = false;
+        if (!reduceMotion) p.classList.add("arrive");
+      });
+      if (posts.length && el.threadHead) {
+        var b = document.createElement("span");
+        b.className = "newbadge";
+        b.textContent = "新着 " + posts.length;
+        el.threadHead.appendChild(b);
+        setTimeout(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 1500);
+      }
+    }
+
+    // 大ジャンプ（フェーズ遷移のスクロール）はホラー計測から除外するため programmaticFrame を立てる
+    function jumpTo(y) {
+      window.scrollTo(0, y);
+      state.programmaticFrame = true;
     }
 
     function enterChoice() {
       state.phase = "choice";
       el.choiceLayer.hidden = false;
+      revealDeferredPosts("choice"); // v2-1追加: 「ながれるな」完成直後、完成語への反応を新着で出す
       el.shimiRow.classList.add("touchable");
       // 完成文字へ一度だけ縁の微光を走らせてから常時の pulse に戻す（説明テキストは足さない）
       el.shimiRow.classList.remove("pulse");
@@ -853,7 +985,7 @@
       el.shimiRow.setAttribute("aria-label", "留まった文字（ながれるな）に触れる");
       // ドリフトで完成語を見失わないよう、シミ位置へ寄せて固定
       var to = alignScrollTarget();
-      window.scrollTo(0, to);
+      jumpTo(to);
     }
 
     function doClear() {
@@ -901,11 +1033,132 @@
       state.phase = "choice";
       el.choiceLayer.hidden = false;
       var to = alignScrollTarget();
-      window.scrollTo(0, to);
+      jumpTo(to);
     }
 
     function restart() {
       location.reload();
+    }
+
+    /* ---------------- v2-2 ホラー段階演出＋バッドエンド ---------------- */
+    // 進行度と無関係。ユーザーが高速フリックで「流れに身を任せた総量」で段階と死が決まる。
+    function updateHorror(dt, userDelta) {
+      // 本物に到達済み・選択/クリア・死亡後は計測停止（凍結）
+      if (state.phase !== "practice" && state.phase !== "main") return;
+      if (state.mainDone || state.badEnded) return;
+      // 大ジャンプ直後の1フレームは除外（フェーズ遷移の scrollTo をフリックと誤認しない）
+      if (state.programmaticFrame) return;
+
+      // 加算：明確なフリック（FLOW_V 超）かつ押していない時だけ。userDelta は吸着除外済みのユーザー由来移動。
+      if (state.velocity > FLOW_V && !state.pressing) {
+        state.flowAccum += Math.abs(userDelta);
+      }
+      // 減衰：一定時間静止し続けたら必ず減る（止まれば助かる＝核）
+      // 静止が始まった瞬間の段階を覚えておく（STILL_HOLD の通常減衰が STILL_SAVE より先に
+      // 段階3→2の閾値を跨いでしまい、以下の救済判定が「今の段階」を見ると永久に発火しない
+      // レースコンディションを避けるため。救済の可否は「静止し始めた時に3段階目だったか」で判定する）。
+      if (state.still) {
+        if (state.stillHoldMs === 0) state.stillEntryStage = state.horrorStage;
+        state.stillHoldMs += dt;
+      } else {
+        state.stillHoldMs = 0;
+        state.stillEntryStage = 0;
+        state.rescuedThisStill = false;
+      }
+      if (state.stillHoldMs > STILL_HOLD) {
+        state.flowAccum = Math.max(0, state.flowAccum * 0.985 - 8);
+      }
+      // 段階3での救済（前兆を無視せず止まれば助かる）。減衰による自然降段より優先して明示FB。
+      if (state.stillEntryStage === 3 && !state.rescuedThisStill && state.stillHoldMs > STILL_SAVE) {
+        state.rescuedThisStill = true;
+        // 段階2の帯（[FLOW_S2, FLOW_S3)）内に収めて安定させる（FLOW_S2直下だと閾値未満で
+        // 直後に段階1へ即降格してしまうため、FLOW_S3直下＝段階2の上端に着地させる）
+        state.flowAccum = Math.min(state.flowAccum, FLOW_S3 - 500);
+        A.track("horror_saved", { fromStage: 3 });
+        showWhisper("……止まった。まだ、間に合う。");
+        setHorrorStage(2);
+        return;
+      }
+      // 閾値から段階を決定（昇段・降段とも反映）
+      var st = state.flowAccum >= FLOW_S3 ? 3 : state.flowAccum >= FLOW_S2 ? 2 : state.flowAccum >= FLOW_S1 ? 1 : 0;
+      if (st !== state.horrorStage) setHorrorStage(st);
+      // バッドエンド：前兆＋救済を無視して流し切った場合のみ
+      if (state.flowAccum >= FLOW_DEAD) badEnd();
+    }
+
+    function setHorrorStage(n) {
+      if (n === state.horrorStage) return;
+      var prev = state.horrorStage;
+      state.horrorStage = n;
+      if (n > 0) { el.thread.setAttribute("data-horror", String(n)); el.horrorVeil.setAttribute("data-horror", String(n)); }
+      else { el.thread.removeAttribute("data-horror"); el.horrorVeil.removeAttribute("data-horror"); }
+      if (n > prev) {
+        A.track("horror_stage", { stage: n });
+        if (n >= 1 && !state.h1Posted) { state.h1Posted = true; appendHorrorPost("…なんか、後ろにいない？"); }
+        if (n >= 2 && !state.h2Posted) { state.h2Posted = true; appendHorrorPost("■■がながれてくる"); appendHorrorPost("たすけ"); corruptPosts(); }
+        if (n >= 3 && !state.h3Warned) { state.h3Warned = true; showWhisper("流されている。……もう、戻れないかもしれない。"); }
+      }
+    }
+
+    function appendHorrorPost(text) {
+      var p = document.createElement("article");
+      p.className = "post horror-post";
+      p.innerHTML = '<div class="meta"><span class="no">?</span><span class="name">？？？</span></div>' + text;
+      if (el.footer && el.footer.parentNode) el.footer.parentNode.insertBefore(p, el.footer);
+    }
+
+    var CORRUPT_GLYPHS = ["■", "▓", "●", "？", "〓", "◆"];
+    function corruptText(s) {
+      var out = "";
+      for (var i = 0; i < s.length; i++) {
+        var ch = s[i];
+        if (ch.trim() === "") { out += ch; continue; }
+        out += Math.random() < 0.6 ? CORRUPT_GLYPHS[(Math.random() * CORRUPT_GLYPHS.length) | 0] : ch;
+      }
+      return out;
+    }
+    // 既存postの一部を伏字・文字化け化。本物投稿(.truth/.relic)・新着ホラー投稿・未表示(deferred)は対象外。
+    function corruptPosts() {
+      var posts = el.thread.querySelectorAll(".post:not(.truth):not(.relic):not(.horror-post)");
+      Array.prototype.forEach.call(posts, function (p, i) {
+        if (p.hasAttribute("hidden") || p.dataset.corrupted || (i % 2 !== 0)) return;
+        p.dataset.corrupted = "1";
+        Array.prototype.forEach.call(p.childNodes, function (nd) {
+          if (nd.nodeType === 3 && nd.textContent.trim()) nd.textContent = corruptText(nd.textContent);
+        });
+      });
+    }
+
+    function badEnd() {
+      if (state.badEnded) return;
+      state.badEnded = true;
+      var ph = state.phase;
+      state.phase = "badend"; // ループのフェーズ処理を停止（凍結）
+      A.track("bad_end", { flowAccum: Math.round(state.flowAccum), phase: ph });
+      showWhisper("");
+      // 全投稿が下へ吸い込まれ流れ落ちる → 暗転 → オーバーレイ
+      document.documentElement.style.setProperty("--flow-fade", "1");
+      el.thread.classList.add("suck-away");
+      setTimeout(function () {
+        showOverlay(el.badend);
+        scrambleReveal(el.badendH, "あなたも、ながれていった。", reduceMotion ? 0 : 650);
+      }, 1000);
+    }
+
+    // 文字化けから一瞬で結ぶ（reduced では即時）
+    function scrambleReveal(node, finalText, duration) {
+      if (!node) return;
+      if (duration <= 0) { node.textContent = finalText; return; }
+      var start = performance.now();
+      (function tick(t) {
+        var p = Math.min(1, (t - start) / duration);
+        var out = "";
+        for (var i = 0; i < finalText.length; i++) {
+          out += (i < p * finalText.length) ? finalText[i] : CORRUPT_GLYPHS[(Math.random() * CORRUPT_GLYPHS.length) | 0];
+        }
+        node.textContent = out;
+        if (p < 1) requestAnimationFrame(tick); else node.textContent = finalText;
+      })(start);
     }
 
     /* ---------------- オーバーレイ ---------------- */
@@ -983,6 +1236,7 @@
     el.restartBtn.addEventListener("click", restart);
     el.softfailBack.addEventListener("click", backFromSoftfail);
     el.shareBtn.addEventListener("click", shareResult);
+    el.badendRetry.addEventListener("click", restart);
 
     function shareResult() {
       var text = "「流れないスレ」を留まってクリアした。流れるものは偽物で、留まるものだけが本物だった。";
@@ -1026,6 +1280,8 @@
         // これをしないと吸着の微小移動が速度スパイクとして計上され、整列していても「静止」にならず
         // holdMs が積み上がらない（実機の慣性＋iOS の programmatic scroll 不確実性で恒久的に完成不能になる）。
         var userDelta = (y - lastY) - lastSnap;
+        // 大ジャンプ直後は移動量0扱い（フェーズ遷移のスクロールを速度・ホラー計測に混ぜない）
+        if (state.programmaticFrame) { userDelta = 0; state.velocity = 0; }
         var vRaw = dt > 0 ? Math.abs(userDelta) / (dt / 1000) : 0;
         // 速度を平滑化
         state.velocity = state.velocity * 0.7 + vRaw * 0.3;
@@ -1038,7 +1294,7 @@
           document.documentElement.style.setProperty("--flow-blur", blurPx.toFixed(2) + "px");
           lastBlur = blurPx;
         }
-        if (state.phase !== "clear") document.documentElement.style.setProperty("--flow-fade", (0.5 * vNorm).toFixed(3));
+        if (state.phase !== "clear" && state.phase !== "badend") document.documentElement.style.setProperty("--flow-fade", (0.5 * vNorm).toFixed(3));
         // 背景水流を下方向へ流す（速度が高いほど速く）
         var wy = (parseFloat(el.water.style.getPropertyValue("--water-y")) || 0);
         wy = (wy - (2 + vNorm * 20)) % 26;
@@ -1126,7 +1382,7 @@
               el.footer.classList.add("restless");
               var np = document.createElement("article");
               np.className = "post";
-              np.innerHTML = '<div class="meta"><span class="no">13</span><span class="name">名無し</span></div>まだ、流れてないやつがいる。';
+              np.innerHTML = '<div class="meta"><span class="no">17</span><span class="name">名無し</span></div>まだ、流れてないやつがいる。';
               el.footer.parentNode.insertBefore(np, el.footer);
             }
           }
@@ -1143,11 +1399,15 @@
           if (Math.abs(state.err) > 3 && Math.abs(state.err) < 400) snapBy(state.err * 0.2);
         }
 
+        // v2-2 ホラー計測（流し続けた総量で段階・死が決まる）
+        updateHorror(dt, userDelta);
+
         checkHints(now);
         updateDebug();
 
         lastY = y;
         lastSnap = progScroll; // このフレームの吸着補助量を次フレームの速度計算から差し引く
+        state.programmaticFrame = false; // 除外は1フレームのみ
         prevAligned = state.aligned;
       } catch (e) {
         if (DEBUG) console.error("loop error", e);
@@ -1167,7 +1427,10 @@
         scrollY: Math.round(state.scrollY),
         velocity: Math.round(state.velocity),
         aligned: state.aligned,
-        err: Math.round(state.err)
+        err: Math.round(state.err),
+        flowAccum: Math.round(state.flowAccum),
+        horrorStage: state.horrorStage,
+        badEnded: state.badEnded
       };
       if (!DEBUG) return;
       el.debug.hidden = false;
@@ -1180,7 +1443,8 @@
         "vel:     " + s.velocity + " px/s" + (state.still ? " (still)" : "") + "\n" +
         "aligned: " + s.aligned + "  err:" + s.err + "\n" +
         "holdMs:  " + s.holdMs + " / " + HOLD_TARGET + "\n" +
-        "pDone:" + s.practiceDone + " mDone:" + s.mainDone + " decoy:" + state.decoyCount;
+        "pDone:" + s.practiceDone + " mDone:" + s.mainDone + " decoy:" + state.decoyCount + "\n" +
+        "flow:    " + s.flowAccum + "  horror:" + s.horrorStage;
     }
 
     /* ---------------- 検証用フック ---------------- */
