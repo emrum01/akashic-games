@@ -560,6 +560,32 @@
       50% { box-shadow: 0 0 26px 2px rgba(217,69,95,0.45); transform: translate(-50%,-50%) scale(1.04); }
     }
 
+    /* v3.1: 15秒静止で現れる最後の誘い。囮(#decoy, top:58%)・シミ(--safe-shimi:32%)と重ならない
+       中間（top:44%）に配置し、フルスクリーンの .overlay は使わず #decoy を隠さない小さなカードにする。 */
+    .leave-dialog {
+      position: fixed; left: 50%; top: 44%; transform: translate(-50%, -50%);
+      z-index: 22; max-width: min(86vw, 360px);
+      background: rgba(10, 14, 18, .95); border: 1px solid var(--line); border-radius: 12px;
+      padding: 18px 20px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,.55);
+      animation: leaveDialogIn .35s ease-out 1;
+    }
+    .leave-dialog[hidden] { display: none; }
+    .leave-dialog p { color: var(--ink-bright); font-size: 15px; line-height: 1.5; margin: 0 0 16px; }
+    .leave-dialog-actions { display: flex; gap: 10px; justify-content: center; }
+    .leave-dialog-actions button {
+      min-height: 44px; min-width: 100px; padding: 0 18px; border-radius: 999px;
+      appearance: none; border: 1px solid var(--line); background: rgba(24, 28, 34, .92);
+      color: var(--ink-bright); font: inherit; font-size: 14px; letter-spacing: .04em; cursor: pointer;
+    }
+    #leave-yes {
+      border-color: rgba(217, 69, 95, 0.55); background: rgba(24, 12, 16, 0.9); color: #f2b9c3;
+    }
+    .leave-dialog-actions button:focus-visible { outline: 2px solid #f2b9c3; outline-offset: 2px; }
+    @keyframes leaveDialogIn {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(.92); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
     /* ===== デバッグ HUD ===== */
     #debug-hud {
       position: fixed;
@@ -592,6 +618,7 @@
       .thread-footer.restless,
       .post.arrive,
       #thread[data-horror="3"],
+      .leave-dialog,
       #decoy { animation: none; }
       .title-stain { box-shadow: none; }
       /* ホラーの視覚演出は弱める（論理＝バッドエンドは維持）。揺れ・強フィルタを外す */
@@ -608,6 +635,8 @@
       .overlay p { font-size: 14px; margin: 6px 0; }
       #title-screen h1 { font-size: clamp(30px, 10vh, 46px); }
       :root { --safe-shimi: 30%; }
+      .leave-dialog { top: 40%; padding: 14px 16px; }
+      .leave-dialog p { font-size: 14px; margin-bottom: 12px; }
     }
   </style>
 </head>
@@ -723,6 +752,16 @@
     <span class="sr-only" id="choice-hint">画面上のふたつのうち、どちらかに触れてください。</span>
   </div>
 
+  <!-- v3.1: 15秒静止で現れる最後の誘い。「次スレへ」と同格の選択肢（decoyはこの後も独立してタップ可能）。
+       「見ない」→クリア（唯一のクリア経路）／「見る」→次スレ狂死シーケンスへ合流。 -->
+  <div id="leave-dialog" class="leave-dialog" hidden role="alertdialog" aria-labelledby="leave-dialog-q">
+    <p id="leave-dialog-q">え、次のスレ見ないの？</p>
+    <div class="leave-dialog-actions">
+      <button id="leave-no" type="button">見ない</button>
+      <button id="leave-yes" type="button">見る</button>
+    </div>
+  </div>
+
   <!-- タイトル／導入 -->
   <section id="title-screen" class="overlay" aria-labelledby="title-h">
     <div class="title-stain" aria-hidden="true"></div>
@@ -811,6 +850,9 @@
       footer: document.getElementById("footer-slot"),
       choiceLayer: document.getElementById("choice-layer"),
       decoy: document.getElementById("decoy"),
+      leaveDialog: document.getElementById("leave-dialog"),
+      leaveNo: document.getElementById("leave-no"),
+      leaveYes: document.getElementById("leave-yes"),
       title: document.getElementById("title-screen"),
       clear: document.getElementById("clear-screen"),
       debug: document.getElementById("debug-hud"),
@@ -833,8 +875,9 @@
     var state = {
       phase: "title",        // title | practice | main | choice | clear | badend | reset
       pulling: false,        // v3: 自動引き込み中（入力ロック・main ロジック停止）
-      stayMs: 0,             // v3.1: choice で無操作を続けた実測時間（20秒でクリア。入力中は加算停止＝一時停止）
+      stayMs: 0,             // v3.1: choice で無操作を続けた実測時間（15秒でダイアログ。入力中は加算停止＝一時停止）
       stayTimerStarted: false, // v3.1: ビートC(c1+c2)と「次スレへ」が表示し終わってからtrueにする（それまでノーカウント）
+      dialogShown: false,    // v3.1: 「え、次のスレ見ないの？」ダイアログを表示済みか（表示後はタイマー凍結）
       stayMidShown: false,   // v3: 待機中間メッセージを出したか
       practiceDone: false,
       mainDone: false,
@@ -881,8 +924,9 @@
     var DRIFT = reduceMotion ? 0 : 32; // 本番の下方向ドリフト px/s（46→32 に減速。取りこぼし連発を緩和）。reduced では 0
     var MAX_BLUR = reduceMotion ? 0 : 6;
 
-    // ---- v3: 最終アクション＝10秒待機（偽スレを見送る猶予）／自動引き込み ----
-    var STAY_TARGET = 20000;       // v3.1: choice で無操作を続けてクリアするまで（10s→20s）
+    // ---- v3.1: 最終アクション＝15秒静止で「見送るか、見に行くか」のダイアログ／自動引き込み ----
+    // 20秒フル待機での自動クリアは廃止（ダイアログ応答＝「見ない」が唯一のクリア経路）。
+    var STAY_TARGET = 15000;       // ダイアログが現れるまでの静止時間（10s→20s→15s+ダイアログ化）
     var STAY_READY_DELAY = 2500;   // ビートC(c2)＋「次スレへ」が表示し終わるまでの遅延。この間はタイマー未開始
     var STAY_FADE_START = 5000;    // 可視FB（スレが薄れる演出）はこの時間が経つまで立ち上がらない
     // v3.1: ユーザーFB「高速スクロールが全然高速じゃない。加速度がついてどんどん速くなる恐怖感が欲しい。
@@ -1148,6 +1192,7 @@
       state.stayMs = 0;
       state.stayTimerStarted = false;
       state.stayMidShown = false;
+      state.dialogShown = false;
       el.choiceLayer.hidden = false;
       revealDeferredPosts("c1"); // v3.1: 完成後の催促（ビートC）
       // v3.1: ビートC(c2)＋「次スレへ」が表示し終わるまではノーカウント。表示完了の瞬間にタイマー開始。
@@ -1169,19 +1214,46 @@
     }
 
     // v3.1: choice で「次スレへ」を押す＝流れに乗る＝本当に次スレへ遷移する末路シーケンスへ（route="decoy"）
+    // 「次スレへ」ボタン自体のタップは、ダイアログの表示有無に関係なく常に即狂死ルート（decoy）。
     function hardReset() {
       if (state.phase !== "choice") return;
       state.phase = "nextthread";
       el.choiceLayer.hidden = true;
+      hideOverlay(el.leaveDialog);
       playNextThreadSequence("decoy");
     }
 
-    function doClear() {
+    // v3.1: 無操作15秒で現れる最後の誘い。「次スレへ」と同格の選択肢だが、decoyは表示後も独立してタップ可能。
+    function showLeaveDialog() {
+      if (state.dialogShown) return;
+      state.dialogShown = true;
+      el.leaveDialog.hidden = false;
+      el.leaveNo.focus();
+    }
+
+    // 「見ない」→クリア（唯一のクリア経路。method:"refused" でGA4上「待ち切った」と区別する）
+    function onLeaveNo() {
+      if (state.phase !== "choice" || !state.dialogShown) return;
+      hideOverlay(el.leaveDialog);
+      doClear("refused");
+    }
+
+    // 「見る」→次スレ狂死シーケンスへ合流（route="dialog"）
+    function onLeaveYes() {
+      if (state.phase !== "choice" || !state.dialogShown) return;
+      hideOverlay(el.leaveDialog);
+      state.phase = "nextthread";
+      el.choiceLayer.hidden = true;
+      playNextThreadSequence("dialog");
+    }
+
+    function doClear(method) {
       if (state.phase === "clear") return;
       state.phase = "clear";
       el.choiceLayer.hidden = true;
-      // v3.1: 実待機時間（一時停止分を除いた実測ms）をGA4に載せ、後で時間チューニングできるようにする
-      A.track("game_clear", { method: "waited", waitedMs: Math.round(state.stayMs) });
+      hideOverlay(el.leaveDialog);
+      // v3.1: 実待機時間（一時停止分を除いた実測ms）とクリア経路をGA4に載せ、後で時間チューニングできるようにする
+      A.track("game_clear", { method: method || "refused", waitedMs: Math.round(state.stayMs) });
       // 流れる投稿が水のように引いて消える → シミ（＝あなた）だけ残す
       document.documentElement.style.setProperty("--flow-fade", "1");
       el.thread.style.transition = "opacity 1.1s ease";
@@ -1354,7 +1426,9 @@
         steps.push({ delay: delay * T, name: name, text: text, corrupt: !!corrupt });
       }
 
-      if (route === "decoy") {
+      if (route === "decoy" || route === "dialog") {
+        // route="decoy"（「次スレへ」タップ）／"dialog"（誘いに「見る」と応えた）はどちらも
+        // 自分から次スレへ行くことを選んだ末路なので、フル導入から再生する。
         // 1. 画面遷移直後、投稿が高速で湧き始める
         add(800, "イッチ", "来たね");
         add(1200, "名無し", "来た来た");
@@ -1472,9 +1546,10 @@
 
     /* ---------------- 入力（press-and-hold） ---------------- */
     function onPressStart(e) {
-      // オーバーレイ上・囮ボタン上では無効
+      // オーバーレイ上・囮ボタン上・最後の誘いダイアログ上では無効
       if (e.target.closest(".overlay")) return;
       if (e.target.closest("#decoy")) return;
+      if (e.target.closest(".leave-dialog")) return;
       state.pressing = true;
     }
     function onPressEnd() {
@@ -1490,6 +1565,8 @@
 
     // v3: 「次スレへ」＝流れに乗る＝ハードリセット（シミのタップ決着は廃止）
     el.decoy.addEventListener("click", function () { if (state.phase === "choice") hardReset(); });
+    el.leaveNo.addEventListener("click", onLeaveNo);
+    el.leaveYes.addEventListener("click", onLeaveYes);
 
     el.startBtn.addEventListener("click", startGame);
     el.restartBtn.addEventListener("click", restart);
@@ -1663,9 +1740,10 @@
           el.holdRing.classList.remove("on");
         }
 
-        // 選択フェーズ（v3.1）：ビートC表示完了後、無操作20秒でクリア。
+        // 選択フェーズ（v3.1）：ビートC表示完了後、無操作15秒で「見送るか、見に行くか」のダイアログを出す。
         // スクロール・タップ等の入力中はタイマーを一時停止（リセットしない）。静止に戻れば再開。
-        if (state.phase === "choice" && state.stayTimerStarted) {
+        // ダイアログ表示後はここでの加算・可視FB更新を止める（凍結。以降はダイアログの応答で決着する）。
+        if (state.phase === "choice" && state.stayTimerStarted && !state.dialogShown) {
           if (state.still && !state.pressing) state.stayMs += dt;
           // 可視FBの立ち上がりは緩やかに（STAY_FADE_START までは実質見えない＝初見が囮を押すより前に
           // 明瞭にならないようにする）。以降 STAY_TARGET まで線形に進む。
@@ -1678,7 +1756,7 @@
             state.stayMidShown = true;
             showWhisper("……流れが、止まっていく。");
           }
-          if (state.stayMs >= STAY_TARGET) doClear();
+          if (state.stayMs >= STAY_TARGET) showLeaveDialog();
         }
 
         // v2-2 ホラー計測（流し続けた総量で段階・死が決まる）
@@ -1715,6 +1793,8 @@
         badEnded: state.badEnded,
         pulling: state.pulling,
         stayMs: Math.round(state.stayMs),
+        stayTimerStarted: state.stayTimerStarted,
+        dialogShown: state.dialogShown,
         practiceRescued: state.practiceRescued
       };
       if (!DEBUG) return;
@@ -1750,10 +1830,15 @@
         else if (state.phase === "main") completeMain();
       },
       press: function (v) { state.pressing = !!v; },
-      tapStay: function () { if (state.phase === "choice") doClear(); },
+      tapStay: function () { if (state.phase === "choice") doClear("debug"); },
       tapDecoy: function () { hardReset(); },
       startMainPull: startMainPull,
-      enterChoice: enterChoice
+      enterChoice: enterChoice,
+      // v3.1: 15秒静止ダイアログの検証用フック（本番導線は実タイマー経由。ここではダイアログ表示と
+      // 「見ない」「見る」応答を即時に呼べるようにする）
+      forceLeaveDialog: function () { showLeaveDialog(); },
+      leaveNo: function () { onLeaveNo(); },
+      leaveYes: function () { onLeaveYes(); }
     };
 
     /* ---------------- 任意の背景画像を onerror セーフに読み込む ---------------- */
