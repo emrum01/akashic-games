@@ -210,6 +210,10 @@
 
     /* v3: 自動引き込み中の入力ロック（透明・進行必須タップ無し）。touch-action:none でスクロール入力を無効化 */
     #pull-lock { position: fixed; inset: 0; z-index: 15; background: transparent; touch-action: none; }
+    /* v3.1: 本番の長押し中は、ブラウザの標準スクロール/パン判定と競合してpointercancelが起きやすい
+       （指の微小な震えだけで実機はスクロールジェスチャへ移行してしまう）。この局面ではドリフト＋長押しが
+       唯一の操作であり手動スクロールは不要なため、この間だけタッチのパン/ズームを完全に無効化する。 */
+    body.hold-lock { touch-action: none; }
     #pull-lock[hidden] { display: none; }
     #pull-lock::after {
       content: "押さえる"; position: absolute; left: 50%; bottom: 12vh; transform: translateX(-50%);
@@ -305,6 +309,14 @@
       align-items: flex-end;
       gap: clamp(6px, 2.2vw, 14px);
       width: min(94vw, 600px);
+      transition: top 1s cubic-bezier(.22,.75,.32,1) .3s, transform 1s cubic-bezier(.22,.75,.32,1) .3s;
+    }
+    /* v3.1: 「ながれるな」完成の余韻（inkBloom）を見せた後、固定シミを画面上部へ退避させ、
+       スレ本文（beat B/C の会話、選択の焦らし投稿）の可読エリアを塞がないようにする。
+       結合操作中（完成前）の位置には影響しない＝completeMain 完了後にのみ付与するクラス。 */
+    .shimi-row.settled {
+      top: 9%;
+      transform: translate(-50%, -50%) scale(0.6);
     }
     /* 1文字ぶんのグリフ。fixed=左片割れ / ink=右片割れ を clip-path で分割 */
     .glyph {
@@ -530,6 +542,10 @@
     }
 
     /* ===== バッドエンドの大見出し（一目で「バッドエンド」と分かる。視認性最優先＋にじみ演出） ===== */
+    /* モバイルSafari対策: フィルタを伴う一回きりの登場アニメ（badendReveal）と、opacityだけの無限ループ
+       （badendFlicker）を同一要素・同一レイヤーに同居させると、登場アニメ終了後もfilter(blur)のラスタが
+       レイヤーに残留したまま明滅だけが続く実機バグを踏むことがあった。要素を分け、blurの入る親レイヤーは
+       アニメ終了後に完全に静止させ、明滅は子要素だけの別レイヤーで回す。 */
     .badend-label {
       font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
       font-weight: 700;
@@ -539,7 +555,12 @@
       margin: 0 0 6px;
       color: #f2536c;                 /* 呑まれた末路＝血の赤。ここは高彩度を許容する */
       text-shadow: 0 0 26px rgba(217,69,95,.6), 0 0 8px rgba(0,0,0,.85), 0 2px 2px rgba(0,0,0,.7);
-      animation: badendReveal .9s ease-out 1, badendFlicker 4.2s steps(1) infinite .9s;
+      filter: none;                   /* 明示。badendReveal終了後はここへ確実に戻る */
+      animation: badendReveal .9s ease-out 1;
+    }
+    .badend-label-flicker {
+      display: inline-block;
+      animation: badendFlicker 4.2s steps(1) infinite .9s;
     }
     .badend-sub {
       margin: 0 0 18px;
@@ -715,6 +736,8 @@
       /* v3.1: 次スレ末路シーケンスも同様に揺れ・強フィルタを外す（進行ロジックは維持） */
       .nextthread.nt-collapse #nt-feed { animation: none; filter: saturate(.8); }
       .nt-post.nt-corrupt { filter: none; }
+      /* v3.1: 完成後の退避は瞬時に（移動そのものは維持し、投稿を塞がない実利は保つ） */
+      .shimi-row { transition: none; }
     }
 
     /* 縦が短い環境（600px 等）でオーバーレイを圧縮し、進行必須を上部70%に保つ */
@@ -723,6 +746,7 @@
       .overlay p { font-size: 14px; margin: 6px 0; }
       #title-screen h1 { font-size: clamp(30px, 10vh, 46px); }
       :root { --safe-shimi: 30%; }
+      .shimi-row.settled { top: 7%; }
       .leave-dialog { top: 40%; padding: 14px 16px; }
       .leave-dialog p { font-size: 14px; margin-bottom: 12px; }
     }
@@ -918,7 +942,7 @@
   <!-- バッドエンド。全ルート（囮ボタン=decoy／誘いに応じた=dialog／流されすぎ=flow）が
        playNextThreadSequence 経由でここに合流する。一目で「バッドエンド」と分かる大きな表示を最優先。 -->
   <section id="badend-screen" class="overlay badend" aria-labelledby="badend-label" hidden>
-    <p class="badend-label" id="badend-label">BAD END</p>
+    <p class="badend-label" id="badend-label"><span class="badend-label-flicker">BAD END</span></p>
     <p class="badend-sub" aria-hidden="true">バッドエンド</p>
     <p class="kicker">――</p>
     <h2 id="badend-h" style="font-size:24px">あなたも、ながれていった。</h2>
@@ -995,6 +1019,7 @@
       badend: document.getElementById("badend-screen"),
       badendRetry: document.getElementById("badend-retry"),
       badendH: document.getElementById("badend-h"),
+      badendLabel: document.getElementById("badend-label"),
       pullLock: document.getElementById("pull-lock"),
       resetVeil: document.getElementById("reset-veil"),
       nextthread: document.getElementById("nextthread-screen"),
@@ -1016,6 +1041,7 @@
       fragments: [],         // アクティブ語の各片完成フラグ
       holdMs: 0,
       pressing: false,
+      pressReleasedAt: 0,    // v3.1: 直近でpointerが離れた/取られた時刻（猶予判定用）
       scrollY: 0,
       velocity: 0,           // px/s
       still: false,
@@ -1026,7 +1052,7 @@
       fastPass: 0,
       lastZoneSide: 0,
       decoyCount: 0,
-      hintFlags: { fast: false, invert: false, mainHelp: false, decoy: false, holdHint: false },
+      hintFlags: { fast: false, invert: false, decoy: false, holdHint: false },
       mainEnterT: 0,
       nearStillMs: 0,          // 練習で断片近くに静止している連続時間（ms）
       brushShown: false,       // ニアミスFB（脈動＋一言）を既に出したか（1回だけ）
@@ -1053,6 +1079,10 @@
     var TOL_MAIN = 45;             // 本番の整列許容誤差＋JS吸着の作動範囲（30→45 に1.5倍拡大）
     var SNAP_PRACTICE = 0.16;      // 練習の吸着。効かせすぎると一目で解けてしまうため一段弱める（0.22→0.16）
     var STILL_V = 26;              // これ未満を「静止」とみなす px/s
+    // v3.1: 実機の長押しは、OSのスクロールジェスチャ判定やタッチの瞬間的な途切れで pointerup/pointercancel が
+    // 挟まりやすい。指を離した直後の短い猶予（ms）だけ「押し続けている」とみなし、蓄積した holdMs を守る。
+    // 猶予内に指を戻さなければ通常どおり途切れ扱いになるため、「長押し＝踏みとどまる」という意味は変えない。
+    var PRESS_GRACE_MS = 260;
     var DRIFT = reduceMotion ? 0 : 32; // 本番の下方向ドリフト px/s（46→32 に減速。取りこぼし連発を緩和）。reduced では 0
     var MAX_BLUR = 0; // モバイルで本文が読みづらくならないよう、投稿全体のblurは使わない
     var PULL_MAX_BLUR = 0;
@@ -1188,10 +1218,13 @@
       if (state.mainDone) return;
       state.mainDone = true;
       state.holdMs = HOLD_TARGET;
+      document.body.classList.remove("hold-lock"); // v3.1: 長押し局面を抜けたのでタッチパンを戻す
       markAllDone(el.shimiRow);
       markAllDone(el.mainInk);
       el.shimiRow.classList.add("pulse");
       A.track("stay_proven", { word: "ながれるな" });
+      // v3.1: inkBloom の余韻（1.05s）を見せてから、投稿を塞がないよう上部へ退避させる。
+      setTimeout(function () { el.shimiRow.classList.add("settled"); }, 1100);
       setTimeout(function () { enterChoice(); }, 900);
     }
 
@@ -1263,6 +1296,7 @@
           if (!interrupted) window.scrollTo(0, land);
           el.pullLock.hidden = true;
           state.pulling = false;
+          document.body.classList.add("hold-lock"); // v3.1: 長押し局面はタッチパンを無効化（completeMain/badEndで解除）
           state.programmaticFrame = true; // 着地の瞬間の1フレームだけは速度計算から除外（着地ジャンプの誤検知防止）
           A.track("main_pull_settled", {});
           showWhisper(interrupted ? "……止めた。" : "……止まった。");
@@ -1581,6 +1615,7 @@
       if (state.badEnded) return;
       state.badEnded = true;
       state.phase = "nextthread"; // ループのフェーズ処理を停止（凍結）
+      document.body.classList.remove("hold-lock"); // v3.1: main途中で死んだ場合もタッチパンを戻しておく
       transitionToNextThread("flow");
     }
 
@@ -1743,11 +1778,8 @@
           showWhisper("点は動かない。動いているのは、こっちだ。");
         }
       } else if (state.phase === "main") {
-        // 本番で一定時間（〜22秒）完成しない → 段階ヒント（確実に時間発火。入力に依存しない）
-        if (!state.hintFlags.mainHelp && now - state.mainEnterT > 22000 && !state.mainDone) {
-          state.hintFlags.mainHelp = true;
-          showWhisper("止まって、待ってみたら？ 流されないように。");
-        }
+        // v3.1: 「止まって待てば助かる」という生存条件そのものを名指しするヒントは削除した。
+        // 生存条件のヒントは完成後に画面へ現れる「ながれるな」の文字だけで十分という方針（DESIGN.md参照）。
         // 代替操作（長押し）の案内は失敗後にだけ後出し：整列窓に入って流されるミスを2回検知したら表示。
         // reduced はドリフト0で難度が落ちるため時間フォールバックも早める。
         var holdByMiss = state.mainMissCount >= 2;
@@ -1760,19 +1792,31 @@
     }
 
     /* ---------------- 入力（press-and-hold） ---------------- */
+    var pressLossTimer = null;
     function onPressStart(e) {
       // オーバーレイ上・囮ボタン上・最後の誘いダイアログ上では無効
       if (e.target.closest(".overlay")) return;
       if (e.target.closest("#decoy")) return;
       if (e.target.closest(".leave-dialog")) return;
+      if (pressLossTimer) { clearTimeout(pressLossTimer); pressLossTimer = null; }
       state.pressing = true;
+      state.pressReleasedAt = 0;
     }
     function onPressEnd() {
-      if (state.pressing && state.phase === "main" && !state.mainDone && state.holdMs > 250 && state.holdMs < HOLD_TARGET) {
-        showWhisper("途中で、また流れてしまった。");
-      }
+      var hadProgress = state.phase === "main" && !state.mainDone && state.holdMs > 250 && state.holdMs < HOLD_TARGET;
       state.pressing = false;
-      state.holdMs = 0;
+      state.pressReleasedAt = performance.now();
+      // v3.1: PRESS_GRACE_MS の猶予中は loop() 側が holdMs を維持する。実際に流れてしまった（猶予も過ぎた）
+      // ときだけフィードバックを出す＝実機の瞬間的なpointerup/pointercancelを誤って「失敗」扱いしない。
+      if (hadProgress) {
+        if (pressLossTimer) clearTimeout(pressLossTimer);
+        pressLossTimer = setTimeout(function () {
+          pressLossTimer = null;
+          if (!state.pressing && state.phase === "main" && !state.mainDone && state.holdMs < HOLD_TARGET) {
+            showWhisper("途中で、また流れてしまった。");
+          }
+        }, PRESS_GRACE_MS + 40);
+      }
     }
     window.addEventListener("pointerdown", onPressStart, { passive: true });
     window.addEventListener("pointerup", onPressEnd, { passive: true });
@@ -1794,6 +1838,16 @@
     el.decoy.addEventListener("click", function () { if (state.phase === "choice") hardReset(); });
     el.leaveNo.addEventListener("click", onLeaveNo);
     el.leaveYes.addEventListener("click", onLeaveYes);
+
+    // v3.1: badendReveal終了後、モバイルSafariでfilter(blur)が視覚的に残留する個体差への保険。
+    // CSS側（要素分離＋filter:noneの明示）で解消済みだが、二重の安全策として明示的にfilterを外し強制リフローする。
+    if (el.badendLabel) {
+      el.badendLabel.addEventListener("animationend", function (e) {
+        if (e.animationName !== "badendReveal") return;
+        el.badendLabel.style.filter = "none";
+        void el.badendLabel.offsetHeight; // 強制リフロー
+      });
+    }
 
     el.startBtn.addEventListener("click", startGame);
     el.restartBtn.addEventListener("click", restart);
@@ -1916,22 +1970,26 @@
 
         // --- 本番：ドリフト＋press-and-hold で 2秒完成（引き込み中 pulling は停止） ---
         if (state.phase === "main" && !state.mainDone && !state.pulling) {
-          var holding = state.pressing && state.aligned && state.still;
+          // v3.1: 実機で pointerup/pointercancel が瞬間的に挟まっても、猶予(PRESS_GRACE_MS)内に
+          // 指が戻れば「押し続けている」ものとして扱う（意味は変えず、実機での成功率だけ上げる）。
+          var pressGrace = !state.pressing && state.pressReleasedAt && (now - state.pressReleasedAt < PRESS_GRACE_MS);
+          var effectivePressing = state.pressing || pressGrace;
+          var holding = effectivePressing && state.aligned && state.still;
           if (holding) {
             state.holdMs += dt;
             if (Math.abs(state.err) > 2) snapBy(state.err * 0.12); // 吸着（速度計算から除外）
             if (state.holdMs >= HOLD_TARGET) completeMain();
           } else {
-            // 保持が崩れたらリセット（押していない／整列外／流された、いずれもリセット）
+            // 保持が崩れたらリセット（猶予も含め押していない／整列外／流された、いずれもリセット）
             state.holdMs = 0;
             // 押しているが未整列で「近い」なら、ゾーンへ穏やかに引き込む手応え（ドリフトは押下中は止まる）
-            if (state.pressing && near && !state.aligned) {
+            if (effectivePressing && near && !state.aligned) {
               snapBy(state.err * 0.06);
             }
             // ドリフト（怪異が流す）。押していない間だけ。
             // 一方向に流し切って下端の「行き止まり」に達しないよう、判定ゾーンを挟んで往復させる
             // （整列窓を周期的に再訪させる＝構造的に詰みを無くす）。浮動小数残差を積算し 60/120Hz で実効速度一致。
-            if (!state.pressing) {
+            if (!effectivePressing) {
               var BAND = TOL_MAIN * 3; // ゾーン±135px の外で折り返す
               if (state.err < -BAND) state.driftDir = -1;      // ink がゾーン上方へ行き過ぎ→下げ戻す
               else if (state.err > BAND) state.driftDir = 1;    // ink がゾーン下方→ゾーンへ引き上げる
@@ -1963,7 +2021,7 @@
           }
           // 保持リング更新：押していて「整列 or 近い」なら表示（=ドリフトが止まった手応えを必ず可視化）
           var ratio = Math.min(1, state.holdMs / HOLD_TARGET);
-          el.holdRing.classList.toggle("on", state.pressing && (state.aligned || near));
+          el.holdRing.classList.toggle("on", effectivePressing && (state.aligned || near));
           el.holdFill.setAttribute("stroke-dashoffset", String(100 - ratio * 100));
         } else {
           el.holdRing.classList.remove("on");

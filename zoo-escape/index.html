@@ -44,7 +44,13 @@
 
     #app {
       position: fixed;
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      /* 可視領域に追従（Xアプリ内ブラウザ等の下部バーで隠れないように）。
+         100vh フォールバック → 対応端末は 100dvh で動的ツールバーを差し引く */
+      height: 100vh;
+      height: 100dvh;
       display: flex;
       justify-content: center;
       background: #06080c;
@@ -314,7 +320,8 @@
       z-index: 25;
       width: 22%;
       max-width: 120px;
-      bottom: 20%;
+      /* Xアプリ内ブラウザの下部バー／テキストボックスと重ならないよう高めに置く */
+      bottom: 32%;
       left: 46%;
       transform: translateX(-50%);
       /* 世界律モチーフ: 地面がわずかに傾いている → 影を斜めに落とす */
@@ -663,25 +670,49 @@
 
     // ---------- 定数 ----------
     var ASSET = "assets/";
+    // 巡回対象は lion/bird/reptile の3つ（＝看板で残る文字）。ぞう〜みずべの5つは
+    // 巡回不要のダミー。背景は既存JPEGを CSS filter で色替えして流用し、フレーバーのみ置く。
     var AREAS = {
       central: { name: "中央広場", bg: "bg_central_sign.jpg" },
       lion:    { name: "ライオンエリア", bg: "bg_lion_area.jpg" },
       bird:    { name: "鳥エリア", bg: "bg_bird_area.jpg" },
       reptile: { name: "爬虫類エリア", bg: "bg_reptile_area.jpg" },
+      // --- ダミー（巡回不要・手がかりなし。既存背景を filter で使い回し） ---
+      zou:     { name: "ぞうのおり",       bg: "bg_reptile_area.jpg", filter: "saturate(0.7) brightness(0.6) hue-rotate(-18deg) contrast(1.05)" },
+      saru:    { name: "さるやま",         bg: "bg_lion_area.jpg",    filter: "saturate(0.75) brightness(0.64) hue-rotate(32deg)" },
+      penguin: { name: "ぺんぎんの池",     bg: "bg_bird_area.jpg",    filter: "saturate(0.85) brightness(0.72) hue-rotate(150deg)" },
+      kirin:   { name: "きりんの塔",       bg: "bg_exit_gate.jpg",    filter: "saturate(0.7) brightness(0.58) hue-rotate(-42deg)" },
+      mizube:  { name: "よふかしのみずべ", bg: "bg_bird_area.jpg",    filter: "saturate(0.9) brightness(0.52) hue-rotate(182deg) contrast(1.1)" },
       exit:    { name: "出口ゲート", bg: "bg_exit_gate.jpg" }
     };
-    var PATROL = ["lion", "bird", "reptile"]; // でぐち(exit)は巡回完了後の目的地
+    // ダミーエリアのフレーバー（1〜2行。手がかりは置かない。傾き世界律を控えめに散らす）
+    var DUMMY_TEXT = {
+      zou:     ["闇のなかで、大きな影がゆっくりと身じろぎした。", "ぞうは長い鼻を、傾いだ地面のほうへ垂らしている。"],
+      saru:    ["檻はとうに開いているのに、さるは動こうとしない。", "斜めになった枝の上から、じっとこちらを見下ろしている。"],
+      penguin: ["凍った池のふちに、ぺんぎんが一列に並んでいる。", "みな同じほうへ、少しだけ首をかしげたまま。"],
+      kirin:   ["首をもたげたきりんが、傾いた塔の影にとけこんでいる。", "見上げても、その顔は夜に紛れて見えない。"],
+      mizube:  ["水面が、どこか斜めに張られているように見える。", "よふかしのみずべは、夜そのものを映して黙っている。"]
+    };
+    var PATROL = ["lion", "bird", "reptile"]; // でぐち(exit)は巡回完了後の目的地。ダミーはPATROL外なので進行に影響しない
     var TILT_THRESHOLD = 55;   // 看板: 左傾き閾値(度)
     var HOLD_START = 3000;     // 3秒: 文字がぐらつき始める(ms)
     var HOLD_DONE = 5000;      // 5秒前後: 落ち切る(ms)
     var MEAT_TILT = 25;        // 肉が滑り出す傾き(度)
 
     // 看板の文面設計（README参照）
+    // まっすぐ読むと全8エリア（らいおん/ぞう/とり/さる/はちゅうるい/ぺんぎん/きりん/みずべ＋でぐち）に
+    // 言及する夜の動物園の詩に見えるが、傾けて余分な文字が落ちると、糊が強く残る文字だけになる。
+    // 残る＝巡回順（らいおん→とり→はちゅうるい→でぐち）。ダミー名の行は keep:[] で丸ごと落ちる。
     var SIGN_ROWS = [
-      { text: "よるのらいおんはおきる", keep: [3,4,5,6] },     // らいおん
-      { text: "とりはそらへかえる",     keep: [0,1] },          // とり
-      { text: "はちゅうるいはねむらない", keep: [0,1,2,3,4,5] }, // はちゅうるい
-      { text: "そこがでぐちだ",         keep: [3,4,5] }         // でぐち
+      { text: "よるのらいおんはおきる",   keep: [3,4,5,6] },     // らいおん（3ら4い5お6ん）
+      { text: "ぞうはしずかにねむる",     keep: [] },            // ダミー: ぞう（全落）
+      { text: "とりはそらへかえる",       keep: [0,1] },         // とり（0と1り）
+      { text: "さるはえだをはなれない",   keep: [] },            // ダミー: さる（全落）
+      { text: "はちゅうるいはねむらない", keep: [0,1,2,3,4,5] }, // はちゅうるい（0は1ち2ゅ3う4る5い）
+      { text: "ぺんぎんはこおりのうえ",   keep: [] },            // ダミー: ぺんぎん（全落）
+      { text: "きりんはつきをのぞむ",     keep: [] },            // ダミー: きりん（全落）
+      { text: "よふかしのみずべにて",     keep: [] },            // ダミー: よふかし/みずべ（全落）
+      { text: "そこがでぐちだ",           keep: [3,4,5] }        // でぐち（3で4ぐ5ち）
     ];
 
     // ---------- 状態 ----------
@@ -853,8 +884,11 @@
       bt.style.top = (offY + FACE.y * dH) + "px";
       bt.style.width = (FACE.w * dW) + "px";
       bt.style.height = (FACE.h * dH) + "px";
-      // 4行＋落書きが板面に収まるようフォントを板面高さから決める
-      bt.style.fontSize = (FACE.h * dH * 0.165) + "px";
+      // 実際に表示する行数（解読後は残る文字の行だけ）に合わせて板面高さからフォントを決める
+      var nLines = state.signSolved
+        ? SIGN_ROWS.filter(function (r) { return r.keep.length > 0; }).length
+        : SIGN_ROWS.length;
+      bt.style.fontSize = (FACE.h * dH * 0.62 / Math.max(1, nLines)) + "px";
     }
     // 中央広場の引きで見える看板テキストを、解読状態に合わせて描き分ける。
     // 未解読=詩の全文 / 解読済み=余分な文字が落ちた後（残った文字だけ）。
@@ -864,6 +898,8 @@
       var solved = !!state.signSolved;
       poem.innerHTML = "";
       SIGN_ROWS.forEach(function (row) {
+        // 解読後、丸ごと落ちた行（ダミー名）は引きの看板からも消す＝残った文字だけ4行になる
+        if (solved && row.keep.length === 0) return;
         var line = solved
           ? row.keep.map(function (i) { return row.text[i]; }).join("")
           : row.text;
@@ -943,6 +979,8 @@
       state.area = area;
       var cfg = AREAS[area];
       setBackground(cfg.bg);
+      // ダミーエリアは既存背景を filter で色替え（無指定はCSS既定へ戻す）。exit の演出は enterExit が上書き
+      el.bg.style.filter = cfg.filter || "";
       el.areaName.textContent = cfg.name;
       el.meat.classList.add("hidden");
       el.paw.classList.remove("show");
@@ -969,8 +1007,22 @@
         case "lion":    return enterLion(firstVisit);
         case "bird":    return enterBird(firstVisit);
         case "reptile": return enterReptile(firstVisit);
+        case "zou":
+        case "saru":
+        case "penguin":
+        case "kirin":
+        case "mizube":  return enterDummy(area);
         case "exit":    return enterExit(firstVisit);
       }
+    }
+
+    // ダミーエリア: キャラ立ち絵なし・フレーバーのみ・手がかりなし・巡回進行に影響しない
+    function enterDummy(area) {
+      setActor(null);
+      var lines = DUMMY_TEXT[area] || ["夜が、ただ静かに満ちている。"];
+      speak("", lines, function () {
+        setActions([{ label: "マップを開く", onClick: openMap }]);
+      });
     }
 
     // 中央広場
@@ -1032,7 +1084,7 @@
     function showMeat() {
       el.meat.classList.remove("hidden");
       el.meat.style.left = "46%";
-      el.meat.style.bottom = "20%";
+      el.meat.style.bottom = "32%"; // CSS初期値と整合。下部バー／テキストボックスに隠れない高さ
       // 世界律モチーフ: 傾いた地面に乗っているようわずかに傾ける
       el.meat.style.transform = "translateX(-50%) rotate(-6deg)";
     }
@@ -1095,7 +1147,7 @@
       // 肉が左（ライオンの前）へ滑る演出
       el.meat.style.transition = "left 1.0s cubic-bezier(.4,.05,.25,1), bottom 1.0s ease, transform 1.0s ease";
       el.meat.style.left = "-10%";
-      el.meat.style.bottom = "34%";
+      el.meat.style.bottom = "46%"; // 初期32%からの上昇量を維持しつつ滑走先も上げる
       el.meat.style.transform = "translateX(-50%) rotate(-40deg)";
       setTimeout(function () {
         el.meat.classList.add("hidden");
@@ -1543,6 +1595,11 @@
         { id: "lion", label: "🦁 ライオンエリア" },
         { id: "bird", label: "🦜 鳥エリア" },
         { id: "reptile", label: "🦎 爬虫類エリア" },
+        { id: "zou", label: "🐘 ぞうのおり" },
+        { id: "saru", label: "🐒 さるやま" },
+        { id: "penguin", label: "🐧 ぺんぎんの池" },
+        { id: "kirin", label: "🦒 きりんの塔" },
+        { id: "mizube", label: "💧 よふかしのみずべ" },
         { id: "exit", label: "🚪 出口ゲート" }
       ];
       el.textbox.classList.remove("hidden");
