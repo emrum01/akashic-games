@@ -31,7 +31,7 @@
       --ink-muted: #8894a0;
       --ink-dim: #79838f;    /* AA(4.5:1)未達を回避し実測5.12:1へ。--ink-muted より一段暗く階層維持 */
       --ink-bright: #e9f0f4;
-      --stain: #3b434c;      /* 未完成のシミ（黒い汚れに見える） */
+      --stain: #626e79;      /* 未完成のシミ（黒い汚れに見えるが、小型・屋外でも存在に気づける濃さ） */
       --stain-glow: #eef5f8; /* 完成した墨字 */
       --accent: #d9455f;     /* CTA・囮の脈動だけ高彩度（周囲はセカンダリ） */
       --accent-soft: #6b8794;
@@ -232,7 +232,8 @@
     .shimi-char span {
       color: var(--stain);
       clip-path: polygon(0 0, 56% 0, 44% 100%, 0 100%);
-      text-shadow: 0 0 2px rgba(0,0,0,0.6);
+      /* 暗背景から浮かせる淡い光暈を足し、汚れの質感は保ちつつ視認できる濃さに */
+      text-shadow: 0 0 4px rgba(130,160,180,0.4), 0 0 2px rgba(0,0,0,0.5);
       transition: color .5s ease, clip-path .5s ease, text-shadow .5s ease, transform .5s ease;
       filter: none;
     }
@@ -246,12 +247,12 @@
     .shimi-char.near span { color: #6b7681; }
     /* 練習で「重なりかけて離脱」した瞬間、シミの脈動を一度だけ強める（手触りFB・"止まれ"とは言わない） */
     .shimi-row.brush .shimi-char:not(.done) span {
-      animation: brushOnce 1.1s ease-out 1;
+      animation: brushOnce 1.3s ease-out 1;
     }
     @keyframes brushOnce {
-      0%   { color: var(--stain); text-shadow: 0 0 2px rgba(0,0,0,0.6); }
-      40%  { color: #9aa6b0; text-shadow: 0 0 14px rgba(150,180,200,0.7); }
-      100% { color: var(--stain); text-shadow: 0 0 2px rgba(0,0,0,0.6); }
+      0%   { color: var(--stain); text-shadow: 0 0 4px rgba(130,160,180,0.4); transform: scale(1); }
+      35%  { color: #d2dbe2; text-shadow: 0 0 24px rgba(185,215,235,0.95), 0 0 6px rgba(255,255,255,0.75); transform: scale(1.07); }
+      100% { color: var(--stain); text-shadow: 0 0 4px rgba(130,160,180,0.4); transform: scale(1); }
     }
     /* 完成：片割れが晴れて全文字が鮮明な墨字に結合し微かに発光 */
     .shimi-char.done span {
@@ -267,8 +268,9 @@
     html.ink-masked .ink-char.done span {
       -webkit-mask-image: url("./assets/sumi_ink.png");
       mask-image: url("./assets/sumi_ink.png");
-      -webkit-mask-size: 180% 180%;
-      mask-size: 180% 180%;
+      /* 240% で墨の被覆を広げ、汚れ質感を残しつつ切り抜き過ぎで薄くなるのを防ぐ */
+      -webkit-mask-size: 240% 240%;
+      mask-size: 240% 240%;
       -webkit-mask-position: center;
       mask-position: center;
       -webkit-mask-repeat: no-repeat;
@@ -374,6 +376,16 @@
     #title-screen h1 { font-size: clamp(34px, 12vw, 58px); letter-spacing: .06em; }
     .overlay p { margin: 8px 0; line-height: 1.8; font-size: 15px; color: var(--ink-muted); }
     .overlay p.lede { color: var(--ink-dim); font-size: 14px; letter-spacing: .04em; }
+
+    /* クリアの余韻：回収文を1行ずつ、CTAは最後に。JSで .in を順次付与してフェードイン */
+    .clear-stagger { opacity: 0; transition: opacity 1s ease; }
+    .clear-stagger.in { opacity: 1; }
+    #clear-cta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
 
     .btn {
       appearance: none;
@@ -594,13 +606,15 @@
   <section id="clear-screen" class="overlay" aria-labelledby="clear-h" hidden>
     <p class="kicker">STILL</p>
     <h2 id="clear-h">ながれるな</h2>
-    <p id="clear-1">流れていたものは、みんな、うそだった。</p>
-    <p id="clear-2">留まっていたものだけが、ほんとうだった。</p>
-    <p class="lede" id="clear-3">このスレも、いずれ流れて消える。——でも、あなたは留まった。</p>
-    <p class="lede" style="margin-top:20px">この板をつくったチームは、店舗開催の謎解き公演もひらいています。</p>
-    <a id="lp-link" class="btn btn--bright" href="https://invite.escape-safari.com/bookcafe/?utm_source=webnazo&utm_medium=game&utm_campaign=weekly_webnazo_still_thread&utm_content=clear_card" target="_blank" rel="noopener">公演情報を見る</a>
-    <button id="share-btn" class="btn" type="button">結果をシェア</button>
-    <button id="restart-btn" class="btn btn--ghost" type="button">もう一度ひらく</button>
+    <p id="clear-1" class="clear-stagger">流れていたものは、みんな、うそだった。</p>
+    <p id="clear-2" class="clear-stagger">留まっていたものだけが、ほんとうだった。</p>
+    <p class="lede clear-stagger" id="clear-3">このスレも、いずれ流れて消える。——でも、あなたは留まった。</p>
+    <div id="clear-cta" class="clear-stagger">
+      <p class="lede" style="margin-top:20px">この板をつくったチームは、店舗開催の謎解き公演もひらいています。</p>
+      <a id="lp-link" class="btn btn--bright" href="https://invite.escape-safari.com/bookcafe/?utm_source=webnazo&utm_medium=game&utm_campaign=weekly_webnazo_still_thread&utm_content=clear_card" target="_blank" rel="noopener">公演情報を見る</a>
+      <button id="share-btn" class="btn" type="button">結果をシェア</button>
+      <button id="restart-btn" class="btn btn--ghost" type="button">もう一度ひらく</button>
+    </div>
   </section>
 
   <!-- ソフト失敗（次スレへを押した時） -->
@@ -678,16 +692,16 @@
       decoyCount: 0,
       hintFlags: { fast: false, invert: false, mainHelp: false, decoy: false, holdHint: false },
       mainEnterT: 0,
-      nearStillLatched: false, // 練習で整列窓に近く静止した状態を掴んでいるか
-      brushShown: false        // 「重なりかけて離脱」FBを既に出したか（1回だけ）
+      nearStillMs: 0,          // 練習で断片近くに静止している連続時間（ms）
+      brushShown: false        // ニアミスFB（脈動＋一言）を既に出したか（1回だけ）
     };
 
     // ---- パラメータ（世界内の意味付き数値） ----
-    var HOLD_TARGET = 2000;        // 保持2秒＝留まる意思の証明
-    var TOL_PRACTICE = 64;         // 練習は許容誤差広め
-    var TOL_MAIN = 30;             // 本番は狭く（ただし snap 補助あり）
+    var HOLD_TARGET = 2000;        // 保持2秒＝留まる意思の証明（世界観上の意味があるため据え置き）
+    var TOL_PRACTICE = 96;         // 練習は許容誤差広め（64→96 に1.5倍拡大）
+    var TOL_MAIN = 45;             // 本番の整列許容誤差＋JS吸着の作動範囲（30→45 に1.5倍拡大）
     var STILL_V = 26;              // これ未満を「静止」とみなす px/s
-    var DRIFT = reduceMotion ? 0 : 46; // 本番の下方向ドリフト px/s（怪異が流す）。reduced では 0
+    var DRIFT = reduceMotion ? 0 : 32; // 本番の下方向ドリフト px/s（46→32 に減速。取りこぼし連発を緩和）。reduced では 0
     var MAX_BLUR = reduceMotion ? 0 : 6;
 
     /* ---------------- グリフ生成 ---------------- */
@@ -835,7 +849,24 @@
       document.documentElement.style.setProperty("--flow-fade", "1");
       el.thread.style.transition = "opacity 1.1s ease";
       el.thread.style.opacity = "0.06";
-      setTimeout(function () { showOverlay(el.clear); }, 1100);
+      setTimeout(function () { showOverlay(el.clear); revealClearSequence(); }, 1100);
+    }
+
+    // 回収文3行を1行ずつ（各~1.2s間隔）フェードインし、公演CTAは最終行から約4秒置いて出す。
+    // ホラーの余韻を広告で断ち切らないための間。
+    function revealClearSequence() {
+      var steps = [
+        ["clear-1", 200],
+        ["clear-2", 1400],
+        ["clear-3", 2600],
+        ["clear-cta", 6600]  // 最終行(2600ms) + 約4000ms
+      ];
+      steps.forEach(function (s) {
+        setTimeout(function () {
+          var node = document.getElementById(s[0]);
+          if (node) node.classList.add("in");
+        }, s[1]);
+      });
     }
 
     function tapDecoy() {
@@ -993,15 +1024,18 @@
 
         // --- 練習：止まるだけで自動 2秒完成 ---
         if (state.phase === "practice" && !state.practiceDone) {
-          // 整列窓の近くに静止→離脱した瞬間、シミの脈動を一度だけ強め弱い一言を添える（伏線の手触り）
+          // 断片近くに少しでも静止したら、即座にシミの脈動を強め弱い一言を添える（22秒ヒント前の確実な初期シグナル）。
+          // 離脱を待たず短い滞留(>300ms)で発火。操作指示は書かない手触りFB。1回だけ。
           if (near && state.still) {
-            state.nearStillLatched = true;
-          } else if (state.nearStillLatched && !state.brushShown) {
-            state.nearStillLatched = false;
-            state.brushShown = true;
-            el.shimiRow.classList.add("brush");
-            setTimeout(function () { el.shimiRow.classList.remove("brush"); }, 1200);
-            showWhisper("…いま、なにか重なりかけた。");
+            state.nearStillMs += dt;
+            if (!state.brushShown && state.nearStillMs > 300) {
+              state.brushShown = true;
+              el.shimiRow.classList.add("brush");
+              setTimeout(function () { el.shimiRow.classList.remove("brush"); }, 1400);
+              showWhisper("…いま、なにか重なりかけた。");
+            }
+          } else {
+            state.nearStillMs = 0;
           }
           if (state.aligned && state.still) {
             state.holdMs += dt;
