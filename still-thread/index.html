@@ -178,6 +178,12 @@
       color: var(--ink-muted);
       font-size: 12px;
     }
+    /* 本番未完成で最下部に達した時、フッターが微かに脈動して「終わりではない」含みを出す */
+    .thread-footer.restless { animation: footerRestless 2.4s ease-in-out infinite; }
+    @keyframes footerRestless {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; color: var(--ink-bright); }
+    }
 
     /* ===== 固定層（シミ）: visualViewport 追従で上部70%に貼りつく ===== */
     #fixed-layer {
@@ -501,6 +507,7 @@
       .shimi-row.pulse .shimi-char.done span,
       .shimi-row.reveal-once .shimi-char.done span,
       .shimi-row.brush .shimi-char:not(.done) span,
+      .thread-footer.restless,
       #decoy { animation: none; }
       .title-stain { box-shadow: none; }
     }
@@ -660,6 +667,7 @@
       thread: document.getElementById("thread"),
       practiceInk: document.getElementById("practice-ink"),
       mainInk: document.getElementById("main-ink"),
+      footer: document.getElementById("footer-slot"),
       choiceLayer: document.getElementById("choice-layer"),
       decoy: document.getElementById("decoy"),
       title: document.getElementById("title-screen"),
@@ -693,7 +701,11 @@
       hintFlags: { fast: false, invert: false, mainHelp: false, decoy: false, holdHint: false },
       mainEnterT: 0,
       nearStillMs: 0,          // 練習で断片近くに静止している連続時間（ms）
-      brushShown: false        // ニアミスFB（脈動＋一言）を既に出したか（1回だけ）
+      brushShown: false,       // ニアミスFB（脈動＋一言）を既に出したか（1回だけ）
+      driftDir: 1,             // 本番ドリフトの向き（+1=下スクロール/ink上へ, -1=上へ戻す）。判定ゾーンで往復
+      mainInWindow: false,     // 本番で整列窓に入っている状態を掴んでいるか（ミス検知用ラッチ）
+      mainMissCount: 0,        // 整列窓に入ったのに完成せず流された回数
+      footerNudged: false      // 本番未完成で最下部到達→住人レス追記＋脈動を済ませたか（1回だけ）
     };
 
     // ---- パラメータ（世界内の意味付き数値） ----
@@ -811,6 +823,10 @@
     function enterMain() {
       state.phase = "main";
       state.mainEnterT = performance.now();
+      state.driftDir = 1;
+      state.mainInWindow = false;
+      state.mainMissCount = 0;
+      state.footerNudged = false;
       el.mainInk.hidden = false;
       el.shimiRow.classList.remove("pulse");
       setActiveWord("main");
@@ -920,14 +936,16 @@
           showWhisper("点は動かない。動いているのは、こっちだ。");
         }
       } else if (state.phase === "main") {
-        // 本番で位置合わせ＋保持ができない → やや直接
+        // 本番で一定時間（〜22秒）完成しない → 段階ヒント（確実に時間発火。入力に依存しない）
         if (!state.hintFlags.mainHelp && now - state.mainEnterT > 22000 && !state.mainDone) {
           state.hintFlags.mainHelp = true;
           showWhisper("止まって、待ってみたら？ 流されないように。");
         }
-        // 代替操作（長押し）の案内は失敗が重なった後にだけ後出し。
-        // reduced-motion はドリフト0で難度が落ちる分、長押しヒントを早めに出して詰みを防ぐ。
-        if (!state.hintFlags.holdHint && now - state.mainEnterT > (reduceMotion ? 25000 : 40000) && !state.mainDone) {
+        // 代替操作（長押し）の案内は失敗後にだけ後出し：整列窓に入って流されるミスを2回検知したら表示。
+        // reduced はドリフト0で難度が落ちるため時間フォールバックも早める。
+        var holdByMiss = state.mainMissCount >= 2;
+        var holdByTime = now - state.mainEnterT > (reduceMotion ? 25000 : 40000);
+        if (!state.hintFlags.holdHint && (holdByMiss || holdByTime) && !state.mainDone) {
           state.hintFlags.holdHint = true;
           showWhisper("長押しで、その場に留まれる。");
         }
@@ -1059,29 +1077,48 @@
             if (Math.abs(state.err) > 2) window.scrollBy(0, state.err * 0.12); // 吸着
             if (state.holdMs >= HOLD_TARGET) completeMain();
           } else {
-            // 保持が崩れたらリセット
-            if (state.pressing && state.aligned && !state.still && state.holdMs > 250) {
-              // スクロールで流された
-              state.holdMs = 0;
-            } else if (!state.pressing) {
-              state.holdMs = 0;
-            } else {
-              state.holdMs = 0;
+            // 保持が崩れたらリセット（押していない／整列外／流された、いずれもリセット）
+            state.holdMs = 0;
+            // 押しているが未整列で「近い」なら、ゾーンへ穏やかに引き込む手応え（ドリフトは押下中は止まる）
+            if (state.pressing && near && !state.aligned) {
+              window.scrollBy(0, state.err * 0.06);
             }
-            // ドリフト（怪異が下へ流す）。押していない間だけ。
-            // 浮動小数の移動量を残差として積算し、1px 以上溜まった整数分だけ scrollBy する。
-            // これで 120Hz（~0.38px/frame）でもブラウザの整数丸めで停止せず、60/120Hz で実効速度が一致する。
+            // ドリフト（怪異が流す）。押していない間だけ。
+            // 一方向に流し切って下端の「行き止まり」に達しないよう、判定ゾーンを挟んで往復させる
+            // （整列窓を周期的に再訪させる＝構造的に詰みを無くす）。浮動小数残差を積算し 60/120Hz で実効速度一致。
             if (!state.pressing) {
-              driftAcc += DRIFT * dt / 1000;
-              var driftStep = Math.floor(driftAcc);
-              if (driftStep > 0) { window.scrollBy(0, driftStep); driftAcc -= driftStep; }
+              var BAND = TOL_MAIN * 3; // ゾーン±135px の外で折り返す
+              if (state.err < -BAND) state.driftDir = -1;      // ink がゾーン上方へ行き過ぎ→下げ戻す
+              else if (state.err > BAND) state.driftDir = 1;    // ink がゾーン下方→ゾーンへ引き上げる
+              driftAcc += state.driftDir * DRIFT * dt / 1000;
+              var driftStep = state.driftDir > 0 ? Math.floor(driftAcc) : Math.ceil(driftAcc);
+              if (driftStep !== 0) { window.scrollBy(0, driftStep); driftAcc -= driftStep; }
             } else {
               driftAcc = 0;
             }
           }
-          // 保持リング更新
+          // ミス検知：整列窓に入った後、完成せず窓を出たら1回とカウント（長押しヒントの後出し用）
+          if (state.aligned) {
+            state.mainInWindow = true;
+          } else if (state.mainInWindow && Math.abs(state.err) > TOL_MAIN * 1.5) {
+            state.mainInWindow = false;
+            state.mainMissCount += 1;
+          }
+          // 未完成のまま最下部の偽終端に達したら、住人レスを1件足して「終わってない」含みを出す（1回だけ）
+          if (!state.footerNudged && el.footer) {
+            var fr = el.footer.getBoundingClientRect();
+            if (fr.top < window.innerHeight) {
+              state.footerNudged = true;
+              el.footer.classList.add("restless");
+              var np = document.createElement("article");
+              np.className = "post";
+              np.innerHTML = '<div class="meta"><span class="no">13</span><span class="name">名無し</span></div>まだ、流れてないやつがいる。';
+              el.footer.parentNode.insertBefore(np, el.footer);
+            }
+          }
+          // 保持リング更新：押していて「整列 or 近い」なら表示（=ドリフトが止まった手応えを必ず可視化）
           var ratio = Math.min(1, state.holdMs / HOLD_TARGET);
-          el.holdRing.classList.toggle("on", state.pressing && state.aligned);
+          el.holdRing.classList.toggle("on", state.pressing && (state.aligned || near));
           el.holdFill.setAttribute("stroke-dashoffset", String(100 - ratio * 100));
         } else {
           el.holdRing.classList.remove("on");
