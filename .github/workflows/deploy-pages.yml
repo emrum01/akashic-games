@@ -34,6 +34,9 @@ jobs:
             --exclude='DESIGN.md' \
             --exclude='verify/' \
             still-thread/ _site/still-thread/
+          rsync -a \
+            --exclude='README.md' \
+            notification-gale/ _site/notification-gale/
           cp pages/index.html pages/robots.txt pages/CNAME _site/
           cp pages/.nojekyll _site/.nojekyll
 
