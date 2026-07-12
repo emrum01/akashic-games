@@ -113,7 +113,7 @@
     }
     .thread-head b { color: var(--ink-muted); }
 
-    /* 流れる投稿。速度連動で blur / 脱色（シミは別レイヤなので影響しない） */
+    /* 流れる投稿。可読性を優先し、モバイルの慣性スクロール中も本文はぼかさない。 */
     .post {
       position: relative;
       margin: 12px 0;
@@ -124,9 +124,8 @@
       font-size: 14px;
       line-height: 1.6;
       color: var(--ink-muted);
-      filter: blur(var(--flow-blur));
+      filter: none;
       opacity: calc(1 - var(--flow-fade) * 0.55);
-      transition: filter .12s linear;
     }
     .post .meta {
       display: flex;
@@ -187,8 +186,8 @@
       gap: clamp(6px, 2.2vw, 14px);
       margin: 26px 0;
       min-height: 90px;
-      filter: blur(var(--flow-blur));
-      transition: filter .12s linear;
+      /* 操作対象の墨も、スクロール中に輪郭を失わせない。 */
+      filter: none;
     }
     .ink-row[hidden] { display: none; }
 
@@ -1055,8 +1054,8 @@
     var SNAP_PRACTICE = 0.16;      // 練習の吸着。効かせすぎると一目で解けてしまうため一段弱める（0.22→0.16）
     var STILL_V = 26;              // これ未満を「静止」とみなす px/s
     var DRIFT = reduceMotion ? 0 : 32; // 本番の下方向ドリフト px/s（46→32 に減速。取りこぼし連発を緩和）。reduced では 0
-    var MAX_BLUR = reduceMotion ? 0 : 6;
-    var PULL_MAX_BLUR = reduceMotion ? 0 : 1.4; // 暴走スクロール中は blur を低く抑え、住人のパニックを読めるようにする
+    var MAX_BLUR = 0; // モバイルで本文が読みづらくならないよう、投稿全体のblurは使わない
+    var PULL_MAX_BLUR = 0;
 
     // ---- 最終アクション＝誘導に乗る（「次スレへ」を押す）＝バッドエンド／留まる（20秒動かない）＝クリア ----
     // 「次スレへ」ボタンが唯一の"流れる"選択。押さずに静止し続ける沈黙そのものがクリア条件。
@@ -1850,7 +1849,7 @@
         state.velocity = state.velocity * 0.7 + vRaw * 0.3;
         state.scrollY = y;
 
-        // 速度連動：投稿ブラー＋脱色＋背景水流（シミは非ブラー）
+        // 速度連動：投稿本文は常に鮮明に保ち、脱色＋背景水流だけで流れを示す。
         var vNorm = Math.min(1, state.velocity / 1400);
         var blurPx = (state.phase === "clear" ? MAX_BLUR : MAX_BLUR * vNorm);
         // 暴走スクロール中は blur の上限を下げ、住人のパニック投稿が読める状態を保つ（前半は特に）。
