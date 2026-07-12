@@ -1,0 +1,316 @@
+:root {
+  /* ==== 配色プレースホルダ。実プロジェクトで世界観に合わせて差し替える ==== */
+  --bg: #0a0a0f;
+  --panel: #14141c;
+  --ink: #eef1f8;
+  --muted: #8891b0;
+  --line: rgba(140, 160, 255, 0.18);
+  --accent: #ff2e63; /* CTA・強調は1色に集中させる（周囲は --muted 等のセカンダリに抑える） */
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+button {
+  color: inherit;
+  font: inherit;
+}
+
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/*
+ * .app の高さは 100dvh を既定値としつつ、game.js の applyViewport() が
+ * window.visualViewport を見て --vvh を都度上書きする。
+ * X アプリ内ブラウザでは下部 25〜30% が X の UI に恒常的に覆われるため、
+ * レイアウトの実効高さを可視領域(visualViewport)に一致させることが必須。
+ * （ontology/procedures/webnazo-x-inapp-browser.md 参照）
+ */
+.app {
+  position: fixed;
+  inset: 0;
+  height: var(--vvh, 100dvh);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ==== 世界観モチーフ層: 全画面に控えめに散りばめる装飾。プレイの邪魔にならないよう pointer-events:none ==== */
+.motif-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.motif {
+  position: absolute;
+  opacity: 0.3; /* 「控えめに」: 主張しすぎない不透明度に留める */
+  user-select: none;
+}
+
+/* ==== セーフゾーン: 進行必須の要素はこの中に収める ====
+ * 可視領域(--vvh基準)の上部70%のみを「進行必須ゾーン」として扱う。
+ * 実装上は個別要素に max-height / top を指定するのではなく、
+ * .safe-zone クラスを進行必須要素の共通祖先に付与し、このルールに従わせる。
+ */
+.safe-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 70%;
+  overflow: visible;
+}
+
+/* ==== タイトル / クリア画面 ==== */
+.title-screen,
+.clear-screen {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: clamp(12px, 3vh, 22px);
+  padding: max(28px, env(safe-area-inset-top)) clamp(24px, 8vw, 100px) max(28px, env(safe-area-inset-bottom));
+}
+
+.system-label {
+  margin: 0;
+  color: var(--accent);
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.title-screen h1,
+.clear-screen h2 {
+  margin: 8px 0 12px;
+  font-size: clamp(32px, 10vw, 64px);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.title-screen .lead {
+  max-width: 520px;
+  margin: 0 0 12px;
+  font-size: clamp(14px, 2vw, 17px);
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.clear-detail {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.clear-invite {
+  max-width: 360px;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.clear-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* ==== ボタン ==== */
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px; /* タップ判定44px以上を確保 */
+  padding: 0 22px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action-button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.text-button {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ==== ゲーム画面: ステータスバー ==== */
+.status-bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: calc(56px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 18px 0;
+  border-bottom: 1px solid var(--line);
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+/* プレイ領域: ステータスバー分を除いた残り全域。進行必須オブジェクトは
+   さらにこの中で「上部70%セーフゾーン」に収める（.safe-zone を子に使う） */
+.stage {
+  position: absolute;
+  inset: calc(56px + env(safe-area-inset-top)) 0 0;
+  overflow: hidden;
+}
+
+/* ==== ヒント表示（段階的後出し。デザイン方針は game.js のコメント参照） ==== */
+.hint-whisper {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  z-index: 60;
+  width: min(88vw, 460px);
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.8s ease;
+}
+
+.hint-whisper.show {
+  opacity: 1;
+}
+
+.debug-panel {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top));
+  left: 8px;
+  z-index: 150;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.85);
+  color: var(--accent);
+  font-family: ui-monospace, monospace;
+  font-size: 8px;
+  white-space: pre;
+  pointer-events: none;
+}
+
+/* ==== レスポンシブ（狭幅） ==== */
+@media (max-width: 760px) {
+  .title-screen,
+  .clear-screen {
+    padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+  }
+
+  .status-bar {
+    height: calc(50px + env(safe-area-inset-top));
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .stage {
+    inset: calc(50px + env(safe-area-inset-top)) 0 0;
+  }
+}
+
+/*
+ * ==== X アプリ内ブラウザの高さゲート ====
+ * これは max-height メディアクエリではなく html.vvh-short / html.vvh-tiny クラスで発火させる。
+ * 理由: X アプリ内ブラウザのポストシート等はオーバーレイ描画で visualViewport だけを縮め、
+ * レイアウトビューポート高さ自体は変えないため、CSS の @media (max-height) は不発になる
+ * （notification-gale で実測確認済み。ontology/procedures/webnazo-x-inapp-browser.md 参照）。
+ * game.js の applyViewport() が visualViewport.height を見て <html> にクラスを付与する。
+ */
+html.vvh-short .status-bar {
+  height: calc(44px + env(safe-area-inset-top));
+}
+html.vvh-short .stage {
+  inset: calc(44px + env(safe-area-inset-top)) 0 0;
+}
+html.vvh-short :is(.title-screen, .clear-screen) {
+  gap: 8px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+html.vvh-short :is(.title-screen h1, .clear-screen h2) {
+  margin: 4px 0 10px;
+  font-size: clamp(26px, 9vw, 44px);
+}
+
+/* 可視域がさらに削られるケース（縦600px級端末で入力欄等が出た場合）。装飾を落として3導線を必ず収める */
+html.vvh-tiny .clear-invite {
+  display: none;
+}
+html.vvh-tiny :is(.title-screen h1, .clear-screen h2) {
+  margin: 2px 0 8px;
+  font-size: clamp(22px, 8vw, 34px);
+}
+html.vvh-tiny .title-screen .lead {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

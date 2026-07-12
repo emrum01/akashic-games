@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover: env(safe-area-inset-*) を使うために必須（iOS ノッチ/ホームインジケータ対応） -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="{{THEME_COLOR}}">
+  <title>{{GAME_TITLE}}｜{{SERIES_LABEL}}</title>
+  <meta name="description" content="{{GAME_DESCRIPTION}}">
+
+  <!-- ==== OGP（プレースホルダは新作開始時に必ず置換。README.md のチェックリスト参照） ==== -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{GAME_TITLE}}｜{{SERIES_LABEL}}">
+  <meta property="og:description" content="{{GAME_DESCRIPTION}}">
+  <meta property="og:image" content="https://games.escape-safari.com/{{GAME_ID}}/ogp.jpg">
+  <meta property="og:image:secure_url" content="https://games.escape-safari.com/{{GAME_ID}}/ogp.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://games.escape-safari.com/{{GAME_ID}}/">
+  <meta property="og:site_name" content="{{SERIES_LABEL}}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{GAME_TITLE}}｜{{SERIES_LABEL}}">
+  <meta name="twitter:description" content="{{GAME_DESCRIPTION}}">
+  <meta name="twitter:image" content="https://games.escape-safari.com/{{GAME_ID}}/ogp.jpg">
+
+  <!-- favicon はインラインSVGでOK。still-thread/notification-gale と同じ方式（追加ファイル不要） -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23000000'/%3E%3C/svg%3E">
+
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <!--
+    ==== X アプリ内ブラウザ前提の設計（必読: ontology/procedures/webnazo-x-inapp-browser.md） ====
+    主なプレイ経路は X 投稿リンクからの X アプリ内ブラウザ。画面下部の約25〜30%は
+    常時 X 自身の UI（URLバー＋元ポストのシート）に覆われるため:
+      1. 進行必須のオブジェクト・ボタン・タップ対象は「可視領域の上部70%（セーフゾーン）」に配置する。
+      2. 高さは 100dvh 決め打ちにせず、JS が window.visualViewport を見て実効高さ(--vvh)を都度更新する
+         （styles.css の .app { height: var(--vvh, 100dvh); } と game.js の applyViewport() を参照）。
+      3. 高さで見た目を圧縮する分岐は CSS の @media (max-height) では発火しない
+         （X のオーバーレイは visualViewport だけを縮め、レイアウトビューポート高さは変えないため）。
+         JS 側で visualViewport.height を見て <html> に vvh-short / vvh-tiny クラスを付与し、
+         CSS はそのクラスで分岐させる（本雛形の game.js / styles.css を参照）。
+      4. 自前のゲーム内オーバーレイ（下部固定パネル等）自身がセーフゾーンを覆ってしまう事故も
+         過去に発生済み。自前UIの占有域も含めてセーフゾーンを再計算すること。
+      5. 実装後は縮小ビューポート（下部30%を欠いた状態）での可視性・タップ可否を必ずQAで確認する
+         （apps/akashic-games/.claude/skills/webgl-game-headless-verify/SKILL.md）。
+  -->
+  <main id="app" class="app" data-phase="title">
+
+    <!--
+      ==== 世界観モチーフの散りばめ（設計方針） ====
+      コアギミックのモチーフは、タイトル/ゲーム中/クリア画面の全体に「控えめに」繰り返し配置する。
+      伏線としての一貫性が目的であり、難易度を上げる装飾ではない。
+      例: notification-gale のネオン広告文字、still-thread のタイトル画面の「動かない黒い点」。
+      ここではその配置場所の骨組みだけ用意する。実際のモチーフは各ゲームの世界観に合わせて作り込む。
+    -->
+    <div class="motif-layer" aria-hidden="true">
+      <!-- <span class="motif motif--a">…</span> のように、控えめな装飾要素をここに複数配置する -->
+    </div>
+
+    <!-- ==== タイトル画面 ==== -->
+    <section id="title-screen" class="screen title-screen" aria-labelledby="game-title">
+      <p class="system-label">{{SERIES_LABEL}} / {{EPISODE_CODE}}</p>
+      <h1 id="game-title">{{GAME_TITLE}}</h1>
+      <p class="lead">{{GAME_LEAD_COPY}}</p>
+      <!--
+        注意: ここに「〇〇を押して」「答えは△△」のような操作指示・答えを直接書かない。
+        導入は違和感・状況の提示にとどめ、操作方法はプレイして発見させる。
+      -->
+      <button id="start-button" class="action-button action-button--primary" type="button">はじめる</button>
+    </section>
+
+    <!-- ==== ゲーム本編画面 ==== -->
+    <section id="game-screen" class="screen game-screen" aria-label="{{GAME_TITLE}}" hidden>
+      <header class="status-bar">
+        <div class="brand-lockup">
+          <span>{{SERIES_LABEL}}</span>
+        </div>
+        <div class="phase-status">
+          <span id="phase-label">進行中</span>
+        </div>
+      </header>
+
+      <section id="stage" class="stage" aria-label="プレイ領域">
+        <!-- ここにゲーム固有のギミックDOMを配置する（上部70%セーフゾーン内に進行必須要素を収めること） -->
+      </section>
+
+      <!--
+        ヒント表示領域。段階的後出し設計（下記コメント・README.md 参照）。
+        通常時は空。詰み検知後にのみ JS がテキストを差し込み、一定時間で自然にフェードアウトする。
+      -->
+      <p id="hint-whisper" class="hint-whisper" role="status" aria-live="polite"></p>
+
+      <output id="debug-panel" class="debug-panel" hidden></output>
+    </section>
+
+    <!-- ==== クリア画面 ==== -->
+    <section id="clear-screen" class="screen clear-screen" aria-labelledby="clear-title" hidden>
+      <p class="system-label">CLEAR</p>
+      <h2 id="clear-title">クリア</h2>
+      <p id="clear-detail" class="clear-detail"></p>
+      <p class="clear-invite">このゲームをつくったチームは、店舗開催の謎解き公演もひらいています。</p>
+      <div class="clear-actions">
+        <a id="lp-link" class="action-button action-button--primary"
+           href="https://invite.escape-safari.com/bookcafe/?utm_source=webnazo&amp;utm_medium=game&amp;utm_campaign={{UTM_CAMPAIGN}}&amp;utm_content=clear_card"
+           target="_blank" rel="noopener">公演情報を見る</a>
+        <button id="share-button" class="action-button" type="button">結果をシェア</button>
+      </div>
+      <button id="restart-button" class="text-button" type="button">もう一度あそぶ</button>
+    </section>
+  </main>
+
+  <script src="./analytics.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>
