@@ -15,7 +15,7 @@
   };
   const DETECT = {
     ratio: readNum("ratio", 1.6),        // 「反応中」フィードバックを出す下限（環境音比）
-    strongRatio: readNum("strong", 3.0), // これを超えて初めて広告を実際に押す（強い息）
+    strongRatio: readNum("strong", 2.2), // これを超えて初めて広告を実際に押す（強い息）
     strongHoldMs: readNum("shold", 120), // 強い息の必要持続時間（一瞬のピークでは動かさない）
     peakRatio: readNum("peak", 3.2),
     holdMs: readNum("hold", 150),

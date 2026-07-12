@@ -120,8 +120,14 @@ a { color: var(--link); }
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* 内容が画面高を超えたとき（購入ありのクリア画面＝叱責ブロック追加時など）に最下部まで届くよう、
+     この画面自体をスクロール可能にする。safe center = 収まるときは中央、あふれるときは上寄せ
+     （フレックスの上端クリップを避け、スクロールで全体を読める）。 */
+  justify-content: safe center;
   gap: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: max(20px, env(safe-area-inset-top)) clamp(16px, 6vw, 90px) max(20px, env(safe-area-inset-bottom));
 }
 
