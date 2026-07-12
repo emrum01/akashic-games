@@ -367,6 +367,19 @@
       transform: translateY(-4px);
     }
 
+    /* エリア遷移の暗転幕。背景(auto)・立ち絵(auto)・テキストボックス(30)を覆い、
+       上部バー(40)以上は覆わない。透けないよう不透明の地色で塗る */
+    #veil {
+      position: absolute;
+      inset: 0;
+      z-index: 35;
+      background: #06080c;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    #veil.on { opacity: 1; pointer-events: auto; }
+
     /* クリア演出のフラッシュ */
     #flash {
       position: absolute;
@@ -623,6 +636,9 @@
         <div class="btns" id="title-btns"></div>
       </div>
 
+      <!-- エリア遷移の暗転幕（旧背景が透ける瞬間を作らないため、背景・立ち絵を覆う） -->
+      <div id="veil"></div>
+
       <div id="flash"></div>
       <div id="toast"></div>
       <div id="hud" class="show"></div>
@@ -661,6 +677,7 @@
       signBtns: document.getElementById("sign-btns"),
       title: document.getElementById("title"),
       titleBtns: document.getElementById("title-btns"),
+      veil: document.getElementById("veil"),
       flash: document.getElementById("flash"),
       toast: document.getElementById("toast"),
       hud: document.getElementById("hud"),
@@ -671,18 +688,18 @@
     // ---------- 定数 ----------
     var ASSET = "assets/";
     // 巡回対象は lion/bird/reptile の3つ（＝看板で残る文字）。ぞう〜みずべの5つは
-    // 巡回不要のダミー。背景は既存JPEGを CSS filter で色替えして流用し、フレーバーのみ置く。
+    // 巡回不要のダミー。各エリアは専用背景を持ち、フレーバーのみ置く。
     var AREAS = {
       central: { name: "中央広場", bg: "bg_central_sign.jpg" },
       lion:    { name: "ライオンエリア", bg: "bg_lion_area.jpg" },
       bird:    { name: "鳥エリア", bg: "bg_bird_area.jpg" },
       reptile: { name: "爬虫類エリア", bg: "bg_reptile_area.jpg" },
-      // --- ダミー（巡回不要・手がかりなし。既存背景を filter で使い回し） ---
-      zou:     { name: "ぞうのおり",       bg: "bg_reptile_area.jpg", filter: "saturate(0.7) brightness(0.6) hue-rotate(-18deg) contrast(1.05)" },
-      saru:    { name: "さるやま",         bg: "bg_lion_area.jpg",    filter: "saturate(0.75) brightness(0.64) hue-rotate(32deg)" },
-      penguin: { name: "ぺんぎんの池",     bg: "bg_bird_area.jpg",    filter: "saturate(0.85) brightness(0.72) hue-rotate(150deg)" },
-      kirin:   { name: "きりんの塔",       bg: "bg_exit_gate.jpg",    filter: "saturate(0.7) brightness(0.58) hue-rotate(-42deg)" },
-      mizube:  { name: "よふかしのみずべ", bg: "bg_bird_area.jpg",    filter: "saturate(0.9) brightness(0.52) hue-rotate(182deg) contrast(1.1)" },
+      // --- ダミー（巡回不要・手がかりなし。専用背景を使用） ---
+      zou:     { name: "ぞうのおり",       bg: "bg_zou_area.jpg" },
+      saru:    { name: "さるやま",         bg: "bg_saru_area.jpg" },
+      penguin: { name: "ぺんぎんの池",     bg: "bg_penguin_area.jpg" },
+      kirin:   { name: "きりんの塔",       bg: "bg_kirin_area.jpg" },
+      mizube:  { name: "よふかしのみずべ", bg: "bg_mizube_area.jpg" },
       exit:    { name: "出口ゲート", bg: "bg_exit_gate.jpg" }
     };
     // ダミーエリアのフレーバー（1〜2行。手がかりは置かない。傾き世界律を控えめに散らす）
@@ -863,8 +880,43 @@
     var dialogueIdx = 0;
     var dialogueDone = null;
 
+    var currentBgFile = null;
     function setBackground(file) {
       el.bg.style.backgroundImage = "url('" + ASSET + file + "')";
+      currentBgFile = file;
+    }
+
+    // ---------- 背景プリロード（遷移時のチラつき対策） ----------
+    // 起動時に全エリアの背景を new Image() で先読み・デコードしておく。
+    // 遷移時はこの Promise の解決（＝デコード済み＝キャッシュヒットで即描画可能）を
+    // 待ってから暗転を明けるので、「旧背景が透ける／新背景が遅れて描かれる」瞬間が出ない。
+    var bgReady = {}; // file -> Promise（解決したら安全に描画できる）
+    function preloadBg(file) {
+      if (bgReady[file]) return bgReady[file];
+      bgReady[file] = new Promise(function (resolve) {
+        var img = new Image();
+        var done = function () { resolve(); };
+        img.onload = function () {
+          // decode() があればデコード完了まで待つ（初回描画のカクつきも防ぐ）
+          if (img.decode) { img.decode().then(done, done); }
+          else { done(); }
+        };
+        // 失敗しても遷移を止めない（画像未生成のダミー背景等）。フェイルオープン
+        img.onerror = done;
+        img.src = ASSET + file;
+      });
+      return bgReady[file];
+    }
+    // 立ち絵も同様に先読みする。背景だけ先読みしても、低速回線では立ち絵の
+    // ロードが間に合わず「前エリアの立ち絵が残ったまま新背景が出る」瞬間が起きるため。
+    var CHAR_FILES = ["char_hero.png", "char_lion.png", "char_bird_toucan.png", "char_reptile_lizard.png"];
+    function preloadAllBackgrounds() {
+      var seen = {};
+      Object.keys(AREAS).forEach(function (k) {
+        var f = AREAS[k].bg;
+        if (f && !seen[f]) { seen[f] = true; preloadBg(f); }
+      });
+      CHAR_FILES.forEach(function (f) { if (!seen[f]) { seen[f] = true; preloadBg(f); } });
     }
 
     // 背景は全エリア共通 1280x720、`background-size: cover` 相当で描画される。
@@ -972,7 +1024,30 @@
     }
 
     // ---------- エリア遷移 ----------
+    var VEIL_MS = 240; // 暗転の片道時間。#veil の opacity トランジション(0.2s)より長くとる
+    // 暗転幕で覆ってから背景・立ち絵・テキストを差し替え、新背景のデコード完了を待って幕を明ける。
+    // これにより「暗転中に旧背景が浮かぶ」「明けた瞬間に旧背景が残っている」瞬間が発生しない。
     function goArea(area, opts) {
+      var cfg = AREAS[area];
+      if (!cfg) return;
+      // 背景が変わらない遷移（マップを閉じる等）は暗転せず即時反映
+      if (cfg.bg === currentBgFile && area === state.area) {
+        _applyArea(area, opts);
+        return;
+      }
+      el.veil.classList.add("on");
+      setTimeout(function () {
+        _applyArea(area, opts);
+        preloadBg(cfg.bg).then(function () {
+          // デコード済み背景が確実に1フレーム描かれてから幕を明ける
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { el.veil.classList.remove("on"); });
+          });
+        });
+      }, VEIL_MS);
+    }
+
+    function _applyArea(area, opts) {
       opts = opts || {};
       if (area !== "lion") lionHintOpen = false;
       mode = "area";
@@ -1531,7 +1606,7 @@
       // 鳥: トゥーカンは園側の住人。傾いた世界に馴染み、常に少し傾いたまま、
       // 端末の傾きと同じ向きにゆったり揺れる（水平を保とうとしない）。
       if (state.area === "bird" && !el.actor.hidden) {
-        var lean = 8 + Math.max(-12, Math.min(12, t * 0.5)); // 基準+8度＋同方向の揺れ
+        var lean = 6 + Math.max(-12, Math.min(12, t * 0.5)); // 基準+6度（控えめ）＋同方向の揺れ
         el.actor.style.transform = "translateX(-50%) rotate(" + lean.toFixed(2) + "deg)";
       }
       // 爬虫類: トカゲは園側の住人。斜面に平然と張りついたまま（enterReptileの静的傾き／無反応）
@@ -1763,6 +1838,7 @@
     })();
 
     // ---------- 起動 ----------
+    preloadAllBackgrounds(); // 全エリア背景を先読み・デコード（遷移チラつき対策）
     showTitle();
     requestAnimationFrame(tick);
   })();
