@@ -1004,15 +1004,29 @@
     var prevAligned = false;
     var lastBlur = -1; // --flow-blur を 0.1px 単位の変化時のみ書き込むための直近値
     var driftAcc = 0;  // ドリフトの浮動小数残差を積算し、1px 以上溜まった分だけ scrollBy（120Hz でも停止しない）
+    var lastSnap = 0;  // 直近フレームで吸着補助が動かした量（速度計算から除外し「静止」判定を汚さない）
+    var progScroll = 0; // 当フレームの吸着補助の適用量（実測）
+
+    // 吸着補助スクロール：適用した実移動量を progScroll に積む（ドリフトは含めない＝流れは速度に反映させる）
+    function snapBy(px) {
+      var before = window.scrollY;
+      window.scrollBy(0, px);
+      progScroll += (window.scrollY - before);
+    }
 
     function loop(now) {
       requestAnimationFrame(loop);
       try {
         var dt = Math.min(64, now - lastT);
         lastT = now;
+        progScroll = 0;
 
         var y = window.scrollY || window.pageYOffset || 0;
-        var vRaw = dt > 0 ? Math.abs(y - lastY) / (dt / 1000) : 0;
+        // 速度は「ユーザー由来の移動」だけで測る。吸着補助（プログラム的 scroll）は差し引く。
+        // これをしないと吸着の微小移動が速度スパイクとして計上され、整列していても「静止」にならず
+        // holdMs が積み上がらない（実機の慣性＋iOS の programmatic scroll 不確実性で恒久的に完成不能になる）。
+        var userDelta = (y - lastY) - lastSnap;
+        var vRaw = dt > 0 ? Math.abs(userDelta) / (dt / 1000) : 0;
         // 速度を平滑化
         state.velocity = state.velocity * 0.7 + vRaw * 0.3;
         state.scrollY = y;
@@ -1057,8 +1071,8 @@
           }
           if (state.aligned && state.still) {
             state.holdMs += dt;
-            // 静止でスナップ補助（正しい位置へ穏やかに吸着）
-            if (Math.abs(state.err) > 2) window.scrollBy(0, state.err * 0.12);
+            // 静止でスナップ補助（正しい位置へ穏やかに吸着）。速度計算からは除外される（snapBy）。
+            if (Math.abs(state.err) > 2) snapBy(state.err * 0.12);
             if (state.holdMs >= HOLD_TARGET) completePractice();
           } else {
             state.holdMs = 0;
@@ -1074,14 +1088,14 @@
           var holding = state.pressing && state.aligned && state.still;
           if (holding) {
             state.holdMs += dt;
-            if (Math.abs(state.err) > 2) window.scrollBy(0, state.err * 0.12); // 吸着
+            if (Math.abs(state.err) > 2) snapBy(state.err * 0.12); // 吸着（速度計算から除外）
             if (state.holdMs >= HOLD_TARGET) completeMain();
           } else {
             // 保持が崩れたらリセット（押していない／整列外／流された、いずれもリセット）
             state.holdMs = 0;
             // 押しているが未整列で「近い」なら、ゾーンへ穏やかに引き込む手応え（ドリフトは押下中は止まる）
             if (state.pressing && near && !state.aligned) {
-              window.scrollBy(0, state.err * 0.06);
+              snapBy(state.err * 0.06);
             }
             // ドリフト（怪異が流す）。押していない間だけ。
             // 一方向に流し切って下端の「行き止まり」に達しないよう、判定ゾーンを挟んで往復させる
@@ -1126,13 +1140,14 @@
 
         // 選択フェーズ：シミを見失わないよう位置維持
         if (state.phase === "choice") {
-          if (Math.abs(state.err) > 3 && Math.abs(state.err) < 400) window.scrollBy(0, state.err * 0.2);
+          if (Math.abs(state.err) > 3 && Math.abs(state.err) < 400) snapBy(state.err * 0.2);
         }
 
         checkHints(now);
         updateDebug();
 
         lastY = y;
+        lastSnap = progScroll; // このフレームの吸着補助量を次フレームの速度計算から差し引く
         prevAligned = state.aligned;
       } catch (e) {
         if (DEBUG) console.error("loop error", e);
