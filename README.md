@@ -2,6 +2,15 @@
 
 ブラウザゲーム置き場。各ゲームはサブディレクトリに格納。
 
+## 改修・新規実装のルール
+
+- 各ゲームの改修前に、そのゲームディレクトリの `ADR.md` を必ず読む。設計判断を覆す変更は
+  旧ADRをSupersededにして新ADRを追記する。
+- 新規ゲームの設計着手時は、全ゲームADRを横断で一般化した集合知 `ontology/game-adr-digest.md`
+  を先に読む（過去作の往復・撤回済み設計を1枚で把握。固有値・経緯の正は各ゲームの `ADR.md`）。
+- 新規ゲームは初期実装と同時に `ADR.md` を作成する（形式は
+  [`notification-gale/ADR.md`](notification-gale/ADR.md) 参照）。
+
 ---
 
 ## notification-gale — 未製本通知
