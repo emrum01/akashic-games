@@ -259,8 +259,11 @@
       background: rgba(16, 22, 29, 0.72); font-size: 13px; line-height: 1.55; color: var(--ink-muted);
     }
     .nt-post .nt-meta { font-size: 11px; color: #7fa38d; margin-bottom: 3px; }
+    /* v3.1: 以前は blur(0.6px) を常時掛けて「文字化け」を演出していたが、モバイルの狭い画面では
+       演出ではなく単純に「読めない」と報告された。不気味さは色（赤みの暗色）と corruptText() の
+       文字置換（■▓●？〓◆）・スクランブルだけで表現し、赤い投稿の本文は常にblurゼロで鮮明にする。 */
     .nt-post.nt-corrupt {
-      border-color: #3a2530; background: rgba(28, 18, 22, .85); color: #b49aa4; filter: blur(0.6px);
+      border-color: #3a2530; background: rgba(28, 18, 22, .85); color: #b49aa4; filter: none;
     }
     .nt-post.nt-corrupt .nt-meta { color: #a56b7a; }
     /* 崩壊段階：フィード全体が濁り・揺れる（既存 #thread[data-horror="3"] と同トーン） */
@@ -735,7 +738,6 @@
       #horror-veil[data-horror="3"] { box-shadow: inset 0 0 160px 40px rgba(40,0,8,.6); }
       /* v3.1: 次スレ末路シーケンスも同様に揺れ・強フィルタを外す（進行ロジックは維持） */
       .nextthread.nt-collapse #nt-feed { animation: none; filter: saturate(.8); }
-      .nt-post.nt-corrupt { filter: none; }
       /* v3.1: 完成後の退避は瞬時に（移動そのものは維持し、投稿を塞がない実利は保つ） */
       .shimi-row { transition: none; }
     }
