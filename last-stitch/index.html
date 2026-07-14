@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover: env(safe-area-inset-*) を使うために必須（iOS ノッチ/ホームインジケータ対応） -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a140f">
+  <title>さいごのひとめ｜escape-safari</title>
+  <meta name="description" content="糸状生命体の体内で、八つの家具を記憶の古い順にほどけ。機嫌を損ねれば、あなたも糸にされる。モバイル向けWEB謎解きゲーム。">
+
+  <!-- ==== OGP ==== -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="さいごのひとめ｜escape-safari">
+  <meta property="og:description" content="八つの家具に残る記憶を読み、古い順にほどけ。間違えれば、あなたも糸になる。">
+  <meta property="og:image" content="https://games.escape-safari.com/last-stitch/ogp.jpg">
+  <meta property="og:image:secure_url" content="https://games.escape-safari.com/last-stitch/ogp.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://games.escape-safari.com/last-stitch/">
+  <meta property="og:site_name" content="escape-safari">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="さいごのひとめ｜escape-safari">
+  <meta name="twitter:description" content="八つの家具に残る記憶を読み、古い順にほどけ。間違えれば、あなたも糸になる。">
+  <meta name="twitter:image" content="https://games.escape-safari.com/last-stitch/ogp.jpg">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%231a140f'/%3E%3Cpath d='M14 40c8-10 28-10 36 0' stroke='%23e0a94e' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <link rel="stylesheet" href="./styles.css?v=17">
+</head>
+<body>
+  <main id="app" class="app" data-phase="title">
+
+    <!-- ==== 共有 SVG defs: 編み目テクスチャ・糸・影フィルタ（全オブジェクトが参照） ==== -->
+    <svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <!-- メリヤス編みの目（V字ループ）。色に依らず relief を出すため白黒アルファのみ -->
+        <pattern id="stitch" width="13" height="15" patternUnits="userSpaceOnUse">
+          <path d="M0 15 Q3.25 8 6.5 15 Q9.75 8 13 15 M0 7.5 Q3.25 0.5 6.5 7.5 Q9.75 0.5 13 7.5"
+                fill="none" stroke="rgba(255,255,255,0.20)" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M0 16 Q3.25 9 6.5 16 Q9.75 9 13 16 M0 8.5 Q3.25 1.5 6.5 8.5 Q9.75 1.5 13 8.5"
+                fill="none" stroke="rgba(0,0,0,0.22)" stroke-width="1.3" stroke-linecap="round"/>
+        </pattern>
+        <!-- 古い物にのせる毛羽・埃のざらつき -->
+        <filter id="fuzz" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/>
+          <feColorMatrix in="n" type="matrix"
+            values="0 0 0 0 0.86  0 0 0 0 0.82  0 0 0 0 0.74  0 0 0 0.5 0" result="fz"/>
+          <feComposite in="fz" in2="SourceGraphic" operator="in" result="clip"/>
+          <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="clip"/></feMerge>
+        </filter>
+        <!-- 柔らかい落ち影 -->
+        <filter id="softshadow" x="-40%" y="-40%" width="180%" height="200%">
+          <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000" flood-opacity="0.45"/>
+        </filter>
+      </defs>
+    </svg>
+
+    <!-- ==== タイトル画面 ==== -->
+    <section id="title-screen" class="screen title-screen" aria-labelledby="game-title">
+      <div class="title-inner">
+        <p class="system-label">escape-safari / KNIT</p>
+        <h1 id="game-title">さいごのひとめ</h1>
+        <p class="lead">目を開けると、身体は巨大な編み目の内側にあった。<br>イトヌシは、古い記憶の上へ新しい糸を縫い重ねている。</p>
+        <p class="title-warning">機嫌を損ねれば、あなたも一本の糸にされる。</p>
+        <button id="start-button" class="action-button action-button--primary" type="button">息をひそめる</button>
+      </div>
+    </section>
+
+    <!-- ==== ゲーム本編（部屋） ==== -->
+    <section id="game-screen" class="screen game-screen" aria-label="編み物の部屋" hidden>
+      <header class="status-bar">
+        <div class="brand-lockup"><span>escape-safari</span></div>
+        <div class="status-actions">
+          <div class="phase-status"><span id="phase-label">イトヌシの体内</span></div>
+          <button id="how-to-button" class="how-to-button" type="button" aria-haspopup="dialog">遊び方</button>
+        </div>
+      </header>
+
+      <section id="stage" class="stage" aria-label="プレイ領域">
+        <!-- 背景: 夜、ランプの灯る編み物の部屋（静的シーン。非インタラクティブ） -->
+        <div class="room-scene" aria-hidden="true">
+          <svg viewBox="0 0 400 720" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
+            <defs>
+              <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#2b2018"/>
+                <stop offset="0.55" stop-color="#241a13"/>
+                <stop offset="1" stop-color="#1a120c"/>
+              </linearGradient>
+              <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#3a281a"/>
+                <stop offset="1" stop-color="#221610"/>
+              </linearGradient>
+              <radialGradient id="lampglow" cx="0.5" cy="0.42" r="0.62">
+                <stop offset="0" stop-color="#ffcf82" stop-opacity="0.5"/>
+                <stop offset="0.42" stop-color="#e0a04a" stop-opacity="0.16"/>
+                <stop offset="1" stop-color="#000" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="sky" cx="0.5" cy="0.4" r="0.8">
+                <stop offset="0" stop-color="#3a4a6b"/>
+                <stop offset="1" stop-color="#141c30"/>
+              </radialGradient>
+              <radialGradient id="moon" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0" stop-color="#f3ecd6"/>
+                <stop offset="0.7" stop-color="#dcd2b4"/>
+                <stop offset="1" stop-color="#c7bd9c"/>
+              </radialGradient>
+              <radialGradient id="vign" cx="0.5" cy="0.45" r="0.75">
+                <stop offset="0.55" stop-color="#000" stop-opacity="0"/>
+                <stop offset="1" stop-color="#000" stop-opacity="0.55"/>
+              </radialGradient>
+            </defs>
+
+            <!-- 壁 -->
+            <rect x="0" y="0" width="400" height="520" fill="url(#wall)"/>
+            <!-- 壁の淡い編み目モチーフ（世界律の一貫性・ごく控えめ） -->
+            <rect x="0" y="0" width="400" height="520" fill="url(#stitch)" opacity="0.05"/>
+
+            <!-- 窓（夜・月・星） -->
+            <g transform="translate(232,44)">
+              <rect x="-8" y="-8" width="150" height="196" rx="6" fill="#160f0a"/>
+              <rect x="0" y="0" width="134" height="180" rx="3" fill="url(#sky)"/>
+              <circle cx="98" cy="46" r="22" fill="url(#moon)"/>
+              <circle cx="90" cy="40" r="4" fill="#b8ae8c" opacity="0.5"/>
+              <g fill="#dfe6f2">
+                <circle cx="24" cy="30" r="1.3"/><circle cx="46" cy="64" r="1"/>
+                <circle cx="18" cy="96" r="1.1"/><circle cx="60" cy="120" r="1"/>
+                <circle cx="112" cy="104" r="1.2"/><circle cx="34" cy="150" r="1"/>
+              </g>
+              <!-- 桟 -->
+              <line x1="67" y1="0" x2="67" y2="180" stroke="#160f0a" stroke-width="6"/>
+              <line x1="0" y1="90" x2="134" y2="90" stroke="#160f0a" stroke-width="6"/>
+              <rect x="-8" y="-8" width="150" height="196" rx="6" fill="none" stroke="#0f0a06" stroke-width="3"/>
+            </g>
+
+            <!-- 床（木の板・簡易パース） -->
+            <path d="M0 470 L400 470 L400 720 L0 720 Z" fill="url(#floor)"/>
+            <g stroke="#1c120b" stroke-width="2" opacity="0.55">
+              <line x1="0" y1="470" x2="400" y2="470"/>
+              <line x1="40" y1="470" x2="-30" y2="720"/>
+              <line x1="150" y1="470" x2="120" y2="720"/>
+              <line x1="260" y1="470" x2="285" y2="720"/>
+              <line x1="360" y1="470" x2="440" y2="720"/>
+              <line x1="0" y1="560" x2="400" y2="560"/>
+              <line x1="0" y1="650" x2="400" y2="650"/>
+            </g>
+            <!-- 幅木 -->
+            <rect x="0" y="462" width="400" height="12" fill="#17100a"/>
+
+            <!-- 床置きランプ（右手前）＋暖かい灯り -->
+            <g transform="translate(348,300)">
+              <rect x="-3" y="70" width="6" height="150" fill="#2c211a"/>
+              <ellipse cx="0" cy="222" rx="26" ry="7" fill="#140d08"/>
+              <path d="M-30 70 L30 70 L20 12 L-20 12 Z" fill="#f0c074"/>
+              <path d="M-30 70 L30 70 L20 12 L-20 12 Z" fill="#ffdf9c" opacity="0.5"/>
+              <ellipse cx="0" cy="70" rx="30" ry="6" fill="#ffe6ab"/>
+            </g>
+
+            <!-- 暖かい灯りのプール（部屋を照らす） -->
+            <rect x="0" y="0" width="400" height="720" fill="url(#lampglow)"/>
+            <!-- 周縁減光 -->
+            <rect x="0" y="0" width="400" height="720" fill="url(#vign)"/>
+          </svg>
+        </div>
+
+        <!-- 糸玉と籠（ほどいた糸が巻き取られて育つ＝世界内の進捗）。scene の手前・room の奥 -->
+        <div class="yarn-nest" aria-hidden="true">
+          <svg id="yarn-ball" viewBox="0 0 120 120" width="120" height="120">
+            <ellipse cx="60" cy="104" rx="42" ry="10" fill="#000" opacity="0.35"/>
+            <g class="yarn-ball-body">
+              <circle cx="60" cy="66" r="42" fill="#c98a3a"/>
+              <g fill="none" stroke="#a9701f" stroke-width="2.4" opacity="0.8">
+                <path d="M22 58 Q60 30 98 66"/>
+                <path d="M20 74 Q58 44 100 58"/>
+                <path d="M26 46 Q66 70 96 82"/>
+                <path d="M24 86 Q64 58 98 92"/>
+                <path d="M34 34 Q52 78 84 96"/>
+              </g>
+              <g fill="none" stroke="#e6ad5a" stroke-width="1.6" opacity="0.85">
+                <path d="M24 62 Q60 36 96 62"/>
+                <path d="M30 44 Q64 66 92 80"/>
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <!-- 部屋のオブジェクト（全て最初から可視・SVGイラスト）。当たり判定は .knit-object[data-id]/.fray を維持 -->
+        <div id="room" class="room" aria-label="ほどけるもの"></div>
+
+        <dialog id="furniture-dialog" class="furniture-dialog" aria-labelledby="furniture-title">
+          <div class="furniture-card">
+            <button id="furniture-close" class="how-to-close" type="button" aria-label="閉じる">×</button>
+            <p class="system-label">記憶の部屋</p>
+            <h2 id="furniture-title">家具</h2>
+            <p id="furniture-flavor" class="furniture-flavor"></p>
+            <p id="furniture-thread" class="furniture-thread"></p>
+            <button id="pull-thread-button" class="action-button action-button--primary" type="button">糸口を露出する</button>
+          </div>
+        </dialog>
+
+        <div class="temper" aria-label="イトヌシの機嫌">
+          <span>機嫌</span><i></i><i></i><i></i>
+        </div>
+
+        <!-- ほどき演出の重畳レイヤー（糸が走って糸玉へ巻き取られる線） -->
+        <svg class="unravel-fx" id="unravel-fx" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <svg class="connection-fx" id="connection-fx" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <button id="exit-thread-target" class="exit-thread-target" type="button" aria-label="出口の糸口">出口の糸口</button>
+
+        <button id="scissors" class="scissors" type="button" aria-label="はさみ" hidden>
+          <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+            <g fill="none" stroke="#e9edf3" stroke-width="2.2" stroke-linecap="round">
+              <circle cx="8" cy="23" r="4.2"/><circle cx="8" cy="9" r="4.2"/>
+              <path d="M11 20 L27 7"/><path d="M11 12 L27 25"/>
+              <path d="M16 16 L20 13"/>
+            </g>
+          </svg>
+        </button>
+      </section>
+
+      <p id="hint-whisper" class="hint-whisper" role="status" aria-live="polite"></p>
+      <output id="debug-panel" class="debug-panel" hidden></output>
+    </section>
+
+    <!-- ==== 導入時の遊び方（閉じた後もステータスバーから再表示） ==== -->
+    <dialog id="how-to-dialog" class="how-to-dialog" aria-labelledby="how-to-title" aria-describedby="how-to-intro">
+      <div class="how-to-card">
+        <button id="how-to-close" class="how-to-close" type="button" aria-label="遊び方を閉じる">×</button>
+        <p class="system-label">HOW TO ESCAPE</p>
+        <h2 id="how-to-title">機嫌を損ねず、ほどけ</h2>
+        <p id="how-to-intro" class="how-to-intro">最奥の古い綴じ目から外せば、上の層が順に緩み、一本の脱出糸になる。</p>
+        <ol class="how-to-steps">
+          <li>八つの家具を調べ、<b>糸口を露出</b>させる</li>
+          <li>いちばん古い家具の糸口から、次の家具へ<b>一本の糸をつなぐ</b></li>
+          <li>糸口から糸口へドラッグする。最後は<b>出口の糸口</b>へつなぐ</li>
+        </ol>
+        <button id="how-to-start" class="action-button action-button--primary how-to-start" type="button">息をひそめて始める</button>
+      </div>
+    </dialog>
+
+    <!-- ==== エピローグ（全ほどき後の真相・GOOD側の見せ場。糸が床に文字を描く） ==== -->
+    <section id="epilogue-screen" class="screen epilogue-screen" aria-labelledby="epilogue-title" hidden>
+      <div class="epilogue-inner">
+        <p class="system-label">UNRAVELED</p>
+        <h2 id="epilogue-title" class="epilogue-title">イトヌシが、口をひらいた</h2>
+
+        <!-- 糸が一筆で床に文字を描く（stroke-dashoffset の書き順アニメ）。含みに留める（G-008） -->
+        <div class="thread-writing" aria-hidden="true">
+          <svg viewBox="0 0 360 120" width="100%" height="120" id="thread-svg">
+            <text id="thread-text" x="180" y="78" text-anchor="middle"
+                  class="thread-glyph">はじめの、ひとめ。</text>
+          </svg>
+        </div>
+
+        <!-- 読ませる含み文（演出をかけない・E2E/a11y 用の正テキスト — ADR-011 / G-001） -->
+        <p id="epilogue-thread" class="epilogue-thread"></p>
+        <p class="epilogue-hint">出口につながる糸端が、ふっと緩んだ。</p>
+        <button id="pull-edge-button" class="action-button action-button--primary" type="button">出口をほどく</button>
+      </div>
+    </section>
+
+    <!-- ==== GOOD END ==== -->
+    <section id="clear-screen" class="screen clear-screen" aria-labelledby="clear-title" hidden>
+      <div class="clear-inner">
+        <p class="system-label">CLEAR</p>
+        <h2 id="clear-title">ほどけた</h2>
+        <p id="clear-detail" class="clear-detail"></p>
+        <p class="clear-invite">このゲームをつくったチームは、店舗開催の謎解き公演もひらいています。</p>
+        <div class="clear-actions">
+          <a id="lp-link" class="action-button action-button--primary"
+             href="https://invite.escape-safari.com/bookcafe/?utm_source=webnazo&amp;utm_medium=game&amp;utm_campaign=weekly_webnazo_last-stitch&amp;utm_content=clear_card"
+             target="_blank" rel="noopener">公演情報を見る</a>
+          <button id="share-button" class="action-button" type="button">結果をシェア</button>
+        </div>
+        <button id="restart-button" class="text-button" type="button">もう一度あそぶ</button>
+      </div>
+    </section>
+
+    <!-- ==== BAD END（機嫌を損ね、糸へ変えられる。GOODと演出水準を対称に） ==== -->
+    <section id="badend-screen" class="screen badend-screen" aria-labelledby="badend-title" hidden>
+      <div class="badend-inner">
+        <article class="badend-card">
+          <div class="badend-card__art">
+            <img src="./assets/bad-end-yarn-captive.png"
+                 alt="巨大な糸状生命体の前で、捕らわれた人の身体が無数の赤い糸へほどかれ、足元の毛玉へ巻き取られていく"
+                 width="1003" height="1568">
+            <div class="badend-card__shade" aria-hidden="true"></div>
+            <header class="badend-card__header">
+              <p class="system-label">TANGLED / BAD END</p>
+              <h2 id="badend-title">あなたは、糸になった</h2>
+            </header>
+            <p class="badend-card__flavor">「つぎは、あなたをほどく番」</p>
+          </div>
+        </article>
+        <p class="badend-detail">怒ったイトヌシが身体を細く引きのばす。<br>声も指もほどけ、毛玉の奥へ巻き取られていく。</p>
+        <button id="badend-restart-button" class="action-button action-button--primary" type="button">目を覚ます</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="./logic.js?v=8"></script>
+  <script src="./analytics.js?v=3"></script>
+  <script src="./game.js?v=15"></script>
+</body>
+</html>

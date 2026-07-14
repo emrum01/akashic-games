@@ -1,0 +1,799 @@
+// 緊急祝福警報 — ゲーム進行形式仕様
+//
+// このファイルは実装予定の進行仕様を、状態・イベント・ガード・副作用・
+// 不変条件で記述する。特定の検証器に依存しない FSL（Formal Specification
+// Language）表記であり、game.js を実装・テストする際の SSOT とする。
+
+machine BlessingAlertGame {
+
+  enum Phase {
+    BroadcastIntro,       // 深夜番組とプレイヤーログ
+    AlertReady,           // ログが消え、テレビには警報だけが映る
+    BlessingNotice,       // 祝福対象に選ばれたという通知
+    InstructionOne,      // 肉羽家と架空の家族についての説明
+    InstructionTwo,      // 誤答時の結果と選択要求
+    TvFamilyPhoto,       // テレビいっぱいに家族写真を表示
+    FullPhoto,           // 全画面の写真調査
+    GoodEndTvLogs,       // 正体露出済み写真をテレビに映し、ログを送る
+    GoodEndTvOff,        // テレビを消した直後
+    BadEndTvLog,         // 「兄」追加済み写真と、途中で切れるログ
+    BadEndRedAlert,      // テレビ画面へ戻り、赤いフィルターと途中で切れるログ
+    BadEndBlackout,      // 暗転
+    GoodEnd,
+    BadEnd
+  }
+
+  enum TelevisionContent {
+    Program,
+    Alert,
+    BlessingNotice,
+    Instruction,
+    FamilyPhoto,
+    RevealedEntityPhoto, // 弟の正体が露出した家族写真
+    Off,
+    RewrittenFamilyPhoto // プレイヤー代理の「兄」が追加済みの家族写真
+  }
+
+  enum Person {
+    Father,
+    Sister,
+    Brother,
+    Mother,
+    Grandmother
+  }
+
+  enum ApproachLevel {
+    Quiet,
+    FirstTremor,
+    Wind,
+    StructuralCreak,
+    Receding
+  }
+
+  enum AmbientSound {
+    None,
+    Wind,
+    WindAndCreak
+  }
+
+  enum SoundEffect {
+    NoEffect,
+    DistantHighPitchCue,
+    HighPitchRecedeCue,
+    // 以下は短い非ループ音。物語の状態遷移と操作結果を聴覚でも伝える。
+    IntroInterruptCue,
+    BroadcastOpenCue,
+    BlessingNoticeCue,
+    FamilyPhotoCue,
+    FullPhotoCue,
+    ControlsRevealCue,
+    EntityRevealCue,
+    PersonSelectCue,
+    SelectionCancelCue,
+    SelectionConfirmCue,
+    PlayerLogSendCue,
+    TelevisionOffCue,
+    GoodEndCue,
+    BadRedAlertCue,
+    BadBlackoutCue,
+    BadEndCue,
+    NavigationCue,
+    HintCue,
+    AudioEnabledCue,
+    ZoomDetentCue,
+    RestartCue
+  }
+
+  const IntroLogs: Seq<String> = [
+    "仕事終わりに、くだらないテレビ番組を見るのが日課だ。",
+    "……あれ？　番組が途切れた。",
+    "テレビの中から、知らない放送が割り込んできた。"
+  ]
+
+  const InstructionTextOne: String =
+    "こちらは、生贄候補の肉羽家の皆様です。" +
+    "肉羽家には1体、架空の家族が紛れています。\n" +
+    "架空の存在を選ぶことができれば、全員祝福を回避できます。"
+
+  const InstructionTextTwo: String =
+    "架空の生贄を選べなかった場合、肉羽家の1人が生贄として捧げられます。" +
+    "そしてあなたが肉羽家の新たな一員として迎えられます。\n" +
+    "祝福を回避したい場合は、正しい選択を行なってください。"
+
+  const InstructionTremorLog: String =
+    "......遠くから歪んだ鯨のような鳴き声が聞こえる"
+
+  const BadEndInterruptedLog: String =
+    "轟音を立てながら何かが近づいてくるのを感じる。あれ、外が明るくーー"
+
+  const BadEndLogs: Seq<String> = [
+    "……あれ？　写真に、知らない男がいる。",
+    "泣いているのに、笑っている。",
+    "あれは――",
+    "おめでとうございます。",
+    "あなたの記録は『兄』として保存されました。",
+    "次の祝福まで、どうぞ健やかにお過ごしください。"
+  ]
+
+  const BadEndCopy: String =
+    "選定された{selected}は、生身の生贄として捧げられました。\n" +
+    "その空席を埋めるため、あなたは肉羽家の『兄』として迎えられました。"
+
+  const RewrittenFamilyPhotoAsset: String =
+    "./family-bad-end-brother-released.png"
+
+  const RewrittenFamilyPhotoBrightness: Real = 0.78
+
+  const RevealedEntityPhotoAsset: String =
+    "./entity-full-v2.png"
+
+  const GoodEndLogs: Seq<String> = [
+    "気持ちわる、なんだこの写真。",
+    "未だよくわからないが、これで正解なのか...?",
+    "近づいてきていた歪んだ鳴き声が遠ざかっていく...",
+    "急に疲れを感じた俺は、テレビを消した後、気づいたら寝ていた"
+  ]
+
+  state {
+    phase: Phase = BroadcastIntro
+    television: TelevisionContent = Program
+
+    // 表示中のログ番号。null はログUIが消えていることを表す。
+    logIndex: Int? = 0
+
+    // 写真調査の既存状態。
+    scale: Real = 1.4
+    panX: Real = 0
+    panY: Real = 0
+    controlsUnlocked: Bool = false
+    entityRevealed: Bool = false
+    selected: Person? = null
+    confirmModalOpen: Bool = false
+    gameStartedAt: Time? = null
+    pullStartedAt: Time? = null
+    revealStartedAt: Time? = null
+    hintLevel: Int = 0
+
+    // 「祝福 接近中」の段階と音声状態。
+    approachLevel: ApproachLevel = Quiet
+    ambientSound: AmbientSound = None
+    activeSoundEffect: SoundEffect = NoEffect
+    soundEffectStartedAt: Time? = null
+    investigationStartedAt: Time? = null
+
+    // 音声はページを開くたび必ずミュートから始め、永続化しない。
+    muted: Bool = true
+
+    // BAD END演出。
+    redFilterVisible: Bool = false
+    playerLogInterrupted: Bool = false
+    visiblePlayerLog: String? = null
+    badEndPhotoRole: String? = null
+    badEndProxyAppearance: String? = null
+
+    // GOOD END前にテレビ画面で送るログ。
+    goodEndLogIndex: Int? = null
+    badEndLogIndex: Int? = null
+    badEndBroadcastText: String? = null
+  }
+
+  config {
+    pullThreshold: Real = 0.18
+    pullHold: Duration = 250ms
+    saturationThreshold: Int = 10
+    brightnessThreshold: Int = 90
+    revealHold: Duration = 1500ms
+    fallbackDelay: Duration = 65000ms
+    hintOneDelay: Duration = 22000ms
+    hintTwoDelay: Duration = 45000ms
+    windDelay: Duration = 30000ms
+    creakDelay: Duration = 60000ms
+    badEndRedDuration: Duration = 1800ms
+    badEndBlackoutDuration: Duration = 1200ms
+    goodEndTvOffDuration: Duration = 900ms
+    distantHighPitchCueDuration: Duration = 1800ms
+    highPitchRecedeDuration: Duration = 4500ms
+  }
+
+  // ── 音声 ──────────────────────────────────────────────────────
+
+  // 実装上の短い遷移音マッピング。これらは activeSoundEffect の長時間状態を
+  // 占有せず、各イベントにつき一度だけ鳴る。履歴復元は画面の再描画であり
+  // イベントの再実行ではないため、効果音を再発音しない。
+  //
+  // intro_interrupted -> IntroInterruptCue（放送同期崩壊＋低い送信機バースト）
+  // broadcast_open -> BroadcastOpenCue（無人の館内放送のような金属打音による
+  //   短い案内開始メロディ。高い学校チャイムにはせず、狭い残響と放送機ハムを含める）
+  // blessing_invite_received -> BlessingNoticeCue（同じ館内放送系の不協和3音列）
+  // InstructionOne -> InstructionTwo でも BlessingNoticeCue を鳴らし、180ms後に
+  // 歪ませた鯨声の DistantHighPitchCue を重ねる。
+  // TvFamilyPhoto / photo_fullscreen -> FamilyPhotoCue / FullPhotoCue
+  // controls_revealed / entity_revealed -> ControlsRevealCue / EntityRevealCue
+  // SelectPerson / CancelSelection / TapConfirm -> PersonSelectCue /
+  //   SelectionCancelCue / SelectionConfirmCue
+  // AdvanceGoodEndLog / television_turned_off -> PlayerLogSendCue /
+  //   TelevisionOffCue
+  // game_clear -> GoodEndCue（静かな低音）
+  // bad_end_red_alert / bad_end_blackout / bad_end -> BadRedAlertCue /
+  //   BadBlackoutCue / BadEndCue
+  // Restart -> RestartCue
+  // EntityRevealCue は Dark Creepy BRAAM、金属筐体衝撃、Geofon低音を重ね、
+  // 正体判明の瞬間から4.8秒だけ鳴るおどろおどろしいワンショットとする。
+  // PlayerLogSendCue は業務用ライブラリの実録ラッチ由来の乾いた「カタッ」とする。
+  // BadRedAlertCue は低い鉄琴／ビブラフォン状の打音を反復する、切迫した
+  // 館内警報メロディとする。明るいチャイムや実在の緊急速報旋律は使わない。
+  // BadEndCue は持続するホーンの祝祭音へ上方5度を薄く重ね、別調の低い
+  // 金属LFEとBoomを衝突させる。明るい成功チャイムにはしない。
+  // 中間ログ、戻る、ヒント、フォールバック表示、音声有効化、zoom 100% 到達
+  // はそれぞれ PlayerLogSendCue / NavigationCue / HintCue / AudioEnabledCue /
+  // ZoomDetentCue。Pan とスライダーの各 input は連続音を鳴らさない。
+  // 全短音は master compressor を通し、画面遷移で世代を無効化して、非同期
+  // 読み込み完了後に古い画面の音が遅れて鳴らないようにする。
+
+  // 右上に常時ミュートボタンを置く。初期状態は必ず muted == true。
+  transition ToggleMute
+    from BroadcastIntro | AlertReady | BlessingNotice |
+         InstructionOne | InstructionTwo | TvFamilyPhoto | FullPhoto |
+         GoodEndTvLogs | GoodEndTvOff |
+         BadEndTvLog | BadEndRedAlert | BadEndBlackout | GoodEnd | BadEnd
+    on TapMuteButton
+    do {
+      muted := !muted
+      emit(muted ? "audio_muted" : "audio_unmuted")
+    }
+    to SamePhase
+
+  // ページ再読み込み時に音声設定は保存せず、必ずミュートへ戻す。
+  action ResetAudioOnPageLoad {
+    muted := true
+    ambientSound := None
+    activeSoundEffect := NoEffect
+    soundEffectStartedAt := null
+  }
+
+  // ── 導入：テレビタップもログ送信として扱う ─────────────────────
+
+  // 最初のログを送った瞬間に、テレビ映像だけが番組から警報へ変わる。
+  transition SendFirstLog
+    from BroadcastIntro
+    on TapLog | TapTelevision | PressEnter | PressSpace
+    when logIndex == 0
+    do {
+      television := Alert
+      logIndex := 1
+      emit("intro_interrupted")
+    }
+    to BroadcastIntro
+
+  // 警報表示後も、ログが残っている間のテレビタップはログ送信にしか使わない。
+  transition SendIntermediateLog
+    from BroadcastIntro
+    on TapLog | TapTelevision | PressEnter | PressSpace
+    when logIndex != null && 0 < logIndex && logIndex < length(IntroLogs) - 1
+    do logIndex := logIndex + 1
+    to BroadcastIntro
+
+  // 最後のログを送り終えるとログUIが消える。警報表示は維持する。
+  transition SendFinalLog
+    from BroadcastIntro
+    on TapLog | TapTelevision | PressEnter | PressSpace
+    when logIndex == length(IntroLogs) - 1
+    do logIndex := null
+    to AlertReady
+
+  // ── 放送の受信 ────────────────────────────────────────────────
+
+  transition ReceiveBlessingNotice
+    from AlertReady
+    on TapTelevision | PressEnter | PressSpace
+    do {
+      television := BlessingNotice
+      emit("broadcast_open")
+    }
+    to BlessingNotice
+
+  // 通知文は「画面を押して受信」と同系統のテレビ内UIで表示する。
+  // 例: 「おめでとうございます、あなたは祝福対象として選ばれました」
+  transition OpenInstructionOne
+    from BlessingNotice
+    on TapTelevision | PressEnter | PressSpace
+    do {
+      television := Instruction
+      emit("blessing_invite_received")
+    }
+    to InstructionOne
+
+  // ── 二段階の指示文 ────────────────────────────────────────────
+
+  // InstructionOne のレイアウト要件:
+  // - 家族写真を本文と同じフロー内の左上に float する。
+  // - CSS shape-outside と shape-margin で、本文を写真の右側から下側へ
+  //   回り込ませる。写真と本文は重ねない。
+  transition AdvanceInstruction
+    from InstructionOne
+    on TapTelevision | PressEnter | PressSpace
+    do {
+      approachLevel := FirstTremor
+      // 歪ませた鯨声は常時再生せず、遠方で鳴ったことを示す短い一回音にする。
+      activeSoundEffect := DistantHighPitchCue
+      soundEffectStartedAt := now
+      visiblePlayerLog := InstructionTremorLog
+      emit("blessing_first_tremor")
+    }
+    to InstructionTwo
+
+  // InstructionTwo のレイアウト要件:
+  // - InstructionOne とは別の画面として InstructionTextTwo を表示する。
+  // - 1段階目の家族写真と回り込みレイアウトを引き継がない。
+  // - 表示開始時に最初の揺れを一度だけ発生させる。
+  // - 揺れの直後に InstructionTremorLog をプレイヤーログとして表示する。
+  transition ShowTvFamilyPhoto
+    from InstructionTwo
+    on TapTelevision | PressEnter | PressSpace
+    do television := FamilyPhoto
+    to TvFamilyPhoto
+
+  transition FinishDistantHighPitchCue
+    from InstructionTwo | TvFamilyPhoto | FullPhoto
+    on AudioTick
+    when
+      activeSoundEffect == DistantHighPitchCue &&
+      elapsed(soundEffectStartedAt) >= distantHighPitchCueDuration
+    do {
+      activeSoundEffect := NoEffect
+      soundEffectStartedAt := null
+    }
+    to SamePhase
+
+  // 家族写真がテレビいっぱいに表示された後、次のタップで全画面調査へ進む。
+  transition OpenFullPhoto
+    from TvFamilyPhoto
+    on TapTelevision | PressEnter | PressSpace
+    do {
+      ResetInvestigation
+      gameStartedAt := now
+      investigationStartedAt := now
+      visiblePlayerLog := null
+      emit("game_start")
+      emit("photo_fullscreen")
+    }
+    to FullPhoto
+
+  action ResetInvestigation {
+    scale := 1.4
+    panX := 0
+    panY := 0
+    controlsUnlocked := false
+    entityRevealed := false
+    selected := null
+    confirmModalOpen := false
+    pullStartedAt := null
+    revealStartedAt := null
+    hintLevel := 0
+    investigationStartedAt := null
+    activeSoundEffect := NoEffect
+    soundEffectStartedAt := null
+    redFilterVisible := false
+    playerLogInterrupted := false
+    badEndPhotoRole := null
+    badEndProxyAppearance := null
+    goodEndLogIndex := null
+  }
+
+  // ── 全画面写真：ここからは現行挙動を維持 ──────────────────────
+
+  transition Zoom
+    from FullPhoto
+    on Pinch | Wheel
+    do scale := clamp(requestedScale, 1.0, 3.0)
+    to FullPhoto
+
+  transition Pan
+    from FullPhoto
+    on Drag
+    when scale > 1.0
+    do {
+      panX := clampPanX(requestedPanX)
+      panY := clampPanY(requestedPanY)
+    }
+    to FullPhoto
+
+  transition UnlockControlsByPull
+    from FullPhoto
+    on PinchHold
+    when
+      controlsUnlocked == false &&
+      pinchStartedAtScale <= 1.05 &&
+      overPull >= pullThreshold &&
+      heldFor >= pullHold
+    do UnlockControls
+    to FullPhoto
+
+  transition UnlockControlsByFallback
+    from FullPhoto
+    on TapFallback
+    when
+      controlsUnlocked == false &&
+      elapsed(gameStartedAt) >= fallbackDelay
+    do {
+      UnlockControls
+      emit("fallback_used")
+    }
+    to FullPhoto
+
+  action UnlockControls {
+    controlsUnlocked := true
+    scale := 1.0
+    panX := 0
+    panY := 0
+    emit("controls_revealed")
+  }
+
+  transition StartRevealHold
+    from FullPhoto
+    on AdjustPhoto
+    when
+      controlsUnlocked &&
+      saturation <= saturationThreshold &&
+      brightness >= brightnessThreshold &&
+      revealStartedAt == null
+    do revealStartedAt := now
+    to FullPhoto
+
+  transition CancelRevealHold
+    from FullPhoto
+    on AdjustPhoto
+    when
+      saturation > saturationThreshold ||
+      brightness < brightnessThreshold
+    do revealStartedAt := null
+    to FullPhoto
+
+  transition RevealEntity
+    from FullPhoto
+    on Tick
+    when
+      controlsUnlocked &&
+      entityRevealed == false &&
+      saturation <= saturationThreshold &&
+      brightness >= brightnessThreshold &&
+      elapsed(revealStartedAt) >= revealHold
+    do {
+      entityRevealed := true
+      emit("entity_revealed")
+    }
+    to FullPhoto
+
+  // 写真調査開始から30秒で風音を開始する。ミュート時も内部状態と
+  // 視覚上の接近表現は進み、音声出力だけを抑止する。
+  transition ApproachWind
+    from FullPhoto
+    on Tick
+    when
+      approachLevel in {Quiet, FirstTremor} &&
+      elapsed(investigationStartedAt) >= windDelay
+    do {
+      approachLevel := Wind
+      ambientSound := Wind
+      emit("blessing_wind_started")
+    }
+    to FullPhoto
+
+  // 写真調査開始から60秒で、風に家屋の軋みを加えて接近を強める。
+  transition ApproachStructuralCreak
+    from FullPhoto
+    on Tick
+    when
+      approachLevel == Wind &&
+      elapsed(investigationStartedAt) >= creakDelay
+    do {
+      approachLevel := StructuralCreak
+      ambientSound := WindAndCreak
+      emit("blessing_creak_started")
+    }
+    to FullPhoto
+
+  transition SelectPerson
+    from FullPhoto
+    on TapPerson(person)
+    do {
+      selected := person
+      confirmModalOpen := true
+    }
+    to FullPhoto
+
+  transition CancelSelection
+    from FullPhoto
+    on TapCancel
+    when confirmModalOpen
+    do confirmModalOpen := false
+    to FullPhoto
+
+  // GOOD条件は selected == Brother のみ。entityRevealed は終了条件に含めない。
+  transition ConfirmCorrectSelection
+    from FullPhoto
+    on TapConfirm
+    when confirmModalOpen && selected == Brother
+    do {
+      confirmModalOpen := false
+      // 全画面写真を閉じ、弟の正体が露出した写真をテレビ内に表示する。
+      television := RevealedEntityPhoto
+      televisionImageSource := RevealedEntityPhotoAsset
+      goodEndLogIndex := 0
+      visiblePlayerLog := GoodEndLogs[0]
+      emit("return_to_tv_for_good_end")
+      emit("revealed_entity_photo_shown")
+    }
+    to GoodEndTvLogs
+
+  // テレビ内の正体露出済み写真を見ながら、ログを順番に送る。
+  transition AdvanceGoodEndLog
+    from GoodEndTvLogs
+    on TapLog | TapTelevision | PressEnter | PressSpace
+    when
+      goodEndLogIndex != null &&
+      goodEndLogIndex < length(GoodEndLogs) - 1
+    do {
+      goodEndLogIndex := goodEndLogIndex + 1
+      visiblePlayerLog := GoodEndLogs[goodEndLogIndex]
+
+      // 3つ目のログで、歪ませた鯨声を徐々に遠ざける。
+      if goodEndLogIndex == 2 {
+        approachLevel := Receding
+        // それまで鯨声をループ再生しない。ここでだけ、音源が急速に
+        // 遠ざかる専用ワンショット効果音を再生する。
+        activeSoundEffect := HighPitchRecedeCue
+        soundEffectStartedAt := now
+        emit("blessing_receding")
+      }
+    }
+    to GoodEndTvLogs
+
+  // 3つ目のログと同期して「遠ざかる」専用効果音を一度だけ再生する。
+  // 直前まで鳴っていた音のフェードアウトではなく、接近物が離脱する
+  // ドップラー感と距離減衰を含んだ独立したワンショット素材とする。
+  transition FinishHighPitchRecedeCue
+    from GoodEndTvLogs
+    on AudioTick
+    when
+      activeSoundEffect == HighPitchRecedeCue &&
+      elapsed(soundEffectStartedAt) >= highPitchRecedeDuration
+    do {
+      activeSoundEffect := NoEffect
+      soundEffectStartedAt := null
+      emit("high_pitch_recede_cue_finished")
+    }
+    to GoodEndTvLogs
+
+  // 最後のログを送るとテレビが消え、短い暗い間を置く。
+  transition TurnOffTelevisionAfterGoodEndLogs
+    from GoodEndTvLogs
+    on TapLog | TapTelevision | PressEnter | PressSpace
+    when goodEndLogIndex == length(GoodEndLogs) - 1
+    do {
+      television := Off
+      televisionImageSource := null
+      visiblePlayerLog := null
+      goodEndLogIndex := null
+      emit("television_turned_off")
+    }
+    to GoodEndTvOff
+
+  transition ShowGoodEnd
+    from GoodEndTvOff
+    on Tick
+    when elapsed(enteredPhaseAt) >= goodEndTvOffDuration
+    do emit("game_clear", selected)
+    to GoodEnd
+
+  transition ConfirmWrongSelection
+    from FullPhoto
+    on TapConfirm
+    when confirmModalOpen && selected != null && selected != Brother
+    do {
+      confirmModalOpen := false
+      // selected は架空存在ではないため、生身の生贄として捧げられる。
+      // 全画面写真を閉じ、テレビのある部屋とテレビ内の家族写真へ戻す。
+      television := RewrittenFamilyPhoto
+      televisionImageSource := RewrittenFamilyPhotoAsset
+      televisionImageBrightness := RewrittenFamilyPhotoBrightness
+      visiblePlayerLog := BadEndLogs[0]
+      badEndBroadcastText := null
+      redFilterVisible := false
+      ambientSound := WindAndCreak
+      badEndPhotoRole := "Brother"
+      badEndProxyAppearance := "tearful_eyes_and_forced_smile"
+      badEndLogIndex := 0
+      emit("return_to_tv_for_bad_end")
+      emit("rewritten_family_photo_shown")
+      emit("real_family_sacrificed", selected)
+      emit("bad_end_started", selected)
+    }
+    to BadEndTvLog
+
+  transition AdvanceBadEndPlayerLog
+    from BadEndTvLog
+    on Tick
+    when badEndLogIndex < 2
+    do {
+      badEndLogIndex := badEndLogIndex + 1
+      visiblePlayerLog := BadEndLogs[badEndLogIndex]
+    }
+    to BadEndTvLog
+
+  transition ShowBadEndBroadcastLine
+    from BadEndTvLog
+    on Tick
+    when badEndLogIndex >= 2 && badEndLogIndex < length(BadEndLogs) - 1
+    do {
+      badEndLogIndex := badEndLogIndex + 1
+      visiblePlayerLog := null
+      badEndBroadcastText := BadEndLogs[badEndLogIndex]
+    }
+    to BadEndTvLog
+
+  // 「外が明るくーー」まで表示してログが不自然に途切れた後に赤転する。
+  // ログ表示中に赤いフィルターを先行表示してはならない。
+  transition StartBadEndRedAlert
+    from BadEndTvLog
+    on PlayerLogInterrupted
+    do {
+      playerLogInterrupted := true
+      redFilterVisible := true
+      emit("bad_end_red_alert")
+    }
+    to BadEndRedAlert
+
+  // ログは「外が明るくーー」で不自然に切れたまま、赤いフィルターを維持する。
+  transition BlackoutBadEnd
+    from BadEndRedAlert
+    on Tick
+    when elapsed(enteredPhaseAt) >= badEndRedDuration
+    do {
+      redFilterVisible := false
+      visiblePlayerLog := null
+      ambientSound := None
+      emit("bad_end_blackout")
+    }
+    to BadEndBlackout
+
+  // 暗転後、BAD END画面を表示する。テレビ内写真ですでに追加されていた
+  // 「兄」を引き継ぐ。顔写真やカメラ入力は使用しない。
+  transition ShowBadEnd
+    from BadEndBlackout
+    on Tick
+    when elapsed(enteredPhaseAt) >= badEndBlackoutDuration
+    do {
+      emit("bad_end", selected)
+    }
+    to BadEnd
+
+  transition Restart
+    from GoodEnd | BadEnd
+    on TapRestart
+    do ReloadPage
+    to BroadcastIntro
+
+  // ── 不変条件 ──────────────────────────────────────────────────
+
+  invariant AlertBeginsWithFirstSentLog:
+    phase == BroadcastIntro && logIndex != 0 => television == Alert
+
+  invariant LogsBlockBroadcastProgress:
+    logIndex != null => phase == BroadcastIntro
+
+  invariant AlertReadyHasNoLog:
+    phase == AlertReady =>
+      logIndex == null && television == Alert
+
+  invariant InstructionUsesInstructionDisplay:
+    phase in {InstructionOne, InstructionTwo} =>
+      television == Instruction
+
+  invariant InstructionStagesAreSeparateScreens:
+    (phase == InstructionOne => visibleScreen == "instruction-screen") &&
+    (phase == InstructionTwo => visibleScreen == "instruction-two-screen")
+
+  invariant TvPhotoPrecedesFullPhoto:
+    phase == TvFamilyPhoto => television == FamilyPhoto
+
+  invariant ValidScale:
+    1.0 <= scale && scale <= 3.0
+
+  invariant ControlsRequiredForReveal:
+    entityRevealed => controlsUnlocked
+
+  invariant GoodEndMeansBrotherSelected:
+    phase in {GoodEndTvLogs, GoodEndTvOff, GoodEnd} => selected == Brother
+
+  invariant GoodEndPreludeReturnsToTelevision:
+    phase == GoodEndTvLogs =>
+      visibleScreen == "tv-room" &&
+      television == RevealedEntityPhoto &&
+      televisionImageSource == RevealedEntityPhotoAsset &&
+      fullPhotoVisible == false
+
+  invariant GoodEndLogsStayInOrder:
+    phase == GoodEndTvLogs =>
+      0 <= goodEndLogIndex &&
+      goodEndLogIndex < length(GoodEndLogs) &&
+      visiblePlayerLog == GoodEndLogs[goodEndLogIndex]
+
+  invariant RecedingLogControlsHighPitchSound:
+    phase == GoodEndTvLogs && goodEndLogIndex == 2 =>
+      activeSoundEffect in {HighPitchRecedeCue, NoEffect}
+
+  invariant HighPitchNeverLoopsContinuously:
+    loopingSound != DistantHighPitchCue &&
+    loopingSound != HighPitchRecedeCue
+
+  invariant GoodEndTurnsTelevisionOffBeforeResult:
+    phase == GoodEndTvOff =>
+      television == Off &&
+      televisionImageSource == null &&
+      visiblePlayerLog == null
+
+  invariant BadEndMeansNonBrotherSelected:
+    phase in {BadEndTvLog, BadEndRedAlert, BadEndBlackout, BadEnd} =>
+      selected != null && selected != Brother
+
+  invariant WrongSelectionSacrificesSelectedPerson:
+    phase in {BadEndTvLog, BadEndRedAlert, BadEndBlackout, BadEnd} =>
+      BadEndCopy contains displayName(selected)
+
+  invariant BadEndPreludeReturnsToTelevision:
+    phase in {BadEndTvLog, BadEndRedAlert} =>
+      visibleScreen == "tv-room" &&
+      television == RewrittenFamilyPhoto &&
+      fullPhotoVisible == false
+
+  invariant RewrittenPhotoAlreadyContainsOlderBrother:
+    phase in {BadEndTvLog, BadEndRedAlert, BadEndBlackout, BadEnd} =>
+      badEndPhotoRole == "Brother" &&
+      badEndProxyAppearance == "tearful_eyes_and_forced_smile"
+
+  invariant BadEndLogsStayInOrder:
+    phase == BadEndTvLog =>
+      0 <= badEndLogIndex &&
+      badEndLogIndex < length(BadEndLogs) &&
+      ((badEndLogIndex <= 2 && visiblePlayerLog == BadEndLogs[badEndLogIndex]) ||
+       (badEndLogIndex >= 3 && visiblePlayerLog == null &&
+        badEndBroadcastText == BadEndLogs[badEndLogIndex]))
+
+  invariant RewrittenPhotoIsRenderedDarker:
+    phase in {BadEndTvLog, BadEndRedAlert} =>
+      televisionImageSource == RewrittenFamilyPhotoAsset &&
+      televisionImageBrightness == 0.78
+
+  invariant RedAlertStartsAfterInterruptedLog:
+    (phase == BadEndTvLog => redFilterVisible == false) &&
+    (phase == BadEndRedAlert =>
+      playerLogInterrupted == true && redFilterVisible == true)
+
+  invariant BadEndAddsPlayerAsOlderBrother:
+    phase == BadEnd =>
+      badEndPhotoRole == "Brother" &&
+      badEndProxyAppearance == "tearful_eyes_and_forced_smile"
+
+  invariant BadEndNeverUsesPlayerBiometrics:
+    phase == BadEnd =>
+      cameraPermissionRequested == false &&
+      playerPhotoCaptured == false
+
+  invariant MutedByDefaultAndNotPersisted:
+    pageJustLoaded => muted == true && persistedAudioPreference == null
+
+  invariant MutingSuppressesOutputOnly:
+    muted => audioOutputGain == 0
+
+  invariant MuteButtonPosition:
+    muteButton.visible == true && muteButton.anchor == "top-right"
+
+  invariant ApproachTimelineIsMonotonic:
+    approachLevel never_decreases
+
+  invariant TerminalModalClosed:
+    phase in {GoodEndTvLogs, GoodEndTvOff, BadEndTvLog, BadEndRedAlert,
+              BadEndBlackout, GoodEnd, BadEnd} =>
+      confirmModalOpen == false
+}

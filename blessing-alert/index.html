@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#130b0c">
+  <title>緊急祝福警報｜SAFARI</title>
+  <meta name="description" content="家族写真に紛れた架空の生贄を選ぶ、3分間のモバイルWeb謎。">
+  <link rel="preload" as="image" href="./entity-subtle.png?v=20260714d">
+  <link rel="preload" as="image" href="./entity-partial-v2.png?v=20260714d">
+  <link rel="preload" as="image" href="./entity-full-v2.png?v=20260714d">
+  <link rel="preload" as="image" href="./family-bad-end-brother-released.png">
+  <link rel="preload" as="image" href="./room-tv-bg.png?v=20260714e">
+  <link rel="stylesheet" href="./styles.css?v=20260715f">
+  <style>[hidden]{display:none!important}</style>
+</head>
+<body>
+<button id="mute-button" class="mute-button" type="button" aria-label="音声をオンにする" aria-pressed="true">MUTED</button>
+<main id="app" class="app" data-phase="intro">
+  <section id="intro-screen" class="screen intro-screen" aria-label="深夜番組の導入">
+    <div class="intro-tv" aria-label="深夜バラエティ番組">
+      <video id="intro-video" class="intro-video" autoplay muted loop playsinline preload="auto">
+        <source src="./night-variety.mp4" type="video/mp4">
+      </video>
+      <div id="intro-warning" class="intro-warning" hidden aria-label="祝福警報">
+        <p>CH. 04　緊急放送</p>
+        <strong>祝福警報が<br>発令されております</strong>
+      </div>
+      <button id="intro-tv-hit" class="intro-tv-hit" type="button" aria-label="テレビ画面を押す"></button>
+      <div class="intro-tv-glass" aria-hidden="true"></div>
+    </div>
+    <div id="intro-message" class="intro-message" role="button" tabindex="0" aria-label="メッセージを受信">
+      <span class="intro-message-label">PLAYER LOG</span>
+      <p>仕事終わりに、くだらないテレビ番組を見るのが日課だ。</p>
+    </div>
+  </section>
+  <section id="alert-screen" class="screen alert-screen" aria-label="テレビに映る家族写真">
+    <div class="crt-set">
+      <div id="crt-hitarea" class="crt-frame" role="button" tabindex="0" aria-label="テレビ放送を開く">
+        <div class="crt-glass">
+          <div class="crt-broadcast crt-alert-broadcast">
+            <p class="crt-channel">CH. 04　緊急放送</p>
+            <h1>祝福警報が<br>発令されております</h1>
+            <p class="crt-subtitle">画面を押して受信してください</p>
+            <span class="crt-cursor" aria-hidden="true">▮</span>
+          </div>
+          <div class="crt-noise" aria-hidden="true"></div>
+          <div class="crt-scanlines" aria-hidden="true"></div>
+        </div>
+        <div class="crt-controls" aria-hidden="true"><span></span><span></span><i></i></div>
+      </div>
+      <p class="crt-hint">画面をタップして放送を受信</p>
+    </div>
+    <p class="fineprint">映像は架空の緊急放送です。</p>
+  </section>
+
+  <section id="invite-screen" class="screen invite-screen" hidden aria-label="祝福対象の通知">
+    <div id="invite-hitarea" class="invite-broadcast" role="button" tabindex="0" aria-label="祝福対象の通知を受信">
+      <p class="invite-channel">CH. 04　受信通知</p>
+      <p class="invite-copy">おめでとうございます、あなたは祝福対象として選ばれました</p>
+      <p class="invite-subtitle">画面を押して受信</p>
+      <span class="crt-cursor" aria-hidden="true">▮</span>
+      <span class="crt-scanlines" aria-hidden="true"></span>
+    </div>
+  </section>
+
+  <section id="instruction-screen" class="screen instruction-screen" hidden aria-labelledby="instruction-title">
+    <div id="instruction-panel" class="broadcast-card instruction-wrap-card" role="button" tabindex="0" aria-label="指示の続きを受信">
+      <img id="instruction-family" class="instruction-family" src="./family.png" alt="生贄候補の肉羽家の家族写真">
+      <p id="instruction-title" class="broadcast-copy">こちらは、生贄候補の肉羽家の皆様です。肉羽家には1体、架空の家族が紛れています。<br>架空の存在を選ぶことができれば、全員祝福を回避できます。</p>
+    </div>
+    <div class="instruction-actions">
+      <button id="instruction-back" class="secondary" type="button">← 前に戻る</button>
+      <button id="instruction-next" class="primary" type="button">進む：写真を全画面で見る</button>
+    </div>
+  </section>
+
+  <section id="instruction-two-screen" class="screen instruction-screen instruction-two-screen" hidden aria-labelledby="instruction-title-2">
+    <div id="instruction-panel-2" class="broadcast-card" role="button" tabindex="0" aria-label="指示を確認して家族写真へ進む">
+      <p id="instruction-title-2" class="broadcast-copy">架空の生贄を選べなかった場合、肉羽家の1人が生贄として捧げられます。そしてあなたが肉羽家の新たな一員として迎えられます。<br>祝福を回避したい場合は、正しい選択を行なってください。</p>
+    </div>
+    <div id="approach-log" class="ending-log instruction-approach-log" role="status">......遠くから歪んだ鯨のような鳴き声が聞こえる</div>
+  </section>
+
+  <section id="game-screen" class="screen game-screen" hidden aria-label="生贄選定画面">
+    <section id="tv-photo-preview" class="tv-photo-preview" hidden aria-label="テレビに映る家族写真">
+      <button id="tv-photo-hit" class="tv-photo-hit" type="button" aria-label="写真を全画面で調べる">
+        <img src="./family.png" alt="ブラウン管テレビに映る家族写真" draggable="false">
+        <span class="tv-photo-filter" aria-hidden="true"></span>
+      </button>
+      <p>写真をタップして調べる</p>
+    </section>
+    <header class="statusbar">
+      <div><span class="live-dot"></span>祝福 接近中</div>
+      <div id="countdown">選定期限 02:59</div>
+    </header>
+    <button id="photo-instructions" class="outside-tv" type="button" aria-label="前の画面へ戻る">前に戻る</button>
+    <div class="instruction">
+      <p>家族写真から</p><strong>架空の存在を一名選んでください</strong>
+    </div>
+    <div id="photo-shell" class="photo-shell">
+      <div id="photo-viewport" class="photo-viewport" tabindex="0" aria-label="家族写真。ピンチまたはホイールで拡大して調べられます">
+        <div id="photo-stage" class="photo-stage">
+          <img class="photo-layer photo-base" src="./family.png" alt="居間に並ぶ五人の家族" draggable="false">
+          <img class="photo-layer photo-entity photo-subtle" src="./entity-subtle.png?v=20260714d" alt="" draggable="false" aria-hidden="true">
+          <img class="photo-layer photo-entity photo-partial" src="./entity-partial-v2.png?v=20260714d" alt="" draggable="false" aria-hidden="true">
+          <img class="photo-layer photo-entity photo-full" src="./entity-full-v2.png?v=20260714d" alt="" draggable="false" aria-hidden="true">
+          <button class="person p1" data-person="父" aria-label="左端の男性を選ぶ"></button>
+          <button class="person p2" data-person="姉" aria-label="左から二番目の女性を選ぶ"></button>
+          <button class="person p3" data-person="弟" aria-label="中央の少年を選ぶ"></button>
+          <button class="person p4" data-person="母" aria-label="右から二番目の女性を選ぶ"></button>
+          <button class="person p5" data-person="祖母" aria-label="右端の女性を選ぶ"></button>
+        </div>
+        <div id="elastic-meter" class="elastic-meter" aria-hidden="true"><span></span></div>
+      </div>
+      <p class="zoom-readout"><span id="zoom-value">140</span>%</p>
+    </div>
+    <section id="develop-controls" class="develop-controls" hidden aria-label="写真補正">
+      <div class="lab-head"><span>PHOTO LAB / RAW</span><small>未現像領域を検出</small></div>
+      <label>彩度 <output id="sat-output">100</output><span>%</span><input id="saturation" type="range" min="0" max="100" value="100"></label>
+      <label>明度 <output id="bri-output">50</output><span>%</span><input id="brightness" type="range" min="0" max="100" value="50"></label>
+      <div class="exposure-line"><span id="exposure-fill"></span></div>
+    </section>
+    <button id="fallback-button" class="fallback" type="button" hidden>写真の余白を調べる</button>
+    <p id="hint" class="hint" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="ending-tv-screen" class="screen ending-tv-screen" hidden aria-label="テレビに戻った部屋">
+    <button id="ending-tv-hit" class="ending-tv-hit" type="button" aria-label="ログを送る">
+      <img id="ending-tv-image" src="./entity-full-v2.png?v=20260714d" alt="テレビに映る処理後の家族写真">
+      <span class="tv-photo-filter" aria-hidden="true"></span>
+    </button>
+    <div id="ending-log" class="ending-log" role="status" aria-live="polite"><span>PLAYER LOG</span><p></p></div>
+    <div id="ending-broadcast" class="ending-broadcast" hidden role="status" aria-live="polite"></div>
+    <div id="bad-red-filter" class="bad-red-filter" hidden aria-hidden="true"></div>
+  </section>
+  <div id="ending-blackout" class="ending-blackout" hidden aria-hidden="true"></div>
+
+  <section id="result-screen" class="screen result-screen" hidden aria-labelledby="result-title">
+    <div id="result-mark" class="result-mark">祝</div>
+    <p id="result-code" class="result-code"></p>
+    <h2 id="result-title"></h2>
+    <p id="result-copy" class="result-copy"></p>
+    <div id="result-photo" class="result-photo"><img src="./family.png" alt="処理後の家族写真"><span></span></div>
+    <p id="epilogue" class="epilogue"></p>
+    <button id="restart-button" class="primary" type="button">もう一度確認する</button>
+  </section>
+
+  <div id="confirm" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-card"><p class="modal-label">SACRIFICE CANDIDATE</p><h2 id="confirm-title"></h2><p id="confirm-copy"></p><div class="modal-actions"><button id="cancel-button" type="button">戻る</button><button id="confirm-button" class="danger" type="button">生贄として確定</button></div></div>
+  </div>
+</main>
+<script src="./analytics.js?v=20260714a"></script>
+<script src="./game.js?v=20260715f"></script>
+</body>
+</html>

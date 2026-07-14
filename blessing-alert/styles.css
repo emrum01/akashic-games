@@ -1,0 +1,595 @@
+:root{--red:#dc2638;--gold:#e8c779;--ink:#f5eee5;--muted:#ad9c91;--bg:#10090b;--vvh:100dvh;color-scheme:dark}*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;background:#090506;color:var(--ink);font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}button,input{font:inherit}button{color:inherit}.app{position:fixed;inset:0;height:var(--vvh);overflow:hidden;background:radial-gradient(circle at 50% 25%,#2d171a 0,#11090b 56%,#070405 100%)}.screen{position:absolute;inset:0;padding:max(20px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));overflow-y:auto;scrollbar-width:none}.alert-screen,.result-screen{display:flex;flex-direction:column;align-items:center;justify-content:safe center;text-align:center}.alert-screen:before{content:"";position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.018) 4px);pointer-events:none}.alert-sigil,.result-mark{width:84px;height:84px;display:grid;place-items:center;border:1px solid var(--red);font:700 43px serif;color:var(--red);transform:rotate(45deg);margin:4px}.alert-sigil::first-letter,.result-mark::first-letter{transform:rotate(-45deg)}.alert-kicker,.result-code{color:var(--red);font:700 11px ui-monospace,monospace;letter-spacing:.18em;margin:24px 0 8px}.alert-screen h1{font-family:serif;font-size:clamp(34px,10vw,56px);letter-spacing:.07em;margin:0}.alert-lead{font-size:16px;margin:8px 0 22px}.alert-copy{max-width:430px;border-block:1px solid #4d272b;padding:10px 3px;margin-bottom:18px;font-size:13px;line-height:1.8;color:#d8cbc2}.alert-copy p{margin:7px}.primary{border:0;background:var(--red);min-height:50px;padding:0 30px;font-weight:800;letter-spacing:.08em;box-shadow:0 0 28px rgba(220,38,56,.25)}.fineprint{font-size:10px;color:#776a65;margin-top:14px}.game-screen{padding:0;background:#0c0809;overflow:hidden}.statusbar{height:42px;padding:max(9px,env(safe-area-inset-top)) 14px 7px;display:flex;align-items:end;justify-content:space-between;background:#b31525;color:white;font:700 10px ui-monospace,monospace;letter-spacing:.08em}.live-dot{display:inline-block;width:7px;height:7px;background:white;border-radius:50%;margin-right:7px;box-shadow:0 0 0 3px rgba(255,255,255,.18)}.instruction{text-align:center;padding:8px 12px 6px;background:#171012;font-size:10px;line-height:1.35}.instruction p{display:inline;margin:0 6px;color:#a9938c}.instruction strong{font-size:12px}.photo-shell{position:relative;width:min(100%,430px);height:min(56vh,calc(var(--vvh)*.58));margin:0 auto;background:#030202;overflow:hidden}.photo-viewport{width:100%;height:100%;position:relative;overflow:hidden;touch-action:none;outline:none}.photo-stage{position:absolute;inset:0;transform-origin:center center;will-change:transform;user-select:none;--base-alpha:1;--subtle-alpha:0;--partial-alpha:0;--full-alpha:0}.photo-stage>.photo-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 44%;display:block;filter:saturate(var(--sat,1)) brightness(var(--bri,1)) contrast(1.015);transition:filter .12s linear,opacity .14s linear;pointer-events:none}.photo-stage>.photo-base{position:relative;opacity:var(--base-alpha)}.photo-stage>.photo-subtle{opacity:var(--subtle-alpha)}.photo-stage>.photo-partial{opacity:var(--partial-alpha)}.photo-stage>.photo-full{opacity:var(--full-alpha)}.photo-stage>.photo-entity{will-change:opacity}.person{position:absolute;top:29%;height:52%;border:0;background:transparent;border-radius:45%;cursor:pointer}.person:focus-visible{outline:2px solid var(--gold);background:rgba(232,199,121,.08)}.p1{left:13%;width:20%}.p2{left:31%;width:18%}.p3{left:46%;width:16%}.p4{left:56%;width:19%}.p5{left:69%;width:20%}.zoom-readout{position:absolute;right:8px;bottom:7px;margin:0;background:rgba(0,0,0,.7);padding:4px 7px;font:10px ui-monospace,monospace;color:#cbbdb4}.elastic-meter{position:absolute;left:50%;bottom:8px;width:110px;height:3px;transform:translateX(-50%);background:#38262a;opacity:0;transition:opacity .15s}.elastic-meter.active{opacity:1}.elastic-meter span{display:block;height:100%;width:var(--pull,0%);background:var(--red)}.develop-controls{width:min(100%,430px);margin:auto;padding:8px 14px 12px;background:#1d1717;border-top:1px solid #6e4c42}.lab-head{display:flex;justify-content:space-between;color:var(--gold);font:700 9px ui-monospace,monospace;letter-spacing:.12em;margin-bottom:7px}.lab-head small{color:#99877e}.develop-controls label{display:grid;grid-template-columns:38px 25px 11px 1fr;align-items:center;gap:4px;font-size:10px;margin:5px 0}.develop-controls output{font:700 10px ui-monospace}.develop-controls input{width:100%;accent-color:var(--gold)}.exposure-line{height:2px;background:#3d3330}.exposure-line span{display:block;height:100%;width:var(--progress,0%);background:#d2f6c9;transition:width .1s}.fallback{position:absolute;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);background:transparent;border:1px solid #5c4545;color:#ac9994;padding:8px 13px;font-size:10px}.hint{position:absolute;left:8%;right:8%;bottom:10px;text-align:center;margin:0;color:#e8c779;font:11px serif;opacity:0;transition:opacity .3s;pointer-events:none}.hint.show{opacity:1}.modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:22px;background:rgba(3,1,2,.88)}.modal-card{width:min(100%,360px);border:1px solid #6e3339;background:#180e10;padding:22px;box-shadow:0 20px 80px #000}.modal-label{color:var(--red);font:700 9px ui-monospace;letter-spacing:.14em}.modal-card h2{font-family:serif}.modal-card p{line-height:1.8;font-size:13px}.modal-actions{display:grid;grid-template-columns:1fr 1.5fr;gap:8px}.modal-actions button{min-height:46px;border:1px solid #594247;background:#21191a}.modal-actions .danger{background:var(--red);border-color:var(--red);font-weight:700}.result-screen h2{font:700 clamp(31px,9vw,48px) serif;margin:14px 0 5px}.result-copy{max-width:390px;line-height:1.9;font-size:13px;color:#d6c8bf}.result-photo{position:relative;width:min(70vw,300px);height:min(28vh,250px);overflow:hidden;border:1px solid #60434a;margin:12px}.result-photo img{width:100%;height:100%;object-fit:cover;object-position:center 45%}.result-photo span{position:absolute}.result-screen.bad .result-photo img{filter:saturate(.48) brightness(.68) contrast(1.18)}.result-screen.bad .result-photo span{inset:0;background:radial-gradient(ellipse at 52% 38%,transparent 0 9%,rgba(8,2,3,.72) 33%,rgba(0,0,0,.16) 70%)}.result-screen.good .result-photo img{filter:saturate(.2) brightness(1.2)}.result-screen.good .result-photo span{left:39%;top:8%;width:30%;height:86%;background:#fff6d6;filter:blur(15px);mix-blend-mode:screen}.epilogue{max-width:390px;font:12px/1.8 serif;color:#a89890}.result-screen.good .result-mark{color:var(--gold);border-color:var(--gold)}.result-screen.bad .result-mark{animation:pulse 1.4s infinite}.result-screen .primary{margin:8px}.vvh-short .photo-shell{height:calc(var(--vvh)*.48)}.vvh-short .instruction{padding:4px}.vvh-short .develop-controls{padding-block:5px}.vvh-tiny .photo-shell{height:calc(var(--vvh)*.43)}.vvh-tiny .statusbar{height:34px}.vvh-tiny .instruction{display:none}@keyframes pulse{50%{box-shadow:0 0 30px var(--red)}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+/* Broadcast shell: a warm, unreliable CRT is the first puzzle surface. */
+.alert-screen{background:radial-gradient(ellipse at 50% 35%,#38231c 0,#17100d 52%,#090605 100%);padding-inline:14px}
+.alert-screen:after{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(255,152,87,.035),transparent 18% 82%,rgba(255,152,87,.035));mix-blend-mode:screen}
+.crt-set{width:min(100%,620px);display:grid;place-items:center;gap:18px;position:relative;z-index:1}
+.crt-frame{width:min(92vw,520px);aspect-ratio:1.36/1;border:10px solid #30241d;border-radius:11% 11% 13% 13% / 13% 13% 11% 11%;background:#1b1512;box-shadow:0 20px 0 #130e0c,0 31px 50px rgba(0,0,0,.72),inset 0 0 0 2px #584333;cursor:pointer;position:relative;outline:none;transform:perspective(900px) rotateX(.8deg)}
+.crt-frame:before{content:"";position:absolute;inset:-4px -4px -13px;border-radius:inherit;border-bottom:3px solid #090706;pointer-events:none}
+.crt-frame:focus-visible{box-shadow:0 20px 0 #130e0c,0 31px 50px rgba(0,0,0,.72),inset 0 0 0 2px #584333,0 0 0 3px var(--gold),0 0 24px rgba(232,199,121,.4)}
+.crt-glass{position:absolute;inset:10px 12px 22px;border-radius:48% 48% 43% 43% / 12% 12% 9% 9%;overflow:hidden;background:#0a1a12;box-shadow:inset 0 0 50px rgba(0,0,0,.9),inset 0 0 7px 2px rgba(132,188,131,.35)}
+.crt-glass:before{content:"";position:absolute;inset:-12%;z-index:3;pointer-events:none;background:radial-gradient(ellipse at 48% 45%,transparent 0 45%,rgba(0,0,0,.22) 76%,rgba(0,0,0,.8) 100%)}
+.crt-broadcast{position:absolute;inset:0;z-index:2;display:grid;align-content:center;justify-items:center;text-align:center;color:#b9e1aa;text-shadow:0 0 8px rgba(137,255,120,.72),0 0 22px rgba(94,199,87,.3);filter:contrast(1.12) saturate(.75);animation:crt-flicker 7s steps(1,end) infinite}
+.crt-channel{margin:0 0 12px;font:10px ui-monospace,monospace;letter-spacing:.18em;color:#7fae7a}
+.crt-broadcast h1{margin:0;font:700 clamp(22px,6.6vw,39px)/1.35 serif;letter-spacing:.08em}
+.crt-subtitle{margin:16px 0 0;font:700 clamp(12px,3.2vw,17px) ui-monospace,monospace;letter-spacing:.08em}
+.crt-cursor{margin-top:12px;font-size:10px;animation:cursor-blink 1s steps(1,end) infinite}
+.crt-noise{position:absolute;inset:-20%;z-index:1;opacity:.16;mix-blend-mode:screen;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");animation:crt-noise 180ms steps(2,end) infinite}
+.crt-scanlines{position:absolute;inset:0;z-index:4;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(162,255,137,.08) 0 1px,transparent 1px 4px),linear-gradient(90deg,rgba(255,0,0,.03),transparent 28% 72%,rgba(80,120,255,.035));mix-blend-mode:screen}
+.crt-controls{position:absolute;bottom:3px;left:0;right:0;height:18px;display:flex;justify-content:flex-end;align-items:center;gap:8px;padding-right:16px}.crt-controls span{width:9px;height:9px;border-radius:50%;background:#6b4e3a;box-shadow:inset 1px 1px 2px #9c7654}.crt-controls i{width:29px;height:5px;border-radius:6px;background:#67503b;box-shadow:inset 1px 1px 2px #9c7654}
+.crt-hint{margin:0;color:#b7a295;font:11px ui-monospace,monospace;letter-spacing:.08em}.crt-hint:before{content:"◆";color:var(--red);font-size:8px;margin-right:8px}
+.alert-screen .fineprint{margin-top:26px;position:relative;z-index:1}
+@keyframes crt-flicker{0%,96%,100%{opacity:1}97%{opacity:.62}98%{opacity:.9}99%{opacity:.72}}@keyframes crt-noise{0%{transform:translate(0)}25%{transform:translate(1%,-1%)}50%{transform:translate(-1%,1%)}75%{transform:translate(1%,1%)}100%{transform:translate(-1%,-1%)}}@keyframes cursor-blink{50%{opacity:0}}
+.instruction-screen{display:grid;place-items:center;background:#0b0a09 radial-gradient(ellipse at 50% 12%,#30221b 0,#100d0b 61%,#070605 100%);padding-inline:16px}
+.instruction-screen:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.22;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,205,148,.05) 3px 4px)}
+.broadcast-card{width:min(100%,500px);position:relative;z-index:1;border:1px solid #554236;background:rgba(20,15,12,.94);padding:clamp(24px,6vw,42px) clamp(20px,6vw,48px) 24px;box-shadow:0 28px 80px rgba(0,0,0,.58),inset 0 0 0 1px rgba(232,199,121,.08)}
+.broadcast-kicker{margin:0;color:#c29b70;font:10px ui-monospace,monospace;letter-spacing:.16em}.broadcast-rule{height:1px;background:#735642;margin:16px 0 23px}.broadcast-card h2{margin:0 0 18px;color:#f2e2cd;font:700 clamp(24px,7.5vw,40px)/1.25 serif;letter-spacing:.04em}.broadcast-copy{margin:0;color:#d0c1b2;font-size:13px;line-height:2}.broadcast-copy.compact{margin-top:10px;color:#a8988b;font-size:12px;line-height:1.8}.broadcast-notice{border-left:2px solid var(--red);margin:24px 0 26px;padding:8px 10px;color:#c6b3a2;font-size:11px;line-height:1.5;background:rgba(220,38,56,.06)}.broadcast-notice span{display:block;color:#e07075;font:700 9px ui-monospace,monospace;letter-spacing:.16em;margin-bottom:3px}.instruction-actions{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:stretch}.instruction-actions button{min-height:48px;padding-inline:15px;cursor:pointer}.secondary{border:1px solid #6b5546;background:#221913;color:#d3bca5;font-size:11px}.instruction-actions .primary{padding-inline:16px;font-size:12px}.instruction-actions button:focus-visible,.outside-tv:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.outside-tv{position:relative;z-index:3;display:block;margin:0 auto;width:min(100%,430px);height:34px;border:0;border-bottom:1px solid #47352d;background:#17100e;color:#cfb69e;text-align:left;padding:0 13px;font:10px ui-monospace,monospace;letter-spacing:.06em;cursor:pointer}.outside-tv:before{content:"←";color:var(--gold);margin-right:8px;font-size:13px}.game-screen .statusbar{height:40px}.game-screen .photo-shell{height:min(58vh,calc(var(--vvh)*.61));border:1px solid #3c2e2a;box-shadow:0 12px 36px rgba(0,0,0,.35)}
+.game-screen .instruction{padding-block:9px}.game-screen .hint{bottom:10px}
+@media(max-width:430px){.crt-frame{width:95vw}.instruction-actions{grid-template-columns:1fr}.instruction-actions .primary{order:-1}.broadcast-card{padding-block:25px 20px}.broadcast-card h2{font-size:29px}.broadcast-copy{font-size:12px}.outside-tv{height:36px}}
+@media(prefers-reduced-motion:reduce){.crt-broadcast,.crt-noise,.crt-cursor{animation:none}.crt-cursor{opacity:.8}}
+
+/* The opening and the post-broadcast slate use the soft, rounded white type
+   found in Japanese analogue terrestrial captions.  Keep it deliberately
+   plain: the television artwork supplies the period texture. */
+.crt-broadcast,
+.crt-broadcast h1,
+.crt-channel,
+.crt-subtitle{
+  font-family:"Hiragino Maru Gothic ProN","Arial Rounded MT Bold","Yu Gothic",sans-serif;
+  color:#fff;
+  text-shadow:0 0 5px rgba(255,255,255,.46),0 1px 1px rgba(0,0,0,.8);
+  letter-spacing:.02em;
+}
+.crt-broadcast{filter:none;text-shadow:0 0 5px rgba(255,255,255,.45),0 1px 2px #000}
+.crt-channel{color:#fff;letter-spacing:.08em}
+.crt-subtitle{color:#fff;letter-spacing:.04em}
+
+/* The generated room artwork is portrait and the glass sits a little high on
+   the right edge.  The same quadrilateral is reused for the blue instruction
+   slate so the copy is visibly inside the skewed CRT rather than floating over
+   the room. */
+.instruction-screen{
+  padding:0;
+  overflow:hidden;
+  background:#211612 url("./room-tv-bg.png?v=20260714e") center center / 100% 100% no-repeat;
+}
+.instruction-screen:before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,rgba(12,7,4,.12),rgba(12,7,4,.2));
+}
+.instruction-screen .broadcast-card{
+  position:absolute;z-index:1;
+  top:26.2%;left:20.2%;width:61.7%;height:29.6%;
+  display:grid;place-items:center;
+  padding:6% 7%;
+  border:0;border-radius:10% 10% 8% 8% / 8% 8% 7% 7%;
+  overflow:hidden;
+  background:#084b91;
+  box-shadow:inset 0 0 32px rgba(0,10,35,.72),inset 0 0 4px 1px rgba(255,255,255,.2),0 0 1px rgba(0,0,0,.8);
+  transform:rotate(.72deg);
+  transform-origin:center center;
+}
+.instruction-screen .broadcast-card:before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.3;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.12) 0 1px,transparent 1px 4px),linear-gradient(90deg,rgba(255,255,255,.08),transparent 24% 76%,rgba(0,0,0,.14));
+  mix-blend-mode:screen;
+}
+.instruction-screen .broadcast-copy{
+  position:relative;z-index:1;margin:0;
+  color:#fff;
+  font-family:"Hiragino Maru Gothic ProN","Arial Rounded MT Bold","Yu Gothic",sans-serif;
+  font-size:clamp(10px,2.45vw,17px);
+  font-weight:700;line-height:1.55;letter-spacing:.015em;
+  text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.55);
+}
+.instruction-screen .instruction-actions{
+  position:absolute;z-index:2;left:5%;right:5%;bottom:max(18px,env(safe-area-inset-bottom));
+  display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:stretch;
+}
+.instruction-screen .instruction-actions button{min-height:45px}
+.instruction-screen .broadcast-kicker,
+.instruction-screen .broadcast-rule,
+.instruction-screen h2,
+.instruction-screen .broadcast-copy.compact,
+.instruction-screen .broadcast-notice{display:none}
+@media(max-width:430px){
+  .instruction-screen .broadcast-card{top:26.1%;left:20%;width:62%;height:29.8%;padding:7% 8%}
+  .instruction-screen .broadcast-copy{font-size:clamp(10px,3.1vw,13px);line-height:1.5}
+  .instruction-screen .instruction-actions{grid-template-columns:1fr;bottom:max(13px,env(safe-area-inset-bottom))}
+  .instruction-screen .instruction-actions .primary{order:-1}
+}
+
+/* The opening broadcast is composited over the generated lived-in 90s room.
+   The artwork already contains the cabinet, stand, tatami and remote, so the
+   HTML layer only supplies the glowing broadcast copy and transparent hitbox. */
+.alert-screen{
+  padding:0;
+  /* Stretch the portrait artwork to the app viewport so the percentage-based
+     TV hotspot and CRT copy stay registered on both phone and desktop. */
+  background:#211612 url("./room-tv-bg.png?v=20260714e") center center / 100% 100% no-repeat;
+}
+.alert-screen:before{background:linear-gradient(180deg,rgba(12,7,4,.12),rgba(12,7,4,.16));z-index:0}
+.alert-screen:after{background:linear-gradient(90deg,rgba(255,152,87,.04),transparent 18% 82%,rgba(255,152,87,.04));z-index:0}
+.crt-set{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
+.crt-frame{
+  position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;
+  border:0;border-radius:0;background:transparent;box-shadow:none;
+  transform:none;clip-path:polygon(12% 21%,88% 21%,93% 67%,9% 67%);
+}
+.crt-frame:before{display:none}
+.crt-glass{
+  inset:26.2% 20.2% auto;width:61.7%;height:29.6%;
+  border-radius:10% 10% 8% 8% / 8% 8% 7% 7%;
+  background:rgba(7,17,13,.12);box-shadow:inset 0 0 46px rgba(0,0,0,.52),inset 0 0 7px 2px rgba(132,188,131,.2);
+  transform:rotate(.72deg);transform-origin:center center;
+}
+.crt-glass:before{background:radial-gradient(ellipse at 48% 45%,transparent 0 45%,rgba(0,0,0,.12) 76%,rgba(0,0,0,.46) 100%)}
+.crt-broadcast{inset:0}
+.crt-channel{margin-bottom:9px;font-size:clamp(8px,1.8vw,11px)}
+.crt-broadcast h1{font-size:clamp(15px,3.2vw,29px);line-height:1.28}
+.crt-subtitle{margin-top:8px;font-size:clamp(8px,1.7vw,14px)}
+.crt-cursor{margin-top:6px;font-size:8px}
+.crt-noise{opacity:.1}
+.crt-scanlines{background:repeating-linear-gradient(0deg,rgba(162,255,137,.06) 0 1px,transparent 1px 4px),linear-gradient(90deg,rgba(255,0,0,.02),transparent 28% 72%,rgba(80,120,255,.025))}
+.crt-controls{display:none}
+.crt-hint{position:absolute;left:0;right:0;bottom:max(28px,env(safe-area-inset-bottom));text-align:center;text-shadow:0 1px 3px #000;color:#eee0d2}
+.alert-screen .fineprint{position:absolute;left:0;right:0;bottom:max(8px,env(safe-area-inset-bottom));margin:0;text-shadow:0 1px 3px #000}
+@media(max-width:430px){.crt-frame{width:100%;}.crt-glass{inset:26.1% 20% auto;width:62%;height:29.8%}.crt-hint{bottom:max(30px,env(safe-area-inset-bottom))}}
+
+/* The opening image is a photograph received through the actual tube.  Keep
+   the treatment on the TV copy only; the investigation view uses the clean
+   source image so the player can compare the two. */
+.crt-photo-broadcast{
+  inset:0;
+  display:block;
+  overflow:hidden;
+  background:#101a14;
+  animation:crt-flicker 7s steps(1,end) infinite;
+}
+.crt-photo-broadcast #crt-photo{
+  position:absolute;
+  inset:-3.5% -2.5%;
+  width:105%;
+  height:107%;
+  object-fit:cover;
+  object-position:center 44%;
+  filter:saturate(.72) contrast(1.2) brightness(.86) blur(.18px);
+  transform:scale(1.015);
+  user-select:none;
+}
+.crt-photo-broadcast:before{
+  content:"";
+  position:absolute;
+  inset:-6%;
+  z-index:2;
+  pointer-events:none;
+  background:
+    repeating-linear-gradient(0deg,rgba(215,255,203,.14) 0 1px,transparent 1px 4px),
+    linear-gradient(90deg,rgba(255,0,0,.055),transparent 22% 78%,rgba(50,90,255,.06)),
+    radial-gradient(ellipse at 50% 45%,transparent 0 47%,rgba(0,0,0,.2) 74%,rgba(0,0,0,.76) 100%);
+  mix-blend-mode:screen;
+  opacity:.76;
+}
+.crt-photo-broadcast:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:3;
+  pointer-events:none;
+  border-radius:inherit;
+  box-shadow:inset 0 0 24px rgba(0,0,0,.68),inset 0 0 3px rgba(213,255,197,.44);
+}
+.crt-photo-caption{
+  position:absolute;
+  z-index:4;
+  left:5%;
+  top:5%;
+  color:#fff;
+  font:700 clamp(7px,1.65vw,10px)/1 "Hiragino Maru Gothic ProN","Arial Rounded MT Bold","Yu Gothic",sans-serif;
+  letter-spacing:.08em;
+  text-shadow:0 0 4px rgba(255,255,255,.54),0 1px 2px #000;
+  opacity:.84;
+}
+
+/* The photo becomes the broadcast's full-frame surface; the lab floats above it only after unlock. */
+.game-screen .photo-shell{width:100%;max-width:none;height:calc(var(--vvh) - 40px - 34px - 42px);min-height:0}
+.game-screen .develop-controls{position:absolute;left:50%;bottom:0;z-index:6;transform:translateX(-50%);margin:0;box-shadow:0 -14px 34px rgba(0,0,0,.45)}
+
+/* Match the photographed cabinet: its top/bottom rails fall toward the
+   right-hand (far) side.  A positive screen-space rotation makes the
+   overlay descend to the right as well; the previous negative rotation
+   made the left edge look recessed and visibly fought the TV perspective. */
+.crt-glass,.instruction-screen .broadcast-card{transform:rotate(.72deg)}
+
+/* Opening slate: a simple analogue emergency card, deliberately much louder
+   than the room behind it. */
+.crt-alert-broadcast{display:grid;align-content:center;justify-items:center;text-align:center;background:#064a97;color:#fff;inset:0;padding:8% 6%;}
+.crt-alert-broadcast .crt-channel{margin:0 0 9px;font-size:clamp(8px,1.9vw,12px);}
+.crt-alert-broadcast h1{margin:0;color:#fff;font-size:clamp(19px,4.7vw,37px);line-height:1.2;letter-spacing:.03em;animation:warning-blink 1.05s steps(1,end) infinite;}
+.crt-alert-broadcast .crt-subtitle{margin:12px 0 0;font-size:clamp(8px,1.8vw,13px);}
+.crt-alert-broadcast .crt-cursor{margin-top:7px;}
+@keyframes warning-blink{0%,42%,100%{opacity:1}43%,52%{opacity:.18}53%,68%{opacity:.9}69%,76%{opacity:.35}}
+
+/* One clear action; the return affordance stays deliberately quiet. */
+.instruction-screen .instruction-actions{display:flex;align-items:stretch;justify-content:center;gap:8px}
+.instruction-screen .instruction-actions .primary{flex:1;max-width:330px}
+.instruction-screen .instruction-actions .secondary{flex:0 0 auto;min-width:88px;padding-inline:10px;font-size:10px;opacity:.86}
+.instruction-screen .broadcast-card[role="button"]{cursor:pointer}
+.instruction-screen .broadcast-card[role="button"]:focus-visible{outline:2px solid #fff;outline-offset:6px}
+
+/* Keep the investigation surface as a CRT image too, not a clean modern
+   browser photo. This layer remains above the photo but below controls. */
+.photo-viewport:after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(220,255,220,.11) 0 1px,transparent 1px 4px),linear-gradient(90deg,rgba(255,0,0,.055),transparent 22% 78%,rgba(40,90,255,.07)),radial-gradient(ellipse at 50% 46%,transparent 0 48%,rgba(0,0,0,.16) 74%,rgba(0,0,0,.72) 100%);mix-blend-mode:screen;opacity:.82}
+.photo-stage>.photo-layer{filter:saturate(var(--sat,1)) brightness(var(--bri,1)) contrast(1.08) blur(.16px)}
+
+@media(prefers-reduced-motion:reduce){.crt-alert-broadcast h1{animation:none}}
+
+/* Keep person hit targets above every photo/filter layer on desktop and touch. */
+.photo-stage .person{z-index:8;pointer-events:auto;touch-action:manipulation}
+
+/* The TV's right edge recedes: its top and bottom edges rise slightly toward
+   the right. Keep the copy level while shaping the blue glass as a shallow
+   quadrilateral instead of rotating it in the opposite direction. */
+.crt-glass,
+.instruction-screen .broadcast-card{
+  transform:none;
+  /* right edge is farther back: right-side y coordinates are larger */
+  clip-path:polygon(0 0,100% 3%,100% 100%,0 97%);
+}
+
+/* In preview mode the TV is the only surface: hide the investigation chrome
+   and use the same room artwork as the opening so the photo aligns to the
+   generated television bezel rather than a black photo viewport. */
+.game-screen.is-tv-preview{background:#211612 url("./room-tv-bg.png?v=20260714e") center/100% 100% no-repeat}
+.game-screen.is-tv-preview > :not(#tv-photo-preview){visibility:hidden;pointer-events:none}
+.game-screen.is-tv-preview #tv-photo-preview{visibility:visible;pointer-events:auto;background:transparent}
+#game-screen.is-tv-preview > #photo-instructions{visibility:visible!important;pointer-events:auto!important}
+.game-screen.is-tv-preview .tv-photo-hit img,
+.game-screen.is-tv-preview .tv-photo-filter{clip-path:polygon(0 0,100% 3%,100% 100%,0 97%)}
+@media(max-width:430px){.instruction-screen .instruction-actions{display:flex;left:5%;right:5%;gap:7px}.instruction-screen .instruction-actions .primary{order:0;max-width:none}.instruction-screen .instruction-actions .secondary{min-width:74px}}
+
+/* Bad ending: a restrained, seated trace of the viewer in the empty rug space. */
+.result-screen.bad .result-photo img{content:url("./bad-seat-silhouette.png?v=20260714a");filter:saturate(.48) brightness(.68) contrast(1.12)}
+.result-screen.bad .result-photo span{background:radial-gradient(ellipse at 50% 46%,transparent 0 42%,rgba(8,2,3,.18) 78%,rgba(0,0,0,.38) 100%)}
+/* Keep the full portrait framing so the seated figure remains in the rug, not cropped away. */
+.result-photo{height:min(410px,calc(var(--vvh)*.58));aspect-ratio:2/3;flex:0 0 auto;}
+
+/* After the instruction slate, the photograph is still inside the same old
+   television.  The player must tap the image itself to open the investigation
+   surface; the room remains visible around it for orientation. */
+.game-screen{background:#211612 url("./room-tv-bg.png?v=20260714e") center/100% 100% no-repeat}
+
+/* Shared CRT-glass geometry.  The reference television is photographed
+   with a barely visible perspective: the right edge sits lower than the
+   left edge at the top rail (far side), while the bottom rail rises slightly.
+   Keeping this one quadrilateral on every surface prevents the photo from
+   floating outside the bezel. */
+:root{
+  --tv-left:21.3%;
+  --tv-top:26.2%;
+  --tv-width:58.5%;
+  --tv-height:29.6%;
+  --tv-quad:polygon(0 0,100% 1.8%,100% 98.2%,0 100%);
+}
+.crt-glass,
+.instruction-screen .broadcast-card,
+.tv-photo-hit img,
+.tv-photo-filter{
+  left:var(--tv-left);
+  top:var(--tv-top);
+  width:var(--tv-width);
+  height:var(--tv-height);
+  clip-path:var(--tv-quad);
+  transform:none;
+}
+.crt-glass{position:absolute}
+.instruction-screen .broadcast-card{position:absolute}
+.tv-photo-hit img,.tv-photo-filter{position:absolute}
+
+/* A visible phosphor sweep travels from the top of the tube to the bottom.
+   The earlier 8px background shift was seamless and therefore imperceptible;
+   this broad luminous band makes the direction obvious without obscuring the
+   picture. */
+.crt-scanlines{
+  background-image:
+    repeating-linear-gradient(0deg,rgba(190,255,180,.09) 0 1px,transparent 1px 4px),
+    linear-gradient(180deg,transparent 0%,transparent 42%,rgba(220,255,205,.28) 49%,rgba(180,240,190,.12) 53%,transparent 61%,transparent 100%),
+    linear-gradient(90deg,rgba(255,0,0,.025),transparent 28% 72%,rgba(80,120,255,.03));
+  background-size:100% 8px,100% 220%,100% 100%;
+  background-position:0 0,0 -120%,0 0;
+  animation:crt-scanline-sweep 2.8s linear infinite;
+}
+.tv-photo-filter,
+.photo-viewport:after{
+  background-image:
+    repeating-linear-gradient(0deg,rgba(220,255,220,.12) 0 1px,transparent 1px 4px),
+    linear-gradient(180deg,transparent 0%,transparent 42%,rgba(220,255,205,.3) 49%,rgba(180,240,190,.14) 53%,transparent 61%,transparent 100%),
+    linear-gradient(90deg,rgba(255,0,0,.055),transparent 22% 78%,rgba(40,90,255,.07)),
+    radial-gradient(ellipse at 50% 46%,transparent 0 48%,rgba(0,0,0,.16) 74%,rgba(0,0,0,.72) 100%);
+  background-size:100% 8px,100% 220%,100% 100%,100% 100%;
+  background-position:0 0,0 -120%,0 0,0 0;
+  animation:crt-scanline-sweep-photo 2.8s linear infinite;
+}
+@keyframes crt-scanline-sweep{
+  from{background-position:0 0,0 -120%,0 0}
+  to{background-position:0 8px,0 120%,0 0}
+}
+@keyframes crt-scanline-sweep-photo{
+  from{background-position:0 0,0 -120%,0 0,0 0}
+  to{background-position:0 8px,0 120%,0 0,0 0}
+}
+@media(prefers-reduced-motion:reduce){
+  .crt-scanlines,.tv-photo-filter,.photo-viewport:after{animation:none;background-position:0 0,0 0,0 0,0 0}
+}
+.tv-photo-preview{position:absolute;inset:0;z-index:8;display:grid;place-items:center;background:transparent}
+.tv-photo-preview[hidden]{display:none}
+.tv-photo-hit{position:absolute;inset:0;border:0;padding:0;background:transparent;cursor:pointer;clip-path:polygon(12% 21%,88% 21%,93% 67%,9% 67%)}
+.tv-photo-hit img{position:absolute;left:20.2%;top:26.2%;width:61.7%;height:29.6%;object-fit:cover;object-position:center 44%;transform:none;clip-path:polygon(0 3%,100% 0,100% 97%,0 100%);border-radius:10% 10% 8% 8% / 8% 8% 7% 7%;filter:saturate(.72) contrast(1.2) brightness(.86) blur(.18px);box-shadow:inset 0 0 34px rgba(0,0,0,.72)}
+.tv-photo-filter{position:absolute;left:20.2%;top:26.2%;width:61.7%;height:29.6%;pointer-events:none;clip-path:polygon(0 3%,100% 0,100% 97%,0 100%);border-radius:10% 10% 8% 8% / 8% 8% 7% 7%;background:repeating-linear-gradient(0deg,rgba(220,255,220,.13) 0 1px,transparent 1px 4px),linear-gradient(90deg,rgba(255,0,0,.06),transparent 22% 78%,rgba(40,90,255,.08)),radial-gradient(ellipse at 50% 46%,transparent 0 48%,rgba(0,0,0,.18) 74%,rgba(0,0,0,.76) 100%);mix-blend-mode:screen;z-index:2}
+.tv-photo-preview p{position:absolute;left:0;right:0;bottom:max(28px,env(safe-area-inset-bottom));margin:0;text-align:center;color:#fff;text-shadow:0 1px 3px #000;font:700 12px "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;pointer-events:none}
+.game-screen.is-photo-full{background:#050505}
+
+/* Navigation lives on the cabinet, not in a modern bottom toolbar.  The
+   single tactile button remains reachable in both the TV preview and the
+   full-photo surface; browser Back and the button share the same history. */
+.instruction-screen .instruction-actions{display:none}
+.game-screen.is-tv-preview > :not(#tv-photo-preview):not(#photo-instructions){visibility:hidden;pointer-events:none}
+.outside-tv{position:absolute;z-index:12;right:8.5%;bottom:16.5%;width:auto;height:30px;margin:0;padding:0 13px;border:1px solid #514033;border-radius:4px;background:linear-gradient(#3a2b22,#17110e);box-shadow:inset 0 1px 0 rgba(255,220,180,.18),0 2px 3px #000;color:#d7b994;font:700 10px "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;letter-spacing:.08em;text-shadow:0 1px 1px #000;cursor:pointer;transform:rotate(-1deg)}
+.outside-tv:before{content:"←";margin-right:5px;color:#edcf9c;font-size:12px}
+.outside-tv:hover{background:linear-gradient(#4a3629,#211610)}
+.game-screen.is-photo-full .outside-tv{top:max(12px,env(safe-area-inset-top));bottom:auto;right:14px;background:rgba(30,19,15,.9)}
+.tv-photo-preview p{display:none}
+.game-screen.is-photo-full .statusbar,.game-screen.is-photo-full .instruction{display:block}
+
+/* CRT scanlines drift from the top edge toward the bottom edge.  The first
+   background layer is the repeating line pattern; the remaining layers keep
+   their colour fringing/vignette fixed while only the scanlines move. */
+.crt-scanlines{
+  background-size:100% 8px,100% 100%;
+  background-position:0 0,0 0;
+  animation:crt-scanline-sweep 2.6s linear infinite;
+  will-change:background-position;
+}
+.crt-photo-broadcast:before{
+  background-size:100% 8px,100% 100%,100% 100%;
+  background-position:0 0,0 0,0 0;
+  animation:crt-scanline-sweep-photo 2.6s linear infinite;
+  will-change:background-position;
+}
+.photo-viewport:after{
+  background-size:100% 8px,100% 100%,100% 100%;
+  background-position:0 0,0 0,0 0;
+  animation:crt-scanline-sweep-photo 2.6s linear infinite;
+  will-change:background-position;
+}
+.tv-photo-filter{
+  background-size:100% 8px,100% 100%,100% 100%;
+  background-position:0 0,0 0,0 0;
+  animation:crt-scanline-sweep-photo 2.6s linear infinite;
+  will-change:background-position;
+}
+@keyframes crt-scanline-sweep{
+  from{background-position:0 0,0 0}
+  to{background-position:0 8px,0 0}
+}
+@keyframes crt-scanline-sweep-photo{
+  from{background-position:0 0,0 0,0 0}
+  to{background-position:0 8px,0 0,0 0}
+}
+@media(prefers-reduced-motion:reduce){
+  .crt-scanlines,.crt-photo-broadcast:before,.photo-viewport:after,.tv-photo-filter{
+    animation:none;
+  }
+}
+
+/* Bad ending: the family photo is retained, but the player's rewritten
+   silhouette is seated in the empty foreground instead of showing the entity. */
+.result-screen.bad .result-photo img{content:url("./bad-seat-silhouette.png?v=20260714a");filter:saturate(.48) brightness(.68) contrast(1.12)}
+.result-screen.bad .result-photo span{display:none}
+
+/* Final geometry/scan pass (kept last so legacy compatibility rules above
+   cannot overwrite the calibrated bezel registration). */
+.crt-glass,.instruction-screen .broadcast-card,.tv-photo-hit img,.tv-photo-filter{
+  left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);
+  clip-path:var(--tv-quad);
+}
+.crt-glass,.instruction-screen .broadcast-card{inset:auto;position:absolute;}
+.crt-glass{inset-block-start:var(--tv-top);inset-inline-start:var(--tv-left);}
+.instruction-screen .broadcast-card{inset-block-start:var(--tv-top);inset-inline-start:var(--tv-left);}
+.tv-photo-hit img,.tv-photo-filter{position:absolute;}
+.crt-scanlines{
+  background-image:repeating-linear-gradient(0deg,rgba(190,255,180,.09) 0 1px,transparent 1px 4px),linear-gradient(180deg,transparent 0%,transparent 42%,rgba(220,255,205,.28) 49%,rgba(180,240,190,.12) 53%,transparent 61%,transparent 100%),linear-gradient(90deg,rgba(255,0,0,.025),transparent 28% 72%,rgba(80,120,255,.03));
+  background-size:100% 8px,100% 220%,100% 100%;background-position:0 0,0 -120%,0 0;animation:crt-scanline-sweep 2.8s linear infinite;
+}
+.tv-photo-filter,.photo-viewport:after{
+  background-image:repeating-linear-gradient(0deg,rgba(220,255,220,.12) 0 1px,transparent 1px 4px),linear-gradient(180deg,transparent 0%,transparent 42%,rgba(220,255,205,.3) 49%,rgba(180,240,190,.14) 53%,transparent 61%,transparent 100%),linear-gradient(90deg,rgba(255,0,0,.055),transparent 22% 78%,rgba(40,90,255,.07)),radial-gradient(ellipse at 50% 46%,transparent 0 48%,rgba(0,0,0,.16) 74%,rgba(0,0,0,.72) 100%);
+  background-size:100% 8px,100% 220%,100% 100%,100% 100%;background-position:0 0,0 -120%,0 0,0 0;animation:crt-scanline-sweep-photo 2.8s linear infinite;
+}
+@keyframes crt-scanline-sweep{from{background-position:0 0,0 -120%,0 0}to{background-position:0 8px,0 120%,0 0}}
+@keyframes crt-scanline-sweep-photo{from{background-position:0 0,0 -120%,0 0,0 0}to{background-position:0 8px,0 120%,0 0,0 0}}
+@media(prefers-reduced-motion:reduce){.crt-scanlines,.tv-photo-filter,.photo-viewport:after{animation:none;background-position:0 0,0 0,0 0,0 0}}
+
+/* Blessing notification interstitial: the same photographed CRT, now carrying
+   a short, congratulatory broadcast before the dense instruction slate. */
+.invite-screen{
+  padding:0;overflow:hidden;
+  background:#211612 url("./room-tv-bg.png?v=20260714e") center/100% 100% no-repeat;
+}
+.invite-screen:before{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(12,7,4,.12),rgba(12,7,4,.2));z-index:0}
+.invite-broadcast{
+  position:absolute;z-index:1;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);
+  display:grid;place-items:center;align-content:center;gap:clamp(5px,1.5vw,12px);padding:7% 8%;
+  overflow:hidden;cursor:pointer;border-radius:10% 10% 8% 8% / 8% 8% 7% 7%;
+  background:#064a97;color:#fff;clip-path:var(--tv-quad);
+  box-shadow:inset 0 0 32px rgba(0,10,35,.72),inset 0 0 4px 1px rgba(255,255,255,.2);
+  transform:none;text-align:center;
+}
+.invite-broadcast:focus-visible{outline:none}
+.invite-broadcast:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.28;background:repeating-linear-gradient(0deg,rgba(255,255,255,.12) 0 1px,transparent 1px 4px),linear-gradient(90deg,rgba(255,255,255,.08),transparent 24% 76%,rgba(0,0,0,.14));mix-blend-mode:screen}
+.invite-channel,.invite-copy,.invite-subtitle,.invite-broadcast .crt-cursor{position:relative;z-index:2;margin:0;font-family:"Hiragino Maru Gothic ProN","Arial Rounded MT Bold","Yu Gothic",sans-serif;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.invite-channel{font-size:clamp(7px,1.75vw,11px);letter-spacing:.08em;font-weight:700}
+.invite-copy{font-size:clamp(12px,3.2vw,19px);line-height:1.5;font-weight:700;letter-spacing:.02em}
+.invite-subtitle{font-size:clamp(8px,1.85vw,13px);font-weight:700;letter-spacing:.04em}
+.invite-broadcast .crt-scanlines{z-index:1;opacity:.8}
+@media(max-width:430px){.invite-broadcast{left:20%;top:26.1%;width:62%;height:29.8%;padding:7% 8%;gap:5px}.invite-copy{font-size:clamp(11px,3.1vw,14px)}}
+
+/* Dense warning copy should read like a wall of analogue broadcast text. */
+.instruction-screen .broadcast-copy{font-size:clamp(12px,3.4vw,16px);line-height:1.38;letter-spacing:.01em}
+@media(max-width:430px){.instruction-screen .broadcast-copy{font-size:clamp(12px,3.6vw,15px);line-height:1.34}}
+
+/* Full-screen inspection is a clean photograph.  CRT scanlines remain on the
+   cabinet preview (and the alert broadcast), but never obscure the enlarged
+   image. */
+.game-screen.is-photo-full .photo-viewport:after{display:none!important;animation:none!important}
+
+/* Opening broadcast: an ordinary late-night TV loop is interrupted before
+   the warning sequence becomes interactive. */
+.intro-screen{
+  padding:0;overflow:hidden;background:#211612 url("./room-tv-bg.png?v=20260714e") center/100% 100% no-repeat;
+}
+.intro-tv{position:absolute;inset:0;overflow:hidden;}
+.intro-video{
+  position:absolute;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);
+  object-fit:cover;clip-path:var(--tv-quad);filter:saturate(.78) contrast(1.08) brightness(.72);
+  background:#090909;
+}
+.intro-tv:after{
+  content:"";position:absolute;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);
+  pointer-events:none;clip-path:var(--tv-quad);background:repeating-linear-gradient(0deg,rgba(220,255,220,.1) 0 1px,transparent 1px 4px),linear-gradient(180deg,transparent 0%,transparent 42%,rgba(220,255,205,.22) 49%,transparent 58%,transparent 100%);
+  background-size:100% 8px,100% 220%;background-position:0 0,0 -120%;animation:crt-scanline-sweep 2.8s linear infinite;mix-blend-mode:screen;
+}
+.intro-tv-glass{position:absolute;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);clip-path:var(--tv-quad);pointer-events:none;border-radius:10% 10% 8% 8% / 8% 8% 7% 7%;box-shadow:inset 0 0 34px rgba(0,0,0,.7),inset 0 0 2px rgba(255,255,255,.32)}
+.intro-message{position:absolute;z-index:3;left:7%;right:7%;bottom:max(18px,env(safe-area-inset-bottom));padding:11px 14px 12px;border:1px solid rgba(255,255,255,.28);background:rgba(7,8,11,.86);box-shadow:0 8px 30px rgba(0,0,0,.48);color:#f5f0e8;text-align:left;font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;cursor:pointer}
+.intro-message:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.intro-message-label{display:block;margin-bottom:5px;color:#b8c9d7;font:700 9px ui-monospace,monospace;letter-spacing:.14em}
+.intro-message p{margin:0;font-size:clamp(13px,3.4vw,18px);line-height:1.45;letter-spacing:.02em}
+@media(max-width:430px){.intro-message{left:5%;right:5%;bottom:max(13px,env(safe-area-inset-bottom));padding:9px 11px 10px}.intro-message p{font-size:14px}}
+
+/* FSL game-flow: the warning replaces the programme on the first sent log,
+   while the remaining log UI continues to consume television taps. */
+.intro-warning{position:absolute;z-index:2;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);clip-path:var(--tv-quad);display:grid;place-content:center;justify-items:center;padding:7% 5%;background:#064a97;color:#fff;text-align:center;font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;text-shadow:0 1px 2px #002e65;pointer-events:none}
+.intro-warning[hidden]{display:none}
+.intro-warning p{margin:0 0 8px;font:700 clamp(8px,1.8vw,12px)/1.2 ui-monospace,monospace;letter-spacing:.08em}
+.intro-warning strong{font-size:clamp(19px,4.7vw,37px);line-height:1.2;letter-spacing:.03em;animation:warning-blink 1.05s steps(1,end) infinite}
+.intro-tv-hit{position:absolute;z-index:4;inset:0;border:0;background:transparent;cursor:pointer}
+.intro-message{z-index:5}
+
+/* Stage one uses the CSS Shapes float model: copy runs beside the family
+   photograph, then naturally continues below it. */
+.instruction-screen .broadcast-card{display:block;padding:5% 6%}
+.instruction-family{position:static;display:block;float:left;width:46%;height:auto;max-height:58%;margin:0 8% 3% 0;object-fit:cover;object-position:center 44%;border:1px solid rgba(255,255,255,.52);border-radius:3px;filter:saturate(.72) contrast(1.15) brightness(.78);shape-outside:inset(0 round 3px);shape-margin:8%;pointer-events:none}
+.instruction-wrap-card:after{content:"";display:block;clear:both}
+.instruction-wrap-card .broadcast-copy{text-align:left}
+.instruction-screen .broadcast-copy{width:auto;font-size:clamp(10px,2.65vw,15px);line-height:1.42}
+.instruction-two-screen .broadcast-card{display:grid;align-content:center;padding:7% 9%}
+.instruction-two-screen .broadcast-copy{text-align:left}
+@media(max-width:430px){.instruction-screen .broadcast-card{padding:4.5%}.instruction-family{width:43%;margin-right:6%;shape-margin:6%}.instruction-screen .broadcast-copy{font-size:clamp(12px,3.5vw,14px);line-height:1.35}.instruction-two-screen .broadcast-card{padding:6% 8%}.instruction-two-screen .broadcast-copy{font-size:clamp(12.5px,3.65vw,14.5px);line-height:1.38}}
+@media(prefers-reduced-motion:reduce){.intro-warning strong{animation:none}}
+
+/* Ending prelude and audio controls. */
+.mute-button{position:fixed;z-index:50;top:max(10px,env(safe-area-inset-top));right:10px;min-width:64px;height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.38);border-radius:4px;background:rgba(8,8,10,.78);color:#ddd;font:700 9px ui-monospace,monospace;letter-spacing:.08em;cursor:pointer;backdrop-filter:blur(4px)}
+.mute-button.is-on{border-color:#8ebd8b;color:#dfffd8}
+.instruction-two-screen.is-trembling{animation:room-tremor .55s cubic-bezier(.36,.07,.19,.97)}
+.instruction-approach-log{z-index:6;animation:log-appear .25s ease-out}
+.ending-tv-screen{padding:0;overflow:hidden;background:#211612 url("./room-tv-bg.png?v=20260714e") center/100% 100% no-repeat}
+.ending-tv-hit{position:absolute;z-index:2;inset:0;border:0;padding:0;background:transparent;cursor:pointer}
+.ending-tv-hit img,.ending-tv-hit .tv-photo-filter{position:absolute;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);object-fit:cover;object-position:center 44%;clip-path:var(--tv-quad);border-radius:10% 10% 8% 8% / 8% 8% 7% 7%}
+.ending-tv-hit img{filter:saturate(.72) contrast(1.2) brightness(.86)}
+.ending-tv-screen.is-bad .ending-tv-hit img{filter:saturate(.7) contrast(1.16) brightness(.78)}
+.ending-log{position:absolute;z-index:8;left:6%;right:6%;bottom:max(18px,env(safe-area-inset-bottom));padding:11px 14px;border:1px solid rgba(255,255,255,.28);background:rgba(7,8,11,.88);color:#f5f0e8;text-align:left;font:700 clamp(13px,3.4vw,18px)/1.5 "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.48);pointer-events:none}
+.ending-log span{display:block;margin-bottom:5px;color:#b8c9d7;font:700 9px ui-monospace,monospace;letter-spacing:.14em}.ending-log p{margin:0}
+.instruction-approach-log{font-size:clamp(12px,3.2vw,17px)}
+.bad-red-filter{position:absolute;z-index:12;inset:0;background:rgba(180,0,18,.58);mix-blend-mode:screen;animation:red-arrival .16s steps(2,end) infinite;pointer-events:none}
+.ending-blackout{position:fixed;z-index:60;inset:0;background:#000;opacity:1}
+.ending-tv-screen.tv-off .ending-tv-hit img{filter:brightness(0)}
+.ending-tv-screen.tv-off .ending-tv-hit .tv-photo-filter{display:none}
+@keyframes room-tremor{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+@keyframes log-appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes red-arrival{50%{background:rgba(230,0,20,.68)}}
+@media(prefers-reduced-motion:reduce){.instruction-two-screen.is-trembling,.bad-red-filter{animation:none}}
+.result-screen.bad .result-photo img{content:normal;filter:saturate(.7) brightness(.78) contrast(1.16)}
+.result-screen.bad .result-photo span{display:none}
+
+/* Final CRT aperture calibration against room-tv-bg.png (1024 x 1536).
+   The visible phosphor starts around (219, 407) on the near/left edge and
+   (814, 430) on the recessed/right edge, then finishes around y=850.  Keep
+   every in-cabinet surface on this single geometry so no phase can fall back
+   to a flat rectangle or the older, shallower 1.8% perspective. */
+:root{
+  --tv-left:21.4%;
+  --tv-top:26.5%;
+  --tv-width:58.2%;
+  --tv-height:28.9%;
+  --tv-quad:polygon(0 0,100% 5.2%,100% 99.6%,0 100%);
+  --tv-radius:5% 7.5% 6.5% 5% / 5.5% 7% 6% 5.5%;
+}
+
+.crt-glass,
+.instruction-screen .broadcast-card,
+.invite-broadcast,
+.intro-video,
+.intro-tv:after,
+.intro-tv-glass,
+.intro-warning,
+.tv-photo-hit img,
+.tv-photo-filter,
+.ending-tv-hit img,
+.ending-tv-hit .tv-photo-filter{
+  position:absolute;
+  left:var(--tv-left);
+  top:var(--tv-top);
+  width:var(--tv-width);
+  height:var(--tv-height);
+  border-radius:var(--tv-radius);
+  -webkit-clip-path:var(--tv-quad);
+  clip-path:var(--tv-quad);
+  transform:none;
+}
+
+/* These preview selectors previously carried a higher-specificity, nearly
+   rectangular clip.  Repeat the shared aperture at the same specificity so
+   the family photo and its phosphor layer cannot diverge from other phases. */
+.game-screen.is-tv-preview .tv-photo-hit img,
+.game-screen.is-tv-preview .tv-photo-filter{
+  -webkit-clip-path:var(--tv-quad);
+  clip-path:var(--tv-quad);
+  border-radius:var(--tv-radius);
+}
+
+/* The curved glass shades the far/right edge a little more heavily.  This is
+   deliberately an overlay, not a transform, so text and photographs share
+   the same perspective without being distorted independently. */
+.intro-tv-glass,
+.ending-tv-hit .tv-photo-filter{
+  box-shadow:inset -18px 0 24px rgba(0,0,0,.28),inset 0 0 34px rgba(0,0,0,.68),inset 0 0 2px rgba(255,255,255,.3);
+}
+
+/* Mobile-first readability: this comes after the aperture calibration so
+   legacy CRT rules cannot shrink the instruction copy again. */
+@media(max-width:430px){
+  .instruction-screen .broadcast-copy{font-size:15px!important;line-height:1.38!important}
+  .instruction-two-screen .broadcast-copy{font-size:16px!important;line-height:1.4!important}
+}
+
+/* Bad-end television announcements are a broadcast card, not player log text. */
+.ending-broadcast{
+  position:absolute;
+  z-index:9;
+  left:var(--tv-left);
+  top:var(--tv-top);
+  width:var(--tv-width);
+  height:var(--tv-height);
+  display:grid;
+  place-items:center start;
+  padding:8% 10%;
+  box-sizing:border-box;
+  color:#f4f8ff;
+  background:linear-gradient(180deg,#0b65bd 0%,#063a82 100%);
+  text-align:left;
+  font:700 clamp(12px,3.4vw,20px)/1.5 "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  text-shadow:0 1px 2px #001d47;
+  -webkit-clip-path:var(--tv-quad);
+  clip-path:var(--tv-quad);
+  border-radius:var(--tv-radius);
+}
+.ending-broadcast[hidden]{display:none}

@@ -1,0 +1,251 @@
+// さいごのひとめ — 「一本の糸をつなぐ」献策フロー仕様
+//
+// STATUS: IMPLEMENTED（2026-07-15）
+// game.js / logic.js が実装する状態・イベント・ガード・不変条件のSSOT。
+// 既存の家具、記憶文、糸口、古い順判定を活かし、「説明を読む」から
+// 「方向を観察して一本の糸を復元する」へ変える。
+// 世界律: イトヌシは古い記憶の上へ新しい糸を縫い重ねる。最奥から外せば
+// 上層が順に緩んで脱出糸になるが、新しい層を先に引くと下層を締め上げる。
+
+machine LastStitchThreadConnectionProposal {
+
+  enum Phase { Title, Room, Epilogue, GoodEnd, BadEnd }
+
+  enum Furniture {
+    Rug,       // 古い扉: age 8
+    Blanket,   // 古い椅子: age 7
+    Scarf,     // 古い額縁: age 6
+    Socks,     // 姿見: age 5
+    Teacosy,   // 本棚: age 4
+    Mittens,   // チェスト: age 3
+    Hat,       // 壁掛け時計: age 2
+    Cushion    // 古いトランク: age 1
+  }
+
+  enum HintLevel { None, ObserveOutlet, CompareDirection, ShowCandidatePair }
+
+  const Solution: Seq<Furniture> = [
+    Rug, Blanket, Scarf, Socks, Teacosy, Mittens, Hat, Cushion
+  ]
+
+  // 各糸口は、次の家具の糸口へ向かう。最後だけ出口へ向く。
+  const NextConnection: Map<Furniture, Furniture?> = {
+    Rug: Blanket,
+    Blanket: Scarf,
+    Scarf: Socks,
+    Socks: Teacosy,
+    Teacosy: Mittens,
+    Mittens: Hat,
+    Hat: Cushion,
+    Cushion: null
+  }
+
+  state {
+    phase: Phase = Title
+    inspected: Set<Furniture> = {}
+    exposedOutlets: Set<Furniture> = {}
+    connected: Seq<Furniture> = []
+    selectedFrom: Furniture? = null
+    wrongCount: Int = 0
+    hintLevel: HintLevel = None
+    idleSince: Time? = null
+    startedAt: Time? = null
+  }
+
+  config {
+    maxMistakes: Int = 3
+    hintOneDelay: Duration = 12000ms
+    hintTwoDelay: Duration = 24000ms
+    hintThreeDelay: Duration = 40000ms
+  }
+
+  transition Start
+    from Title
+    on TapStart
+    do {
+      startedAt := now
+      idleSince := now
+      emit("game_start")
+    }
+    to Room
+
+  // 家具を観察すると、記憶文と実景上の糸口位置を同時に見せる。
+  transition InspectFurniture
+    from Room
+    on TapFurniture(item)
+    do {
+      inspected := inspected union {item}
+      exposedOutlets := exposedOutlets union {item}
+      idleSince := now
+      emit("furniture_inspected", item)
+      emit("thread_outlet_exposed", item, outletPosition(item))
+    }
+    to Room
+
+  // 露出した糸口からドラッグを始める。家具本体の矩形では開始しない。
+  transition BeginConnection
+    from Room
+    on DragFromOutlet(item)
+    when item in exposedOutlets
+    do {
+      selectedFrom := item
+      emit("connection_started", item)
+    }
+    to Room
+
+  // 正しい方向・接続先へ届くと、一本の常設糸として盤面へ残す。
+  transition ConnectCorrectly
+    from Room
+    on DropOnOutlet(target)
+    when
+      selectedFrom != null &&
+      target in exposedOutlets &&
+      selectedFrom == Solution[length(connected)] &&
+      NextConnection[selectedFrom] == target
+    do {
+      connected := append(connected, selectedFrom)
+      selectedFrom := null
+      idleSince := now
+      hintLevel := None
+      emit("thread_connected", connected[length(connected) - 1], target)
+    }
+    to Room
+
+  // 最後のトランクは、家具ではなく部屋の出口糸へ接続する。
+  transition ConnectFinalOutlet
+    from Room
+    on DropOnExitThread
+    when
+      selectedFrom == Cushion &&
+      connected == prefix(Solution, length(Solution) - 1)
+    do {
+      connected := Solution
+      selectedFrom := null
+      emit("all_furniture_connected")
+      emit("phase_advance", "epilogue")
+    }
+    to Epilogue
+
+  // 誤接続は正解名を表示せず、比較に使える情報だけを返す。
+  transition RejectWrongConnection
+    from Room
+    on DropOnOutlet(target)
+    when selectedFrom != null && !isValidNext(selectedFrom, target, connected)
+    do {
+      wrongCount := wrongCount + 1
+      emit("connection_rejected", selectedFrom, target)
+      emit("comparison_feedback",
+        directionFrom(selectedFrom),
+        directionTo(target),
+        "糸の向きがつながらない")
+      selectedFrom := null
+      idleSince := now
+    }
+    to Room
+
+  transition RejectPrematureExit
+    from Room
+    on DropOnExitThread
+    when
+      selectedFrom != null &&
+      !(selectedFrom == Cushion && connected == prefix(Solution, length(Solution) - 1))
+    do {
+      wrongCount := wrongCount + 1
+      emit("connection_rejected", selectedFrom, "exit")
+      emit("comparison_feedback", directionFrom(selectedFrom), "exit", "まだ出口へ続かない")
+      selectedFrom := null
+      idleSince := now
+    }
+    to Room
+
+  transition EscalateHintOne
+    from Room
+    on Tick
+    when hintLevel == None && elapsed(idleSince) >= hintOneDelay
+    do {
+      hintLevel := ObserveOutlet
+      emit("hint", "家具の説明だけでなく、糸が出る場所を観察する")
+    }
+    to Room
+
+  transition EscalateHintTwo
+    from Room
+    on Tick
+    when hintLevel == ObserveOutlet && elapsed(idleSince) >= hintTwoDelay
+    do {
+      hintLevel := CompareDirection
+      emit("hint", "糸口の向きと、隣の家具へ続く線を比べる")
+    }
+    to Room
+
+  transition EscalateHintThree
+    from Room
+    on Tick
+    when hintLevel == CompareDirection && elapsed(idleSince) >= hintThreeDelay
+    do {
+      hintLevel := ShowCandidatePair
+      emit("hint_candidates",
+        Solution[length(connected)],
+        NextConnection[Solution[length(connected)]])
+    }
+    to Room
+
+  transition LoseTemper
+    from Room
+    on Tick
+    when wrongCount >= maxMistakes
+    do {
+      emit("game_over", "temper")
+      emit("player_wound_into_yarn")
+    }
+    to BadEnd
+
+  transition PullExit
+    from Epilogue
+    on PullExitThread
+    when connected == Solution
+    do {
+      emit("game_clear", elapsed(startedAt))
+      emit("view_unraveled_to_white")
+    }
+    to GoodEnd
+
+  transition Restart
+    from GoodEnd | BadEnd
+    on TapRestart
+    do ReloadPage
+    to Title
+
+  invariant ConnectionsAreSolutionPrefix:
+    connected == prefix(Solution, length(connected))
+
+  invariant OutletRequiredBeforeConnection:
+    selectedFrom != null => selectedFrom in exposedOutlets
+
+  invariant InspectionPrecedesExposure:
+    exposedOutlets subset_of inspected
+
+  invariant EveryAcceptedSegmentIsContinuous:
+    forall i in 0 .. length(connected) - 2:
+      NextConnection[connected[i]] == connected[i + 1]
+
+  invariant AllEightRequiredForEscape:
+    phase in {Epilogue, GoodEnd} => connected == Solution
+
+  invariant WrongFeedbackDoesNotRevealAnswer:
+    lastEvent == "comparison_feedback" =>
+      visibleFeedback excludes displayName(Solution[length(connected)])
+
+  invariant WrongConnectionPreservesExposedSource:
+    lastEvent == "connection_rejected" =>
+      selectedFromBeforeEvent in exposedOutlets &&
+      outlet(selectedFromBeforeEvent).interactive == true
+
+  invariant HintOrderIsMonotonic:
+    hintLevel never_decreases_until_success
+
+  invariant ExistingInteractionConstraintsRemain:
+    furnitureHitTargetsMatchIntegratedBackground == true &&
+    hiddenThreadOutletsHavePointerEvents == false &&
+    independentRequiredUIWithinTopSafeZone == true
+}

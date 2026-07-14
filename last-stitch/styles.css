@@ -1,0 +1,946 @@
+:root {
+  /* ==== 配色: 静かで柔らかい「夜、ランプの灯る編み物の部屋」。恐怖系でなく余韻系 ==== */
+  --bg: #140f0a;
+  --bg-soft: #241a13;
+  --panel: rgba(24, 17, 11, 0.82);
+  --ink: #f4ecdd;
+  --muted: #c0b39a;
+  --line: rgba(224, 169, 78, 0.20);
+  --accent: #e0a94e; /* CTA・糸端は1色に集中（周囲は --muted のセカンダリに抑える） */
+  --accent-ink: #241804;
+  --yarn: #e0a94e;
+
+  /* 世界律の微反応: ドラッグに応じて糸端が指へ引かれ張力がかかる（JSが上書き） */
+  --pull: 0;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", "Hiragino Sans", serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+button { color: inherit; font: inherit; }
+
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+[hidden] { display: none !important; }
+
+.svg-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* .app 高さは 100dvh を既定にしつつ game.js の applyViewport() が --vvh を上書き */
+.app {
+  position: fixed;
+  inset: 0;
+  height: var(--vvh, 100dvh);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(130% 90% at 50% 28%, var(--bg-soft), var(--bg) 74%);
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ==== 縁の糸端: UI枠の右上から垂れる。タイトルでは動かない ==== */
+.edge-yarn {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) - 6px);
+  right: clamp(16px, 7vw, 60px);
+  z-index: 80;
+  width: 44px;
+  height: min(44vh, 240px);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+.edge-yarn svg { width: 100%; height: 100%; }
+
+/* タイトル時は固い＝ほとんど動かない微振動、epilogue で緩む */
+.app[data-phase="title"] .edge-yarn { cursor: grab; pointer-events: auto; }
+.app[data-phase="title"] .edge-yarn.tug #edge-yarn-path { animation: edge-stuck 0.5s ease; }
+.app[data-phase="title"] .edge-yarn #edge-yarn-path { animation: edge-breathe 5.5s ease-in-out infinite; }
+.app[data-phase="epilogue"] .edge-yarn #edge-yarn-path { animation: edge-loosen 2.4s ease-in-out infinite; }
+.app[data-phase="epilogue"] .edge-yarn #edge-yarn-tip { animation: edge-loosen 2.4s ease-in-out infinite; }
+
+@keyframes edge-stuck {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(2px); }
+  60% { transform: translateX(-1px); }
+}
+@keyframes edge-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+@keyframes edge-loosen {
+  0%, 100% { opacity: 0.85; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(4px); }
+}
+
+/* ==== セーフゾーン: 進行必須要素は可視領域(--vvh基準)の上部70%に収める ==== */
+.safe-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 70%;
+  overflow: auto;
+}
+
+/* ==== タイトル / クリア / エピローグ / BAD（可変高＋スクロール可・G-004） ==== */
+.title-screen,
+.clear-screen,
+.epilogue-screen,
+.badend-screen {
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  padding: max(28px, env(safe-area-inset-top)) clamp(24px, 8vw, 100px) max(28px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.title-inner, .clear-inner, .epilogue-inner, .badend-inner {
+  display: grid;
+  gap: clamp(12px, 3vh, 22px);
+  justify-items: start;
+  width: 100%;
+  max-width: 560px;
+}
+
+/* タイトル背景も部屋の余韻に寄せる（灯りのプール） */
+.title-screen {
+  background:
+    radial-gradient(90% 60% at 72% 20%, rgba(224, 169, 78, 0.14), transparent 60%),
+    radial-gradient(120% 90% at 40% 40%, var(--bg-soft), var(--bg) 76%);
+}
+
+/* エピローグは床の糸文字を読ませる見せ場。部屋を暗く沈めて可読性を確保（G-001）。
+   下端にだけ床の余韻を残し「床に文字が残る」情景にする。END画面はスクリム(.to-*)より前面に。 */
+.epilogue-screen {
+  z-index: 120;
+  background:
+    linear-gradient(180deg, rgba(16, 11, 7, 0.94) 0%, rgba(16, 11, 7, 0.88) 62%, rgba(28, 19, 12, 0.72) 100%);
+}
+.clear-screen, .badend-screen { z-index: 210; }
+
+.system-label {
+  margin: 0;
+  color: var(--accent);
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.title-screen h1,
+.clear-screen h2,
+.epilogue-screen h2,
+.badend-screen h2 {
+  margin: 6px 0 10px;
+  font-size: clamp(30px, 9vw, 56px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+}
+
+.title-screen .lead {
+  max-width: 520px;
+  margin: 0 0 12px;
+  font-size: clamp(14px, 2vw, 17px);
+  line-height: 1.9;
+  color: var(--muted);
+}
+
+.clear-detail { margin: 0 0 18px; color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }
+.title-warning { max-width: 340px; color: #d88d78; font-size: 13px; line-height: 1.8; }
+.clear-invite { max-width: 360px; margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.clear-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+
+/* エピローグ: 床の糸文字。読ませる文字なので blur 等の演出をかけない（G-001/ADR-011） */
+.epilogue-thread {
+  max-width: 460px;
+  margin: 4px 0 10px;
+  color: var(--ink);
+  font-size: clamp(14px, 2.2vw, 17px);
+  line-height: 2;
+  letter-spacing: 0.04em;
+}
+.epilogue-hint { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
+.epilogue-screen h2 { font-size: clamp(26px, 7.5vw, 44px); }
+.badend-screen {
+  background:
+    radial-gradient(80% 55% at 50% 36%, rgba(161, 43, 64, 0.2), transparent 70%),
+    #08070d;
+}
+.badend-inner {
+  justify-items: center;
+  max-width: 460px;
+  margin: auto;
+}
+.badend-card {
+  width: min(100%, 370px);
+  margin: 0;
+  padding: clamp(5px, 1.4vw, 8px);
+  border: 1px solid rgba(225, 157, 105, 0.7);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #9e5d3d, #2a151d 22%, #100b12 78%, #7a3d31);
+  box-shadow:
+    0 0 0 2px #120b10,
+    0 0 0 3px rgba(224, 169, 78, 0.3),
+    0 22px 50px rgba(0, 0, 0, 0.58),
+    0 0 36px rgba(159, 40, 64, 0.18);
+}
+.badend-card__art {
+  position: relative;
+  aspect-ratio: 1003 / 1568;
+  max-height: min(58dvh, 570px);
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid rgba(242, 194, 141, 0.36);
+  border-radius: 10px;
+  background: #120d16;
+}
+.badend-card__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.badend-card__shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(5, 4, 9, 0.9) 0%, transparent 25%),
+    linear-gradient(0deg, rgba(5, 4, 9, 0.94) 0%, transparent 25%);
+  pointer-events: none;
+}
+.badend-card__header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  padding: clamp(14px, 3vw, 22px);
+}
+.badend-card__header h2 {
+  margin: 5px 0 0;
+  font-size: clamp(22px, 6.5vw, 35px);
+  line-height: 1.2;
+  text-shadow: 0 2px 14px #000, 0 1px 2px #000;
+}
+.badend-card__flavor {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
+  margin: 0;
+  color: #f3dccd;
+  font-size: clamp(12px, 3.4vw, 15px);
+  line-height: 1.6;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-shadow: 0 2px 10px #000;
+}
+.badend-detail {
+  max-width: 420px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.75;
+  text-align: center;
+}
+
+/* 糸が床に文字を描く: text の輪郭を stroke-dashoffset で「書く」→静止で判読可能（ADR-011） */
+.thread-writing { width: 100%; max-width: 460px; margin: 2px 0; }
+.thread-glyph {
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-size: 34px;
+  letter-spacing: 0.02em;
+  fill: var(--accent);
+  fill-opacity: 0;
+  stroke: var(--accent);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 620;
+  stroke-dashoffset: 620;
+}
+.epilogue-screen:not([hidden]) .thread-glyph {
+  animation: thread-write 2.6s ease forwards, thread-fill 0.9s ease 2.4s forwards;
+}
+@keyframes thread-write { to { stroke-dashoffset: 0; } }
+@keyframes thread-fill { to { fill-opacity: 0.95; } }
+
+/* ==== ボタン ==== */
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-family: "Hiragino Sans", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.action-button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 6px 20px rgba(224, 169, 78, 0.22);
+}
+.text-button {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  background: transparent;
+  color: var(--ink);
+  font-family: "Hiragino Sans", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ==== ゲーム画面: ステータスバー ==== */
+.status-bar {
+  position: absolute;
+  top: 0; right: 0; left: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: calc(52px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 18px 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+}
+.brand-lockup span,
+.phase-status span {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.status-actions { display: flex; align-items: center; gap: 12px; }
+.how-to-button {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(224, 169, 78, 0.42);
+  border-radius: 4px;
+  background: rgba(224, 169, 78, 0.08);
+  color: var(--ink);
+  font-family: "Hiragino Sans", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ==== 遊び方ダイアログ: イトヌシから渡された短い「生存手順」 ==== */
+.how-to-dialog {
+  width: min(calc(100% - 32px), 460px);
+  max-height: min(calc(100dvh - 32px), 660px);
+  margin: auto;
+  padding: 0;
+  overflow: visible;
+  border: 1px solid rgba(224, 169, 78, 0.56);
+  border-radius: 10px;
+  background: #1b130d;
+  color: var(--ink);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.72), 0 0 40px rgba(224, 169, 78, 0.1);
+}
+.how-to-dialog::backdrop {
+  background: rgba(7, 5, 3, 0.78);
+  backdrop-filter: blur(5px);
+}
+.how-to-card {
+  position: relative;
+  padding: clamp(24px, 6vw, 38px);
+  background:
+    linear-gradient(90deg, transparent 0 48%, rgba(224, 169, 78, 0.035) 50%, transparent 52%) 0 0 / 18px 18px,
+    radial-gradient(90% 65% at 80% 0%, rgba(224, 169, 78, 0.12), transparent 70%);
+}
+.how-to-card h2 { margin: 8px 40px 8px 0; font-size: clamp(23px, 6vw, 32px); line-height: 1.35; }
+.how-to-intro { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.how-to-steps {
+  display: grid;
+  gap: 10px;
+  margin: 22px 0 24px;
+  padding: 0;
+  list-style: none;
+  counter-reset: escape-step;
+}
+.how-to-steps li {
+  counter-increment: escape-step;
+  position: relative;
+  min-height: 32px;
+  padding: 5px 0 5px 42px;
+  color: var(--muted);
+  font-family: "Hiragino Sans", system-ui, sans-serif;
+  font-size: clamp(13px, 3.7vw, 15px);
+  line-height: 1.55;
+}
+.how-to-steps li::before {
+  content: counter(escape-step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+.how-to-steps b { color: var(--ink); font-weight: 700; }
+.how-to-start { width: 100%; }
+.how-to-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stage {
+  position: absolute;
+  inset: calc(52px + env(safe-area-inset-top)) 0 0;
+  overflow: hidden;
+}
+
+/* ==== 背景シーン（部屋） ==== */
+.room-scene {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  /* Generated ordinary-room plate. SVG remains in markup as a no-network fallback. */
+  /* Keep the hit-map and the plate in the same coordinate space.  The plate is
+     authored at 941x1672 and HIT_MAP uses those normalized coordinates; using
+     `cover` would crop the tall image on desktop, shifting every hit target
+     upward.  Stretching to the stage bounds is preferable here to a visible
+     interaction mismatch (the source art is intentionally atmospheric). */
+  background: #191411 url("./assets/furniture/room-bg-integrated-v2.png") 0 0 / 100% 100% no-repeat;
+}
+.room-scene svg { width: 100%; height: 100%; display: block; opacity: 0; }
+.app.world-reveal .room-scene { animation: room-pulse .8s ease; }
+.stage.layer-loosen .room-scene { animation:layer-loosen .75s ease-out; }
+@keyframes layer-loosen {
+  0% { filter:brightness(.82) saturate(.88); transform:scale(1.006); }
+  55% { filter:brightness(1.06) saturate(.96); }
+  100% { filter:none; transform:none; }
+}
+@media (prefers-reduced-motion: reduce) { .stage.layer-loosen .room-scene { animation:none; } }
+.app.world-reveal .room-scene::after { content:""; position:absolute; inset:0; background:repeating-radial-gradient(ellipse at 50% 55%, transparent 0 24px, rgba(116,36,36,.16) 26px 29px, transparent 32px 62px); mix-blend-mode:screen; animation: membrane-breathe 1.2s ease-out; }
+.app.player-threat::before { content:""; position:absolute; z-index:75; left:-8px; bottom:8%; width:42%; height:3px; background:var(--yarn); box-shadow:0 0 8px rgba(224,169,78,.7); transform-origin:left; animation:sleeve-thread 1.1s ease-out forwards; pointer-events:none; }
+@keyframes room-pulse { 0%,100%{filter:none} 35%{filter:brightness(.72) saturate(1.3)} }
+@keyframes membrane-breathe { 0%{opacity:0;transform:scale(.94)} 35%{opacity:1} 100%{opacity:0;transform:scale(1.08)} }
+@keyframes sleeve-thread { 0%{transform:scaleX(0) rotate(-8deg)} 65%{transform:scaleX(1) rotate(4deg)} 100%{transform:scaleX(.7) rotate(0);opacity:0} }
+/* Do not change background positioning on narrow screens: percentages in
+   HIT_MAP must continue to refer to the same full-frame plate. */
+
+/* ==== 糸玉の巣（ほどいた糸が巻き取られ育つ）。room の奥・scene の手前 ==== */
+.yarn-nest {
+  position: absolute;
+  left: clamp(6px, 3vw, 22px);
+  top: calc(70% - 118px);
+  z-index: 1;
+  width: clamp(78px, 24vw, 108px);
+  pointer-events: none;
+  /* 毛玉は常設の装飾にせず、通常プレイの部屋から隠す。ほどきの進捗は
+     対象家具の崩壊とダイアログで伝える（ユーザー要望）。 */
+  display: none;
+}
+.yarn-nest svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
+.yarn-ball-body {
+  transform: scale(var(--ball, 0.42));
+  transform-origin: 60px 90px;
+  transition: transform 0.7s cubic-bezier(.2,.8,.25,1);
+}
+
+/* ==== 部屋: 編み物たちを部屋に並べる（進行必須は上部70%セーフゾーン内・ADR-007） ====
+   カードUIは廃止。箱・枠・ラベルなしのイラストSVGを、部屋シーンの手前にグリッド配置する。
+   グリッドで非重複を保証し（各オブジェクトが独立して掴める）、小型端末では内部スクロール。 */
+.room {
+  z-index: 2;
+  position:absolute;
+  inset:0;
+  display:block;
+  /* HIT_MAP is measured directly against the full-frame background plate.
+     Do not translate this layer independently from `.room-scene`: doing so
+     moves the click targets away from the furniture at every viewport size. */
+  transform: none;
+  overflow:visible;
+  pointer-events:none;
+}
+
+/* 各オブジェクト。rot=微回転、base=基本色、sat=彩度(新しさ)、age=古さ(0..1) */
+.knit-object {
+  position: absolute;
+  pointer-events:auto;
+  width: var(--hit-w, 18%);
+  height: var(--hit-h, 18%);
+  left: var(--hit-x, 50%);
+  top: var(--hit-y, 50%);
+  /* Hit regions must remain axis-aligned with the integrated background.
+     Rotating the transparent node made its corners drift into neighbours. */
+  transform: none;
+  color: var(--base, #caa267);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  /* 色味と古さは部屋の奥行きのための表現。暗号の正解根拠ではない */
+  filter:none;
+  transition: transform 0.4s cubic-bezier(.2,.7,.2,1), opacity 0.5s ease, filter 0.35s ease;
+}
+
+/* 背景画の奥行きと同じヒット優先順。矩形が重なる左側では、椅子の脚・座面を
+   本棚・姿見・トランクに奪わせない。トランクとは外郭の境界だけが接するため、
+   境界のサブピクセル丸めでも椅子側を優先する。 */
+.knit-object[data-furniture="bookcase"] { z-index: 1; }
+.knit-object[data-furniture="mirror"] { z-index: 2; }
+.knit-object[data-furniture="trunk"] { z-index: 3; }
+.knit-object[data-furniture="chair"] { z-index: 4; }
+/* 椅子の矩形全体を最前面にすると、背後に見えている本棚下部と姿見左下まで
+   奪ってしまう。背もたれ→細い支柱→座面・脚の実シルエットに沿って絞る。 */
+.knit-object[data-furniture="chair"] {
+  clip-path: polygon(
+    20% 0, 65% 0, 65% 30%, 62% 30%, 62% 48%,
+    100% 60%, 100% 100%, 0 100%, 0 60%,
+    58% 48%, 58% 30%, 20% 30%
+  );
+}
+
+.route-entry,.route-exit { margin-left:13px; color:#e0a94e; font:700 10px/1.4 serif; letter-spacing:.08em; }
+.clue-list { position:relative; margin: 4px 0; padding:0 0 0 28px; list-style:none; font: 700 11px/1.45 serif; color:#f3dfb9; }
+.clue-list::before { content:""; position:absolute; left:13px; top:-5px; bottom:-5px; width:2px; background:#c98a3a; box-shadow:0 0 6px rgba(224,169,78,.55); }
+.clue-list li { position:relative; margin:5px 0; }
+.clue-list li::before { content:""; position:absolute; left:-20px; top:6px; width:10px; height:10px; border:2px solid #f0c46d; border-radius:50%; background:#2a190e; }
+.route-knot { display:block; color:#e0a94e; font-size:9px; }
+.route-branches { display:block; }
+.clue-list .route-done { opacity:.38; text-decoration:line-through; }
+.clue-list .route-current { color:#fff4c9; border-left:2px solid #e0a94e; padding-left:6px; }
+
+.cipher-cloth {
+  position: absolute;
+  right: 12px; bottom: 31%;
+  z-index: 82;
+  width: min(340px, calc(100% - 24px));
+  color: #ead9bd;
+}
+.cipher-toggle {
+  float: right;
+  min-width: 132px;
+  padding: 9px 13px;
+  border: 1px solid rgba(224,169,78,.65);
+  border-radius: 4px;
+  background: rgba(28,18,12,.94);
+  color: #f2dfbd;
+  text-align: left;
+}
+.cipher-toggle span { display:block; font: 700 13px/1.3 serif; letter-spacing:.08em; }
+.cipher-toggle small { color: #ae9878; font-size: 10px; }
+.cipher-body {
+  clear: both;
+  padding: 13px 14px 11px;
+  border: 1px solid rgba(224,169,78,.55);
+  border-radius: 5px;
+  background: rgba(24,15,10,.97);
+  box-shadow: 0 12px 36px rgba(0,0,0,.6);
+}
+.creature-voice { margin:0 0 9px; font: 12px/1.7 serif; color:#d6c3a3; }
+.thread-creature-code { display:flex; align-items:center; justify-content:center; gap:5px; color:#eca94e; white-space:nowrap; }
+.thread-creature-code b { font: 700 19px/1 serif; text-shadow:0 0 9px rgba(224,169,78,.5); }
+.thread-creature-code .tail { color:#9d7952; }
+.thread-creature-code .mouth { color:#ffd890; font-size:20px; }
+.cipher-observation { margin:9px 0 0; color:#927e64; font-size:10px; line-height:1.5; }
+.temper {
+  position:absolute; left:14px; top:10px; z-index:84;
+  display:flex; align-items:center; gap:5px;
+  padding:6px 8px; border-radius:3px;
+  background:rgba(25,15,10,.75); color:#bfa98a; font-size:10px;
+}
+.temper i { width:8px; height:8px; border-radius:50%; background:#d9a657; box-shadow:0 0 7px #d9a657; transition:.3s; }
+.temper i.lost { background:#6e2424; box-shadow:0 0 9px #d24a3c; transform:scale(1.2); }
+.victim-ball { margin:8px 0 18px; color:#c9794e; font:700 54px/1 serif; animation:victim-wind 1.2s ease-in-out infinite alternate; }
+@keyframes victim-wind { to { transform:rotate(9deg) scale(.88); filter:blur(.5px); } }
+.knit-object .obj-svg { width: 100%; height: 100%; overflow: visible; display: block; pointer-events: none; }
+.knit-object .obj-svg, .knit-object .furniture-fallback, .knit-object .furniture-asset { display:none !important; }
+.furniture-fallback { position:absolute; inset:8% 10%; filter: drop-shadow(0 8px 8px rgba(0,0,0,.65)); pointer-events:none; }
+.room[data-background="generated"] .furniture-fallback { opacity: 0; }
+.furniture-asset { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; opacity:0; transition:opacity .18s ease; }
+.furniture-asset--normal { opacity:1; }
+.knit-object.reveal .furniture-asset--normal { opacity:0; }
+.knit-object.reveal .furniture-asset--reveal { opacity:1; }
+.knit-object.reveal::after { content:""; position:absolute; inset:18%; border-radius:45%; background:radial-gradient(ellipse,rgba(150,48,48,.72),transparent 64%); mix-blend-mode:screen; animation:inside-throb .65s ease-in-out infinite alternate; pointer-events:none; }
+@keyframes inside-throb { from{transform:scale(.84);opacity:.3} to{transform:scale(1.08);opacity:.85} }
+.knit-object.collapse .furniture-asset--normal,
+.knit-object.collapse .furniture-asset--reveal { opacity:0; }
+.knit-object.collapse .furniture-asset--collapse { opacity:1; }
+.furniture-fallback::before, .furniture-fallback::after, .furniture-fallback span { content:""; position:absolute; display:block; background:linear-gradient(145deg,#4a4035,#1b1714 72%); border:2px solid #756652; box-shadow:inset 0 0 0 2px rgba(0,0,0,.35); }
+.furniture-clock::before { width:58%; aspect-ratio:1; border-radius:50%; left:21%; top:7%; }
+.furniture-clock::after { width:4px;height:28%;left:49%;top:20%;background:#9b8968;border:0;transform:rotate(25deg); }
+.furniture-portrait::before { inset:3% 17%; }
+.furniture-mirror::before { inset:2% 29%; border-radius:48% 48% 8% 8%; background:linear-gradient(90deg,#403a36,#111820 45%,#4b4136); }
+.furniture-chair::before { width:52%;height:48%;left:24%;top:10%; }
+.furniture-chair::after { width:60%;height:18%;left:20%;top:55%; }
+.furniture-chest::before { inset:30% 8% 18%; }
+.furniture-chest::after { width:70%;height:5px;left:15%;top:52%;background:#9a7d57;border:0; }
+.furniture-bookcase::before { inset:2% 14%; }
+.furniture-bookcase::after { inset:18% 22% 22%; background:repeating-linear-gradient(180deg,#171412 0 17px,#65533d 18px 21px); }
+.furniture-trunk::before { inset:35% 6% 22%; border-radius:8px; }
+.furniture-trunk::after { width:4px;height:60%;left:49%;top:24%;background:#987851;border:0; }
+.furniture-door::before { inset:2% 24% 0; }
+.furniture-door::after { width:8px;height:8px;border-radius:50%;right:29%;top:52%;background:#b59a69;border:0; }
+.knit-object .obj-fill { fill: currentColor; }
+
+/* 古い物: 毛羽・埃・褪色のベール（age に比例）。監視で順序を補強する二次手掛かり */
+.knit-object .obj-wear {
+  fill: #d8cdb4;
+  opacity: calc(var(--age, 0.5) * 0.5);
+  mix-blend-mode: screen;
+}
+.knit-object .obj-dust { opacity: calc(var(--age, 0.5) * 0.7); }
+
+/* ほつれ（引ける糸端）＝アフォーダンス。オブジェクト下辺から1本垂れる */
+.knit-object .fray {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  width: 34px;
+  height: 40px;
+  transform: translateX(-50%);
+  transform-origin: top center;
+  /* 非表示中の糸端が下側の家具を透明なまま奪わないよう、露出時だけ操作可能にする。 */
+  pointer-events: none;
+  opacity:0;
+  touch-action: none;
+  z-index: 3;
+  overflow: visible;
+}
+.knit-object.reveal .fray,
+.knit-object.dragging .fray { opacity:1; pointer-events:auto; }
+/* ヒントや待機状態で糸端を常時垂らさない。家具を実際に調べた時だけ露出する。 */
+.knit-object.hint-sway .fray,
+.knit-object.nudge .fray { opacity:0; pointer-events:none; }
+/* 誤接続後、次の正解候補には hint-sway が付く。すでに観察・露出済みなら
+   ヒント状態より reveal を優先し、同じ糸口から即座に再試行できる。 */
+.knit-object.reveal.hint-sway .fray,
+.knit-object.reveal.nudge .fray { opacity:1; pointer-events:auto; }
+/* 糸のゆらぎ等は .fray の内側 svg に付ける。.fray 自体の box は静止させ、当たり判定と
+   E2E の boundingBox・stability を安定させる（continuous animation を親要素に付けない）。 */
+.knit-object .fray svg {
+  width: 100%; height: 100%; overflow: visible;
+  transform-origin: top center;
+  animation: fray-idle 4.2s ease-in-out infinite;
+}
+.knit-object .fray path { fill:none; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+.knit-object .fray .fray-shadow { stroke:#160c0b; stroke-width:2.4; opacity:.58; }
+.knit-object .fray .fray-core { stroke:#6f3932; stroke-width:1.35; opacity:.98; }
+.knit-object .fray .fray-fiber { stroke:#c3aa88; stroke-width:.42; opacity:.68; stroke-dasharray:1.1 2.4; }
+.knit-object .fray .fray-tip { fill:#754039; stroke:#c3aa88; stroke-width:.45; opacity:.92; }
+
+/* 平常時の糸端のゆらぎ（コンテンツ自身の動き。背景独立アニメではない） */
+@keyframes fray-idle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(4deg); }
+}
+
+/* チュートリアル（膝掛け）の糸端は長く・ゆっくり大きく揺れ、最初に視線を集める */
+.knit-object[data-id="blanket"] .fray { height: 50px; bottom: -30px; }
+.knit-object[data-furniture="chair"] .fray { bottom: 0; }
+.knit-object[data-id="blanket"] .fray svg { animation-duration: 3.4s; }
+.knit-object[data-id="blanket"] .fray .fray-shadow { stroke-width:2.4; }
+.knit-object[data-id="blanket"] .fray .fray-core { stroke-width:1.35; }
+
+/* 無操作10秒: チュートリアルの糸端がひときわ揺れる（詰まり検知の前段・近接反応） */
+.knit-object.nudge .fray svg { animation: fray-nudge 1.1s ease-in-out 4; }
+@keyframes fray-nudge {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(10deg); }
+}
+
+/* 段1ヒント: 暗号が示す次の印のほつれが微揺れ（近接反応） */
+.knit-object.hint-sway .fray svg { animation: fray-nudge 1.4s ease-in-out infinite; }
+
+/* ドラッグ中: 糸端が指の方向へ引かれ張力（--pull 0..1）。判定はJSの実移動量のみ（G-003） */
+.knit-object.dragging {
+  cursor: grabbing;
+  z-index: 6;
+  transform: rotate(var(--rot, 0deg)) scale(calc(1 + var(--pull, 0) * 0.03));
+}
+.knit-object.dragging .fray svg {
+  animation: none;
+  transform: scaleY(calc(1 + var(--pull, 0) * 0.9)) rotate(calc(var(--pull, 0) * 6deg));
+}
+
+/* 段2ヒント: 三つの証言を一行ずつ脈動させ、積集合で考えることを促す */
+.stage:has(.room.hint-emphasize) .clue-list li { animation: clue-pulse 1.5s ease-in-out infinite; }
+.stage:has(.room.hint-emphasize) .clue-list li:nth-child(2) { animation-delay:.25s; }
+.stage:has(.room.hint-emphasize) .clue-list li:nth-child(3) { animation-delay:.5s; }
+@keyframes clue-pulse { 50% { color:#fff7d9; transform:translateX(3px); } }
+
+/* 誤順: 目が締まる（対象の編み地がわずかに収縮）。回転は維持したまま svg 側で収縮 */
+.knit-object.settle .obj-svg { animation: obj-settle var(--settle-ms, 420ms) ease; }
+@keyframes obj-settle {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.88); filter: saturate(0.6); }
+  100% { transform: scale(1); }
+}
+
+/* 正順: 編み地が端からほどけて縮み消える（糸玉へ巻き取られる線は unravel-fx が描く）。
+   セルは残す（display:none にせず）→ 他オブジェクトが動かず、跡に淡い凹みを残せる（ADR-014）。 */
+.knit-object.unraveling { pointer-events: none; }
+.knit-object.unraveling .obj-svg { transform-origin: 50% 40%; animation: obj-unravel var(--unravel-ms, 900ms) cubic-bezier(.4,0,.5,1) forwards; }
+.knit-object.unraveling .fray { opacity: 0; transition: opacity 0.4s ease; }
+@keyframes obj-unravel {
+  0% { transform: scale(1); opacity: 1; }
+  30% { transform: scale(1.03) rotate(-2deg); }
+  100% { transform: scale(0.1) translateY(-8%); opacity: 0; }
+}
+
+/* ほどけた跡: セルはそのまま、淡い凹み/影だけが残る（部屋が空いていく余韻） */
+.knit-object.unraveled { pointer-events: none; cursor: default; }
+.knit-object.unraveled .obj-svg,
+.knit-object.unraveled .fray,
+.knit-object.unraveled .furniture-asset { display: none; }
+.knit-object.unraveled::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 74%;
+  height: 34%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.45), transparent 78%);
+  opacity: 0;
+  animation: residue-in 1s ease 0.3s forwards;
+}
+@keyframes residue-in { to { opacity: 0.7; } }
+
+/* ==== ほどき演出の重畳（糸が走って糸玉へ巻き取られる） ==== */
+.unravel-fx { position: absolute; inset: 0; z-index: 5; width: 100%; height: 100%; pointer-events: none; }
+.connection-fx { position:absolute; inset:0; z-index:5; width:100%; height:100%; pointer-events:none; }
+.connection-fx path { fill:none; vector-effect:non-scaling-stroke; stroke-linecap:round; stroke-linejoin:round; }
+.connection-fx .yarn-shadow { stroke:#160c0b; stroke-width:2.4; opacity:.55; }
+.connection-fx .yarn-core { stroke:#6f3932; stroke-width:1.35; opacity:.96; }
+.connection-fx .yarn-fiber { stroke:#c3aa88; stroke-width:.42; opacity:.65; stroke-dasharray:1.1 2.4; }
+.connection-fx .connection-fixed { animation:yarn-settle .5s ease-out both; }
+.connection-fx .connection-live { opacity:.78; }
+.connection-fx .connection-live .yarn-core { stroke:#875047; }
+.connection-fx .connection-live .yarn-fiber { stroke-dashoffset:3; animation:yarn-fiber-drift 1.8s linear infinite; }
+@keyframes yarn-settle { from { opacity:.25; } to { opacity:1; } }
+@keyframes yarn-fiber-drift { to { stroke-dashoffset:-4; } }
+@media (prefers-reduced-motion: reduce) {
+  .connection-fx .connection-fixed,
+  .connection-fx .connection-live .yarn-fiber { animation:none; }
+}
+.exit-thread-target { position:absolute; right:3%; bottom:4%; z-index:6; border:1px solid #e0a94e88; background:#1b120dcc; color:#e0a94e; padding:9px 12px; border-radius:20px; font:700 11px serif; }
+.knit-object.connection-source .fray { opacity:1; pointer-events:auto; filter:drop-shadow(0 1px 2px rgba(20,8,7,.8)); }
+.unravel-fx path {
+  fill: none;
+  stroke: var(--yarn);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.unravel-fx path.run { stroke-dasharray: 200; stroke-dashoffset: 200; animation: yarn-run var(--run-ms, 780ms) ease-in forwards; }
+@keyframes yarn-run { to { stroke-dashoffset: 0; opacity: 0; } }
+
+/* ==== ハサミ: 唯一の非編み物（意図した異物）。上部70%内側下端に固定（ADR-007） ==== */
+.scissors {
+  position: absolute;
+  right: clamp(14px, 6vw, 40px);
+  top: calc(70% - 74px);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #3a3f47, #1d2025 72%);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  cursor: pointer;
+}
+.scissors.flee { animation: scissors-flee 0.55s ease; }
+@keyframes scissors-flee {
+  0% { transform: translate(0, 0) rotate(0); }
+  50% { transform: translate(-18px, -10px) rotate(-14deg); }
+  100% { transform: translate(0, 0) rotate(0); }
+}
+
+/* ==== ヒント（段3: 明示テキスト。読ませる文字なので演出なし・ADR-011） ==== */
+.hint-whisper {
+  position: absolute;
+  top: 62%;
+  left: 50%;
+  z-index: 60;
+  width: min(88vw, 460px);
+  margin: 0;
+  padding: 0;
+  color: var(--accent);
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.8s ease;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+}
+.hint-whisper.show { opacity: 1; }
+
+/* ==== BAD END: 部屋が絡まって締まる糸のもつれ→暗転（GOODと対称・G-007） ==== */
+.tangle-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 190;
+  pointer-events: none;
+  opacity: 0;
+}
+.app.to-dark .tangle-fx { opacity: 1; }
+.tangle-fx path {
+  fill: none; stroke: var(--yarn); stroke-width: 2.4; stroke-linecap: round;
+  stroke-dasharray: 900; stroke-dashoffset: 900;
+}
+.app.to-dark .tangle-fx path { animation: tangle 1.2s ease forwards; }
+@keyframes tangle { to { stroke-dashoffset: 0; } }
+
+/* ==== GOOD END: 視界がほどけて白→白が晴れて clear-screen が読める（ADR-009/G-007） ==== */
+.app.to-white::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  background: #fbf7ee;
+  opacity: 0;
+  pointer-events: none;
+  animation: view-unravel 2.2s ease forwards;
+}
+@keyframes view-unravel {
+  0% { opacity: 0; }
+  16% { opacity: 1; }
+  46% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ==== BAD END: 部屋が締まって暗転（opacity 0.96 止まりで badend-screen が読める） ==== */
+.app.to-dark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 195;
+  background: #05040a;
+  opacity: 0;
+  pointer-events: none;
+  animation: view-tangle 1.4s ease 0.5s forwards;
+}
+@keyframes view-tangle { 0% { opacity: 0; } 100% { opacity: 0.96; } }
+
+.debug-panel {
+  position: absolute;
+  top: calc(60px + env(safe-area-inset-top));
+  left: 8px;
+  z-index: 150;
+  padding: 6px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.85);
+  color: var(--accent);
+  font-family: ui-monospace, monospace;
+  font-size: 8px;
+  white-space: pre;
+  pointer-events: none;
+}
+
+/* ==== レスポンシブ（狭幅） ==== */
+@media (max-width: 760px) {
+  .title-screen, .clear-screen, .epilogue-screen, .badend-screen {
+    padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+  }
+  .status-bar { height: calc(48px + env(safe-area-inset-top)); padding-right: 14px; padding-left: 14px; }
+  .stage { inset: calc(48px + env(safe-area-inset-top)) 0 0; }
+  .phase-status { display: none; }
+  .how-to-button { min-height: 34px; }
+}
+
+/* ==== X アプリ内ブラウザの高さゲート（JSクラスで発火・ADR-007） ==== */
+html.vvh-short .status-bar { height: calc(42px + env(safe-area-inset-top)); }
+html.vvh-short .stage { inset: calc(42px + env(safe-area-inset-top)) 0 0; }
+html.vvh-short :is(.title-screen, .clear-screen, .epilogue-screen, .badend-screen) {
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+html.vvh-short .title-inner, html.vvh-short .clear-inner,
+html.vvh-short .epilogue-inner, html.vvh-short .badend-inner { gap: 8px; }
+html.vvh-short :is(.title-screen h1, .clear-screen h2, .epilogue-screen h2, .badend-screen h2) {
+  margin: 4px 0 8px;
+  font-size: clamp(24px, 8vw, 40px);
+}
+
+html.vvh-tiny .clear-invite { display: none; }
+html.vvh-short .badend-card__art { max-height: min(52dvh, 390px); }
+html.vvh-short .badend-detail { font-size: 12px; line-height: 1.55; }
+html.vvh-tiny .badend-card__art { max-height: min(48dvh, 300px); }
+html.vvh-tiny .badend-detail br { display: none; }
+html.vvh-tiny :is(.title-screen h1, .clear-screen h2, .epilogue-screen h2, .badend-screen h2) {
+  margin: 2px 0 6px;
+  font-size: clamp(20px, 7vw, 30px);
+}
+html.vvh-tiny .title-screen .lead { font-size: 13px; line-height: 1.6; }
+html.vvh-tiny .thread-glyph { font-size: 32px; }
+html.vvh-short .how-to-card { padding-top: 22px; padding-bottom: 22px; }
+html.vvh-short .how-to-steps { gap: 5px; margin: 14px 0 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* 静止でも文字は判読可能に着地させる（描画演出のみ無効化） */
+  .thread-glyph { stroke-dashoffset: 0; fill-opacity: 0.95; }
+}
+
+.furniture-dialog{border:1px solid rgba(224,169,78,.65);border-radius:12px;background:#1b120d;color:#eadcc6;max-width:min(88vw,420px);padding:0;box-shadow:0 20px 80px #000b}
+.furniture-dialog::backdrop{background:#080604aa;backdrop-filter:blur(3px)}
+.furniture-card{position:relative;padding:28px 26px 24px}.furniture-card h2{margin:4px 0 14px;font-family:serif;font-size:28px}.furniture-flavor,.furniture-thread{line-height:1.8;color:#d6c3a8;margin:10px 0}.furniture-thread{border-left:2px solid #c98a3a;padding-left:12px;color:#e0a94e}.furniture-card .action-button{width:100%;margin-top:12px}
