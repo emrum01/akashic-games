@@ -37,6 +37,12 @@ jobs:
           rsync -a \
             --exclude='README.md' \
             notification-gale/ _site/notification-gale/
+          rsync -a \
+            --exclude='README.md' \
+            --exclude='DESIGN.md' \
+            --exclude='ADR.md' \
+            --exclude='game-flow.fsl' \
+            blessing-alert/ _site/blessing-alert/
           cp pages/index.html pages/robots.txt pages/CNAME _site/
           cp pages/.nojekyll _site/.nojekyll
 
