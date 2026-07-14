@@ -1,0 +1,1 @@
+(function(){"use strict";window.dataLayer=window.dataLayer||[];window.AkashicAnalytics={track:function(name,params){var payload=Object.assign({event:name,game_id:"blessing-alert"},params||{});window.dataLayer.push(payload);if(typeof window.gtag==="function")window.gtag("event",name,Object.assign({game_id:"blessing-alert"},params||{}))}}})();
