@@ -86,8 +86,23 @@ E.fallback.onclick=function(){cue("tick");unlock();A.track("fallback_used")};
 /* The broadcast is deliberately staged: warning first, then the blue
    post-broadcast instruction slate, and only then the photograph. */
 function receiveInvite(){if(S.phase!=="invite")return;showInstructions();A.track("blessing_invite_received")}
-E.crt.onclick=function(){showInvite();A.track("broadcast_open")};
-E.crt.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();showInvite();A.track("broadcast_open")}};
+function openBroadcast(){if(S.phase!=="alert")return;showInvite();A.track("broadcast_open")}
+function enterGame(){if(S.phase!=="instructions2")return;start(true);A.track("instruction_panel_next")}
+function advancePhotoPreview(){if(S.phase!=="playing"||S.photoMode!=="preview")return;if(advanceApproachLog())return;enterFullPhoto()}
+function advanceEnding(){if(S.phase==="good-tv")advanceGoodEnding();else if(S.phase==="bad-tv")advanceBadEnding()}
+function isExplicitControl(target){return !!target.closest("button,a,input,select,textarea,label,[role=button],[contenteditable=true]")}
+function advanceFromScreenTap(e){
+  if(isExplicitControl(e.target))return;
+  if(S.phase==="intro")advanceIntro();
+  else if(S.phase==="alert")openBroadcast();
+  else if(S.phase==="invite")receiveInvite();
+  else if(S.phase==="instructions")advanceFromInstruction();
+  else if(S.phase==="instructions2")enterGame();
+  else if(S.phase==="playing"&&S.photoMode==="preview")advancePhotoPreview();
+  else advanceEnding();
+}
+E.crt.onclick=openBroadcast;
+E.crt.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();openBroadcast()}};
 E.inviteHit.onclick=receiveInvite;
 E.inviteHit.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();receiveInvite()}};
 E.instructionBack.onclick=function(){cue("back");historyBack(function(){showAlert(false)});A.track("broadcast_back")};
@@ -95,13 +110,14 @@ E.instructionNext.onclick=function(){advanceFromInstruction();A.track("instructi
 function advanceFromInstruction(){if(S.phase!=="instructions")return;showInstructionTwo();A.track("instruction_second_open")}
 E.instructionPanel.onclick=function(e){if(e.target.closest("button"))return;advanceFromInstruction()};
 E.instructionPanel.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();advanceFromInstruction()}};
-E.instructionPanel2.onclick=function(){start(true);A.track("instruction_panel_next")};
-E.instructionPanel2.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();start(true);A.track("instruction_panel_next")}};
-E.tvPhotoHit.onclick=function(){if(advanceApproachLog())return;enterFullPhoto()};
-E.endingHit.onclick=function(){if(S.phase==="good-tv")advanceGoodEnding();else if(S.phase==="bad-tv")advanceBadEnding()};
-E.endingHit.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();if(S.phase==="good-tv")advanceGoodEnding();else if(S.phase==="bad-tv")advanceBadEnding()}};
+E.instructionPanel2.onclick=enterGame;
+E.instructionPanel2.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();enterGame()}};
+E.tvPhotoHit.onclick=advancePhotoPreview;
+E.endingHit.onclick=advanceEnding;
+E.endingHit.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();advanceEnding()}};
 E.photoInstructions.onclick=function(){returnToTvPreview();A.track("instructions_viewed")};
 E.game.addEventListener("pointerdown",function(e){if(S.phase==="playing"&&S.photoMode==="full"&&!e.target.closest(".photo-viewport")&&!e.target.closest(".develop-controls")&&!e.target.closest(".outside-tv")){returnToTvPreview()}});
+E.app.addEventListener("click",advanceFromScreenTap);
 document.addEventListener("pointerdown",function(){if(!S.muted){var c=ensureAudio();if(c&&c.state==="suspended")c.resume().catch(function(){})}},{passive:true});
 E.restart.onclick=function(){cue("restart");setTimeout(function(){location.reload()},140)};
 E.introMessage&&E.introMessage.parentElement.addEventListener("click",advanceIntro);
