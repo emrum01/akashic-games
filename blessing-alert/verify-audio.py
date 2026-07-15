@@ -64,6 +64,29 @@ def rms_measurement(page, kind):
     )
 
 
+def advance_to_playing(page):
+    page.goto(URL, wait_until="networkidle")
+    for _ in range(5):
+        page.locator("#intro-tv-hit").click()
+        page.wait_for_timeout(90)
+    page.locator("#crt-hitarea").click()
+    page.wait_for_timeout(90)
+    page.locator("#invite-hitarea").click()
+    page.wait_for_timeout(90)
+    page.locator("#instruction-panel").click()
+    page.wait_for_timeout(90)
+    page.locator("#instruction-panel-2").click()
+    page.wait_for_timeout(120)
+    for _ in range(5):
+        if page.evaluate("() => window.gameDebug.state().photoMode") == "full":
+            break
+        page.locator("#tv-photo-hit").click()
+        page.wait_for_timeout(90)
+    state = page.evaluate("() => window.gameDebug.state()")
+    if state["phase"] != "playing" or state["photoMode"] != "full":
+        raise AssertionError(f"could not enter playing/full-photo state: {state}")
+
+
 def main():
     console_errors = []
     page_errors = []
@@ -132,8 +155,8 @@ def main():
         page.wait_for_timeout(500)
         audio_status = page.evaluate("() => window.gameDebug.audioStatus()")
         flow["audio_status"] = audio_status
-        if len(audio_status["loaded"]) != 19 or audio_status["loading"]:
-            raise AssertionError(f"not all 19 AAC/Ogg buffers decoded: {audio_status}")
+        if len(audio_status["loaded"]) != 20 or audio_status["loading"]:
+            raise AssertionError(f"not all 20 AAC/Ogg buffers decoded: {audio_status}")
         for _ in range(3):
             page.locator("#intro-tv-hit").click()
             page.wait_for_timeout(90)
@@ -146,6 +169,37 @@ def main():
         page.locator("#crt-hitarea").click()
         page.wait_for_timeout(250)
         flow["phase_after_interrupt"] = page.evaluate("() => window.gameDebug.state().phase")
+
+        advance_to_playing(page)
+        page.locator(".person").first.click()
+        page.wait_for_timeout(50)
+        modal_visible = page.locator("#confirm").is_visible()
+        selected_before_cancel = page.evaluate("() => window.gameDebug.state().selected")
+        if not modal_visible or not selected_before_cancel:
+            raise AssertionError(
+                f"person selection did not open modal: {modal_visible=}, {selected_before_cancel=}"
+            )
+        page.locator("#cancel-button").click()
+        page.wait_for_timeout(50)
+        after_cancel = page.evaluate("() => window.gameDebug.state()")
+        if after_cancel["selected"] is not None or page.locator("#confirm").is_visible():
+            raise AssertionError(f"cancel did not clear selection/modal: {after_cancel}")
+        page.evaluate("() => window.gameDebug.expireTimer()")
+        page.wait_for_function("() => window.gameDebug.state().phase === 'timeout-tv'")
+        flow["timeout_after_cancel"] = page.evaluate("() => window.gameDebug.state()")
+        if not flow["timeout_after_cancel"]["timeoutFired"]:
+            raise AssertionError(f"timeout did not fire after cancel: {flow['timeout_after_cancel']}")
+
+        advance_to_playing(page)
+        page.evaluate("() => window.gameDebug.reveal()")
+        page.wait_for_function("() => window.gameDebug.state().revealed === true")
+        revealed_state = page.evaluate("() => window.gameDebug.state()")
+        page.evaluate("() => window.gameDebug.expireTimer()")
+        page.wait_for_function("() => window.gameDebug.state().phase === 'timeout-tv'")
+        flow["timeout_after_reveal"] = page.evaluate("() => window.gameDebug.state()")
+        flow["reveal_before_timeout"] = revealed_state
+        if not flow["timeout_after_reveal"]["timeoutFired"]:
+            raise AssertionError(f"timeout did not fire after reveal: {flow['timeout_after_reveal']}")
 
         measurements = {}
         for kind in ("interrupt", "red", "distant", "recede"):
