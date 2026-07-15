@@ -19,18 +19,17 @@ python3 -m http.server 8000
 - 写真はピンチ／ホイールで1〜3倍に拡大できる。
 - 人物の上から始めた二本指ピンチでも拡大・縮小できる。ドラッグ後やピンチ後の指では人物を誤選択しない。
 - テレビ内の通知・指示・放送文は、実際の表示領域に合わせて文字サイズを調整し、狭い画面でも先頭と末尾を見切れさせない。
-- 通常の縮小は100%で止まり、補正UIを開かない。
-- 100〜105%で**新しく**始めた二本指ピンチだけがオーバー縮小を受け付ける。18%相当を250ms維持すると補正UIが開く。
+- 写真は140%で表示を開始し、100%まで縮小すると明度・彩度の補正UIが現れる。
+- ピンチ／ホイールの縮小は100%で自然に止まり、抵抗や追加ジェスチャーはない。
 - 彩度10%以下かつ明度90%以上を1.5秒維持すると中央の少年の擬態が完全に剥がれる。
 - 正体露出後に少年を選べばGOOD。それ以前の選択、または他の家族はBAD。
-- 約65秒後に、タッチ操作が難しい環境向けのフォールバックボタンを表示する。
 
 ## 調整・検証
 
-URLクエリで `pull`, `pullHold`, `sat`, `bri`, `revealHold`, `fallback`, `hint1`, `hint2` を上書きできる。
+URLクエリで `sat`, `bri`, `revealHold`, `hint1`, `hint2` を上書きできる。
 `window.gameDebug.unlock()`, `reveal()`, `finish(boolean)`, `state()` と `window.__GAME_STATE__` を検証用に公開。
 
-GA4イベント: `game_start`, `controls_revealed`, `entity_revealed`, `fallback_used`, `bad_end`, `game_clear`。
+GA4イベント: `game_start`, `controls_revealed`, `entity_revealed`, `bad_end`, `game_clear`。
 
 画像 `family.png` と正体露出用の `entity-subtle.png` / `entity-partial-v2.png` / `entity-full-v2.png` は、本作向けにAI生成したオリジナル素材。正体はグレイ型宇宙人ではなく、人間の身体を借り、その形を失うまいと必死にしがみつく非対称な寄生異形として設計している。外部作品の画像は質感・恐怖表現の大まかなムード参照にのみ使用し、素材への転用・模写はしていない。旧 `entity-partial.png` / `entity-full.png` は比較・復元用に残すが、ゲームからは参照しない。
 

@@ -153,7 +153,6 @@ machine BlessingAlertGame {
     selected: Person? = null
     confirmModalOpen: Bool = false
     gameStartedAt: Time? = null
-    pullStartedAt: Time? = null
     revealStartedAt: Time? = null
     hintLevel: Int = 0
 
@@ -182,12 +181,9 @@ machine BlessingAlertGame {
   }
 
   config {
-    pullThreshold: Real = 0.18
-    pullHold: Duration = 250ms
     saturationThreshold: Int = 10
     brightnessThreshold: Int = 90
     revealHold: Duration = 1500ms
-    fallbackDelay: Duration = 65000ms
     hintOneDelay: Duration = 22000ms
     hintTwoDelay: Duration = 45000ms
     windDelay: Duration = 30000ms
@@ -212,7 +208,7 @@ machine BlessingAlertGame {
   // InstructionOne -> InstructionTwo でも BlessingNoticeCue を鳴らし、180ms後に
   // 歪ませた鯨声の DistantHighPitchCue を重ねる。
   // TvFamilyPhoto / photo_fullscreen -> FamilyPhotoCue / FullPhotoCue
-  // controls_revealed / entity_revealed -> ControlsRevealCue / EntityRevealCue
+  // entity_revealed -> EntityRevealCue
   // SelectPerson / CancelSelection / TapConfirm -> PersonSelectCue /
   //   SelectionCancelCue / SelectionConfirmCue
   // AdvanceGoodEndLog / television_turned_off -> PlayerLogSendCue /
@@ -385,7 +381,6 @@ machine BlessingAlertGame {
     entityRevealed := false
     selected := null
     confirmModalOpen := false
-    pullStartedAt := null
     revealStartedAt := null
     hintLevel := 0
     investigationStartedAt := null
@@ -404,6 +399,7 @@ machine BlessingAlertGame {
   transition Zoom
     from FullPhoto
     on Pinch | Wheel
+    when controlsUnlocked || requestedScale > 1.0
     do scale := clamp(requestedScale, 1.0, 3.0)
     to FullPhoto
 
@@ -417,34 +413,18 @@ machine BlessingAlertGame {
     }
     to FullPhoto
 
-  transition UnlockControlsByPull
+  transition UnlockControlsAtMinimumScale
     from FullPhoto
-    on PinchHold
-    when
-      controlsUnlocked == false &&
-      pinchStartedAtScale <= 1.05 &&
-      overPull >= pullThreshold &&
-      heldFor >= pullHold
-    do UnlockControls
-    to FullPhoto
-
-  transition UnlockControlsByFallback
-    from FullPhoto
-    on TapFallback
-    when
-      controlsUnlocked == false &&
-      elapsed(gameStartedAt) >= fallbackDelay
+    on Pinch | Wheel
+    when controlsUnlocked == false && requestedScale <= 1.0
     do {
+      scale := 1.0
       UnlockControls
-      emit("fallback_used")
     }
     to FullPhoto
 
   action UnlockControls {
     controlsUnlocked := true
-    scale := 1.0
-    panX := 0
-    panY := 0
     emit("controls_revealed")
   }
 

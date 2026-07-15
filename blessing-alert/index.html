@@ -111,17 +111,18 @@
           <button class="person p4" data-person="母" aria-label="右から二番目の女性を選ぶ"></button>
           <button class="person p5" data-person="祖母" aria-label="右端の女性を選ぶ"></button>
         </div>
-        <div id="elastic-meter" class="elastic-meter" aria-hidden="true"><span></span></div>
       </div>
       <p class="zoom-readout"><span id="zoom-value">140</span>%</p>
     </div>
     <section id="develop-controls" class="develop-controls" hidden aria-label="写真補正">
-      <div class="lab-head"><span>PHOTO LAB / RAW</span><small>未現像領域を検出</small></div>
+      <div class="lab-brand">
+        <p class="lab-promo">テレビの画像をかんたん加工</p>
+        <p class="lab-spell" aria-label="彩零明百">彩零明百</p>
+      </div>
       <label>彩度 <output id="sat-output">100</output><span>%</span><input id="saturation" type="range" min="0" max="100" value="100"></label>
       <label>明度 <output id="bri-output">50</output><span>%</span><input id="brightness" type="range" min="0" max="100" value="50"></label>
       <div class="exposure-line"><span id="exposure-fill"></span></div>
     </section>
-    <button id="fallback-button" class="fallback" type="button" hidden>写真の余白を調べる</button>
     <p id="hint" class="hint" role="status" aria-live="polite"></p>
   </section>
 
