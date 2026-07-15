@@ -508,6 +508,9 @@
 .ending-blackout{position:fixed;z-index:60;inset:0;background:#000;opacity:1}
 .ending-tv-screen.tv-off .ending-tv-hit img{filter:brightness(0)}
 .ending-tv-screen.tv-off .ending-tv-hit .tv-photo-filter{display:none}
+.lab-brand{display:flex;align-items:baseline;gap:10px;margin:15px 0 16px;white-space:nowrap}
+.lab-spell{margin:0;color:#d8c9ab;font:700 12px/1 ui-monospace,"SFMono-Regular",monospace;letter-spacing:.2em;text-shadow:0 0 10px rgba(232,199,121,.22)}
+.lab-promo{margin:0;color:#a99c92;font:600 10px/1.4 "Hiragino Sans","Yu Gothic",sans-serif;letter-spacing:.04em;text-decoration:line-through;text-decoration-color:rgba(169,156,146,.65)}
 @keyframes room-tremor{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
 @keyframes log-appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes red-arrival{50%{background:rgba(230,0,20,.68)}}
