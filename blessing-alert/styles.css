@@ -658,3 +658,9 @@
 .result-photo>img{position:absolute;inset:0}
 .ending-photo-frame>.sacrifice-mask{z-index:3}
 .result-photo>.sacrifice-mask{z-index:3}
+
+/* The bad-result prose follows the existing serif title and epilogue;
+   the result code keeps its intentional monospace treatment. */
+.result-screen.bad h2,
+.result-screen.bad .result-copy,
+.result-screen.bad .epilogue{font-family:serif}
