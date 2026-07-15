@@ -95,8 +95,8 @@
       inset: 0;
       background:
         linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px) 0 0 / 96px 100%,
-        radial-gradient(circle at 50% 22%, rgba(255, 230, 159, 0.11), transparent 32%),
-        linear-gradient(180deg, #241a15 0 58%, #15171a 58% 100%);
+        radial-gradient(circle at 50% 22%, rgba(255, 230, 159, 0.14), transparent 32%),
+        linear-gradient(180deg, #271d17 0 58%, #181a1d 58% 100%);
       isolation: isolate;
     }
 
@@ -113,8 +113,8 @@
         repeating-linear-gradient(90deg, var(--tatami-a), var(--tatami-a) 4px, var(--tatami-b) 4px, var(--tatami-b) 8px);
       transform: perspective(780px) rotateX(58deg);
       transform-origin: bottom;
-      opacity: 0.72;
-      filter: saturate(0.72) brightness(0.78);
+      opacity: 0.76;
+      filter: saturate(0.72) brightness(0.84);
     }
 
     .kakejiku {
@@ -423,7 +423,7 @@
       position: absolute;
       inset: 0;
       z-index: 1;
-      background: #090a0b;
+      background: #0b0c0e;
     }
 
     .three-mount canvas {
@@ -2245,8 +2245,8 @@
         }
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x090a0b);
-        scene.fog = new THREE.Fog(0x090a0b, 7.2, 20);
+        scene.background = new THREE.Color(0x0b0c0e);
+        scene.fog = new THREE.Fog(0x0b0c0e, 7.2, 20);
 
         const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 80);
         camera.position.set(0, 2.55, 8.8);
@@ -2267,10 +2267,10 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         threeMount.append(renderer.domElement);
 
-        const hemi = new THREE.HemisphereLight(0xb8c4c8, 0x21170f, 0.82);
+        const hemi = new THREE.HemisphereLight(0xb8c4c8, 0x21170f, 0.92);
         scene.add(hemi);
 
-        const key = new THREE.SpotLight(0xe6c58d, 2.2, 15, Math.PI / 4.9, 0.68, 1.35);
+        const key = new THREE.SpotLight(0xe6c58d, 2.4, 15, Math.PI / 4.9, 0.68, 1.35);
         key.position.set(-3.4, 5.6, 4.2);
         key.target.position.set(0, 0.75, 0);
         key.castShadow = true;
@@ -2278,7 +2278,7 @@
         key.shadow.mapSize.height = 1024;
         scene.add(key, key.target);
 
-        const backLight = new THREE.PointLight(0x4c7d9b, 1.25, 10.5, 2.1);
+        const backLight = new THREE.PointLight(0x4c7d9b, 1.38, 10.5, 2.1);
         backLight.position.set(2.8, 2.4, -4.1);
         scene.add(backLight);
 
