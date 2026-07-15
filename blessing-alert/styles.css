@@ -583,6 +583,7 @@
 .ending-broadcast{
   position:absolute;
   z-index:9;
+  pointer-events:none;
   left:var(--tv-left);
   top:var(--tv-top);
   width:var(--tv-width);
@@ -646,3 +647,14 @@
 }
 .invite-copy{font-size:clamp(15px,4vw,24px);line-height:1.45;text-align:left}
 @media(max-width:430px){.invite-copy{font-size:16px;line-height:1.3}}
+
+/* BAD ending: reuse the investigation hit-target geometry for the selected family member. */
+.sacrifice-mask{position:absolute;background:rgba(190,18,35,.46);border-radius:50%;filter:blur(.35px);z-index:3;pointer-events:none}
+.sacrifice-mask[hidden]{display:none}
+.ending-photo-frame{position:absolute;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);overflow:hidden;clip-path:var(--tv-quad);border-radius:var(--tv-radius);pointer-events:none}
+.ending-photo-frame>img,.ending-photo-frame>.tv-photo-filter{left:0;top:0;width:100%;height:100%;clip-path:none;border-radius:0}
+.ending-photo-frame>img{z-index:1}
+.ending-photo-frame>.tv-photo-filter{z-index:2}
+.result-photo>img{position:absolute;inset:0}
+.ending-photo-frame>.sacrifice-mask{z-index:3}
+.result-photo>.sacrifice-mask{z-index:3}
