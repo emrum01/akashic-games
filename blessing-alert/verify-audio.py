@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent
 URL = os.environ.get(
     "BLESSING_TEST_URL",
-    "http://127.0.0.1:4173/?sat=10&bri=90&revealHold=100&h1=10&h2=20&wind=100000&creak=200000",
+    "http://127.0.0.1:4173/?sat=10&bri=90&revealHold=100&h1=10&h2=20&wind=100000",
 )
 CHROME = os.environ.get(
     "PLAYWRIGHT_CHROMIUM",
@@ -33,8 +33,8 @@ def rms_measurement(page, kind):
           nodes.master.connect(analyser);
           const samples = new Float32Array(analyser.fftSize);
           const play = {
-            interrupt: () => window.gameDebug.broadcastAlertCue("interrupt"),
-            red: () => window.gameDebug.broadcastAlertCue("red"),
+            interrupt: () => window.gameDebug.cue("interrupt"),
+            red: () => window.gameDebug.cue("red"),
             distant: () => window.gameDebug.playDistantCue(),
             recede: () => window.gameDebug.playRecedeCue(),
           }[kind];
@@ -121,19 +121,19 @@ def main():
             """
         )
         flow["m4a_fallback"] = fallback
-        if not fallback["preferred"].endswith(".m4a?v=hallbell1"):
+        if not fallback["preferred"].endswith(".m4a?v=sfx20260715"):
             raise AssertionError(f"ogg fallback did not select m4a: {fallback}")
-        if not fallback["urls"][1].endswith(".ogg?v=hallbell1"):
+        if not fallback["urls"][1].endswith(".ogg?v=sfx20260715"):
             raise AssertionError(f"ogg retry order is wrong: {fallback}")
-        if not fallback["detectedUrls"][0].endswith(".m4a?v=hallbell1"):
+        if not fallback["detectedUrls"][0].endswith(".m4a?v=sfx20260715"):
             raise AssertionError(f"simulated Ogg-incompatible browser did not prefer m4a: {fallback}")
 
         page.locator("#mute-button").click()
         page.wait_for_timeout(500)
         audio_status = page.evaluate("() => window.gameDebug.audioStatus()")
         flow["audio_status"] = audio_status
-        if len(audio_status["loaded"]) != 13 or audio_status["loading"]:
-            raise AssertionError(f"not all 13 AAC/Ogg buffers decoded: {audio_status}")
+        if len(audio_status["loaded"]) != 19 or audio_status["loading"]:
+            raise AssertionError(f"not all 19 AAC/Ogg buffers decoded: {audio_status}")
         for _ in range(3):
             page.locator("#intro-tv-hit").click()
             page.wait_for_timeout(90)
