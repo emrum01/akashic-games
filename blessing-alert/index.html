@@ -11,11 +11,14 @@
   <link rel="preload" as="image" href="./entity-full-v2.png?v=20260714d">
   <link rel="preload" as="image" href="./family-bad-end-brother-released.png">
   <link rel="preload" as="image" href="./room-tv-bg.png?v=20260714e">
-  <link rel="stylesheet" href="./styles.css?v=20260715f">
+  <link rel="stylesheet" href="./styles.css?v=20260715p">
   <style>[hidden]{display:none!important}</style>
 </head>
 <body>
-<button id="mute-button" class="mute-button" type="button" aria-label="音声をオンにする" aria-pressed="true">MUTED</button>
+<div class="utility-toolbar">
+  <button id="photo-instructions" class="outside-tv" type="button" aria-label="前の画面へ戻る" hidden>前に戻る</button>
+  <button id="mute-button" class="mute-button" type="button" aria-label="音声をオンにする" aria-pressed="true">MUTED</button>
+</div>
 <main id="app" class="app" data-phase="intro">
   <section id="intro-screen" class="screen intro-screen" aria-label="深夜番組の導入">
     <div class="intro-tv" aria-label="深夜バラエティ番組">
@@ -58,8 +61,6 @@
     <div id="invite-hitarea" class="invite-broadcast" role="button" tabindex="0" aria-label="祝福対象の通知を受信">
       <p class="invite-channel">CH. 04　受信通知</p>
       <p class="invite-copy">おめでとうございます、あなたは祝福対象として選ばれました</p>
-      <p class="invite-subtitle">画面を押して受信</p>
-      <span class="crt-cursor" aria-hidden="true">▮</span>
       <span class="crt-scanlines" aria-hidden="true"></span>
     </div>
   </section>
@@ -79,10 +80,10 @@
     <div id="instruction-panel-2" class="broadcast-card" role="button" tabindex="0" aria-label="指示を確認して家族写真へ進む">
       <p id="instruction-title-2" class="broadcast-copy">架空の生贄を選べなかった場合、肉羽家の1人が生贄として捧げられます。そしてあなたが肉羽家の新たな一員として迎えられます。<br>祝福を回避したい場合は、正しい選択を行なってください。</p>
     </div>
-    <div id="approach-log" class="ending-log instruction-approach-log" role="status">......遠くから歪んだ鯨のような鳴き声が聞こえる</div>
   </section>
 
   <section id="game-screen" class="screen game-screen" hidden aria-label="生贄選定画面">
+    <div id="approach-log" class="ending-log instruction-approach-log" role="status">......遠くから歪んだ鯨のような鳴き声が聞こえる</div>
     <section id="tv-photo-preview" class="tv-photo-preview" hidden aria-label="テレビに映る家族写真">
       <button id="tv-photo-hit" class="tv-photo-hit" type="button" aria-label="写真を全画面で調べる">
         <img src="./family.png" alt="ブラウン管テレビに映る家族写真" draggable="false">
@@ -94,7 +95,6 @@
       <div><span class="live-dot"></span>祝福 接近中</div>
       <div id="countdown">選定期限 02:59</div>
     </header>
-    <button id="photo-instructions" class="outside-tv" type="button" aria-label="前の画面へ戻る">前に戻る</button>
     <div class="instruction">
       <p>家族写真から</p><strong>架空の存在を一名選んでください</strong>
     </div>
@@ -151,6 +151,6 @@
   </div>
 </main>
 <script src="./analytics.js?v=20260714a"></script>
-<script src="./game.js?v=20260715f"></script>
+<script src="./game.js?v=20260715l"></script>
 </body>
 </html>

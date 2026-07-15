@@ -87,7 +87,7 @@ machine BlessingAlertGame {
   const IntroLogs: Seq<String> = [
     "仕事終わりに、くだらないテレビ番組を見るのが日課だ。",
     "……あれ？　番組が途切れた。",
-    "テレビの中から、知らない放送が割り込んできた。"
+    "知らない放送が割り込んできた。"
   ]
 
   const InstructionTextOne: String =
@@ -100,8 +100,11 @@ machine BlessingAlertGame {
     "そしてあなたが肉羽家の新たな一員として迎えられます。\n" +
     "祝福を回避したい場合は、正しい選択を行なってください。"
 
-  const InstructionTremorLog: String =
-    "......遠くから歪んだ鯨のような鳴き声が聞こえる"
+  const PhotoApproachLogs: Seq<String> = [
+    "……遠くから歪んだ鯨のような鳴き声が聞こえる",
+    "なんだったんだろう。",
+    "ひとまず、ここから選べってことか……"
+  ]
 
   const BadEndInterruptedLog: String =
     "轟音を立てながら何かが近づいてくるのを感じる。あれ、外が明るくーー"
@@ -175,6 +178,7 @@ machine BlessingAlertGame {
     goodEndLogIndex: Int? = null
     badEndLogIndex: Int? = null
     badEndBroadcastText: String? = null
+    photoApproachLogIndex: Int? = null
   }
 
   config {
@@ -312,25 +316,26 @@ machine BlessingAlertGame {
   transition AdvanceInstruction
     from InstructionOne
     on TapTelevision | PressEnter | PressSpace
-    do {
-      approachLevel := FirstTremor
-      // 歪ませた鯨声は常時再生せず、遠方で鳴ったことを示す短い一回音にする。
-      activeSoundEffect := DistantHighPitchCue
-      soundEffectStartedAt := now
-      visiblePlayerLog := InstructionTremorLog
-      emit("blessing_first_tremor")
-    }
+    do skip
     to InstructionTwo
 
   // InstructionTwo のレイアウト要件:
   // - InstructionOne とは別の画面として InstructionTextTwo を表示する。
   // - 1段階目の家族写真と回り込みレイアウトを引き継がない。
-  // - 表示開始時に最初の揺れを一度だけ発生させる。
-  // - 揺れの直後に InstructionTremorLog をプレイヤーログとして表示する。
+  // - この画面では揺れ・接近ログを発生させない。
   transition ShowTvFamilyPhoto
     from InstructionTwo
     on TapTelevision | PressEnter | PressSpace
-    do television := FamilyPhoto
+    do {
+      television := FamilyPhoto
+      // 家族写真が現れた瞬間に最初の揺れと反応ログを出す。
+      approachLevel := FirstTremor
+      activeSoundEffect := DistantHighPitchCue
+      soundEffectStartedAt := now
+      photoApproachLogIndex := 0
+      visiblePlayerLog := PhotoApproachLogs[0]
+      emit("blessing_first_tremor")
+    }
     to TvFamilyPhoto
 
   transition FinishDistantHighPitchCue
@@ -345,15 +350,28 @@ machine BlessingAlertGame {
     }
     to SamePhase
 
-  // 家族写真がテレビいっぱいに表示された後、次のタップで全画面調査へ進む。
+  // 写真表示直後の反応ログは、テレビをタップして順番に送る。
+  transition AdvancePhotoApproachLog
+    from TvFamilyPhoto
+    on TapTelevision | PressEnter | PressSpace
+    when photoApproachLogIndex < length(PhotoApproachLogs) - 1
+    do {
+      photoApproachLogIndex := photoApproachLogIndex + 1
+      visiblePlayerLog := PhotoApproachLogs[photoApproachLogIndex]
+    }
+    to TvFamilyPhoto
+
+  // 3行の反応ログを読み終えた後、次のタップで全画面調査へ進む。
   transition OpenFullPhoto
     from TvFamilyPhoto
     on TapTelevision | PressEnter | PressSpace
+    when photoApproachLogIndex == length(PhotoApproachLogs) - 1
     do {
       ResetInvestigation
       gameStartedAt := now
       investigationStartedAt := now
       visiblePlayerLog := null
+      photoApproachLogIndex := null
       emit("game_start")
       emit("photo_fullscreen")
     }
@@ -378,6 +396,7 @@ machine BlessingAlertGame {
     badEndPhotoRole := null
     badEndProxyAppearance := null
     goodEndLogIndex := null
+    photoApproachLogIndex := null
   }
 
   // ── 全画面写真：ここからは現行挙動を維持 ──────────────────────
@@ -526,7 +545,7 @@ machine BlessingAlertGame {
     }
     to GoodEndTvLogs
 
-  // テレビ内の正体露出済み写真を見ながら、ログを順番に送る。
+  // テレビ内の正体露出済み写真を見ながら、ログをタップで順番に送る。
   transition AdvanceGoodEndLog
     from GoodEndTvLogs
     on TapLog | TapTelevision | PressEnter | PressSpace
@@ -613,7 +632,7 @@ machine BlessingAlertGame {
 
   transition AdvanceBadEndPlayerLog
     from BadEndTvLog
-    on Tick
+    on TapLog | TapTelevision | PressEnter | PressSpace
     when badEndLogIndex < 2
     do {
       badEndLogIndex := badEndLogIndex + 1
@@ -623,7 +642,7 @@ machine BlessingAlertGame {
 
   transition ShowBadEndBroadcastLine
     from BadEndTvLog
-    on Tick
+    on TapLog | TapTelevision | PressEnter | PressSpace
     when badEndLogIndex >= 2 && badEndLogIndex < length(BadEndLogs) - 1
     do {
       badEndLogIndex := badEndLogIndex + 1

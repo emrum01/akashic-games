@@ -244,6 +244,7 @@
 .game-screen.is-tv-preview > :not(#tv-photo-preview){visibility:hidden;pointer-events:none}
 .game-screen.is-tv-preview #tv-photo-preview{visibility:visible;pointer-events:auto;background:transparent}
 #game-screen.is-tv-preview > #photo-instructions{visibility:visible!important;pointer-events:auto!important}
+#game-screen.is-tv-preview > #approach-log{visibility:visible!important;pointer-events:none!important}
 .game-screen.is-tv-preview .tv-photo-hit img,
 .game-screen.is-tv-preview .tv-photo-filter{clip-path:polygon(0 0,100% 3%,100% 100%,0 97%)}
 @media(max-width:430px){.instruction-screen .instruction-actions{display:flex;left:5%;right:5%;gap:7px}.instruction-screen .instruction-actions .primary{order:0;max-width:none}.instruction-screen .instruction-actions .secondary{min-width:74px}}
@@ -333,11 +334,11 @@
    single tactile button remains reachable in both the TV preview and the
    full-photo surface; browser Back and the button share the same history. */
 .instruction-screen .instruction-actions{display:none}
-.game-screen.is-tv-preview > :not(#tv-photo-preview):not(#photo-instructions){visibility:hidden;pointer-events:none}
+.game-screen.is-tv-preview > :not(#tv-photo-preview):not(#photo-instructions):not(#approach-log){visibility:hidden;pointer-events:none}
 .outside-tv{position:absolute;z-index:12;right:8.5%;bottom:16.5%;width:auto;height:30px;margin:0;padding:0 13px;border:1px solid #514033;border-radius:4px;background:linear-gradient(#3a2b22,#17110e);box-shadow:inset 0 1px 0 rgba(255,220,180,.18),0 2px 3px #000;color:#d7b994;font:700 10px "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;letter-spacing:.08em;text-shadow:0 1px 1px #000;cursor:pointer;transform:rotate(-1deg)}
 .outside-tv:before{content:"←";margin-right:5px;color:#edcf9c;font-size:12px}
 .outside-tv:hover{background:linear-gradient(#4a3629,#211610)}
-.game-screen.is-photo-full .outside-tv{top:max(12px,env(safe-area-inset-top));bottom:auto;right:14px;background:rgba(30,19,15,.9)}
+.game-screen.is-photo-full .outside-tv{top:max(50px,calc(env(safe-area-inset-top) + 44px));bottom:auto;left:10px;right:auto;background:rgba(30,19,15,.9)}
 .tv-photo-preview p{display:none}
 .game-screen.is-photo-full .statusbar,.game-screen.is-photo-full .instruction{display:block}
 
@@ -484,13 +485,17 @@
 .instruction-two-screen .broadcast-card{display:grid;align-content:center;padding:7% 9%}
 .instruction-two-screen .broadcast-copy{text-align:left}
 @media(max-width:430px){.instruction-screen .broadcast-card{padding:4.5%}.instruction-family{width:43%;margin-right:6%;shape-margin:6%}.instruction-screen .broadcast-copy{font-size:clamp(12px,3.5vw,14px);line-height:1.35}.instruction-two-screen .broadcast-card{padding:6% 8%}.instruction-two-screen .broadcast-copy{font-size:clamp(12.5px,3.65vw,14.5px);line-height:1.38}}
+@media(max-width:430px){
+  .instruction-two-screen .broadcast-card{transform:none;padding:5% 7%;}
+  .instruction-two-screen .broadcast-copy{font-size:clamp(10px,2.8vw,12px);line-height:1.28;overflow-wrap:anywhere;}
+}
 @media(prefers-reduced-motion:reduce){.intro-warning strong{animation:none}}
 
 /* Ending prelude and audio controls. */
 .mute-button{position:fixed;z-index:50;top:max(10px,env(safe-area-inset-top));right:10px;min-width:64px;height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.38);border-radius:4px;background:rgba(8,8,10,.78);color:#ddd;font:700 9px ui-monospace,monospace;letter-spacing:.08em;cursor:pointer;backdrop-filter:blur(4px)}
 .mute-button.is-on{border-color:#8ebd8b;color:#dfffd8}
-.instruction-two-screen.is-trembling{animation:room-tremor .55s cubic-bezier(.36,.07,.19,.97)}
-.instruction-approach-log{z-index:6;animation:log-appear .25s ease-out}
+.game-screen.is-trembling{animation:room-tremor .55s cubic-bezier(.36,.07,.19,.97)}
+.instruction-approach-log{z-index:10;animation:log-appear .25s ease-out}
 .ending-tv-screen{padding:0;overflow:hidden;background:#211612 url("./room-tv-bg.png?v=20260714e") center/100% 100% no-repeat}
 .ending-tv-hit{position:absolute;z-index:2;inset:0;border:0;padding:0;background:transparent;cursor:pointer}
 .ending-tv-hit img,.ending-tv-hit .tv-photo-filter{position:absolute;left:var(--tv-left);top:var(--tv-top);width:var(--tv-width);height:var(--tv-height);object-fit:cover;object-position:center 44%;clip-path:var(--tv-quad);border-radius:10% 10% 8% 8% / 8% 8% 7% 7%}
@@ -506,7 +511,7 @@
 @keyframes room-tremor{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
 @keyframes log-appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes red-arrival{50%{background:rgba(230,0,20,.68)}}
-@media(prefers-reduced-motion:reduce){.instruction-two-screen.is-trembling,.bad-red-filter{animation:none}}
+@media(prefers-reduced-motion:reduce){.game-screen.is-trembling,.bad-red-filter{animation:none}}
 .result-screen.bad .result-photo img{content:normal;filter:saturate(.7) brightness(.78) contrast(1.16)}
 .result-screen.bad .result-photo span{display:none}
 
@@ -586,10 +591,54 @@
   color:#f4f8ff;
   background:linear-gradient(180deg,#0b65bd 0%,#063a82 100%);
   text-align:left;
-  font:700 clamp(12px,3.4vw,20px)/1.5 "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
-  text-shadow:0 1px 2px #001d47;
+  font:900 clamp(15px,4vw,24px)/1.45 "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  text-shadow:none;
   -webkit-clip-path:var(--tv-quad);
   clip-path:var(--tv-quad);
   border-radius:var(--tv-radius);
 }
 .ending-broadcast[hidden]{display:none}
+.ending-log{font-weight:800}
+.photo-viewport,.photo-stage{touch-action:none;-webkit-user-select:none;user-select:none}
+
+/* 写真画面へ戻る操作は、常に左上の固定位置に置く。 */
+.game-screen .outside-tv{
+  position:fixed;
+  z-index:49;
+  top:max(10px,env(safe-area-inset-top));
+  right:84px;
+  bottom:auto;
+  left:auto;
+  transform:none;
+}
+
+/* 画面遷移に左右されない、右上の共通操作ブロック。 */
+.utility-toolbar{
+  position:fixed;
+  z-index:50;
+  top:max(10px,env(safe-area-inset-top));
+  right:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.utility-toolbar .mute-button,.utility-toolbar .outside-tv{
+  position:static;
+  top:auto;
+  right:auto;
+  bottom:auto;
+  left:auto;
+  z-index:auto;
+  height:32px;
+  margin:0;
+  transform:none;
+}
+
+/* 共通テロップ仕様：通知・指示・エンド放送は同じ読み味にする。 */
+.invite-broadcast{place-items:center start;text-align:left}
+.invite-copy,.instruction-screen .broadcast-copy,.ending-broadcast{
+  font-weight:900;
+  text-shadow:none;
+}
+.invite-copy{font-size:clamp(15px,4vw,24px);line-height:1.45;text-align:left}
+@media(max-width:430px){.invite-copy{font-size:16px!important;line-height:1.3}}
