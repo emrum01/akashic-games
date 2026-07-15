@@ -11,7 +11,7 @@
   <link rel="preload" as="image" href="./entity-full-v2.png?v=20260714d">
   <link rel="preload" as="image" href="./family-bad-end-brother-released.png">
   <link rel="preload" as="image" href="./room-tv-bg.png?v=20260714e">
-  <link rel="stylesheet" href="./styles.css?v=20260715r">
+  <link rel="stylesheet" href="./styles.css?v=20260715w">
   <style>[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -83,7 +83,7 @@
   </section>
 
   <section id="game-screen" class="screen game-screen" hidden aria-label="生贄選定画面">
-    <div id="approach-log" class="ending-log instruction-approach-log" role="status">......遠くから歪んだ鯨のような鳴き声が聞こえる</div>
+    <div id="approach-log" class="ending-log instruction-approach-log" role="status">......遠くから甲高い声のような音が聞こえる</div>
     <section id="tv-photo-preview" class="tv-photo-preview" hidden aria-label="テレビに映る家族写真">
       <button id="tv-photo-hit" class="tv-photo-hit" type="button" aria-label="写真を全画面で調べる">
         <img src="./family.png" alt="ブラウン管テレビに映る家族写真" draggable="false">
@@ -128,8 +128,12 @@
 
   <section id="ending-tv-screen" class="screen ending-tv-screen" hidden aria-label="テレビに戻った部屋">
     <button id="ending-tv-hit" class="ending-tv-hit" type="button" aria-label="ログを送る">
-      <img id="ending-tv-image" src="./entity-full-v2.png?v=20260714d" alt="テレビに映る処理後の家族写真">
-      <span class="tv-photo-filter" aria-hidden="true"></span>
+      <span class="ending-photo-frame">
+        <img id="ending-tv-image" src="./entity-full-v2.png?v=20260714d" alt="テレビに映る処理後の家族写真">
+        <span class="tv-photo-filter" aria-hidden="true"></span>
+        <span id="ending-sacrifice-mask" class="sacrifice-mask" hidden aria-label="選ばれた人物が生贄に選ばれました">
+        </span>
+      </span>
     </button>
     <div id="ending-log" class="ending-log" role="status" aria-live="polite"><span>PLAYER LOG</span><p></p></div>
     <div id="ending-broadcast" class="ending-broadcast" hidden role="status" aria-live="polite"></div>
@@ -142,7 +146,12 @@
     <p id="result-code" class="result-code"></p>
     <h2 id="result-title"></h2>
     <p id="result-copy" class="result-copy"></p>
-    <div id="result-photo" class="result-photo"><img src="./family.png" alt="処理後の家族写真"><span></span></div>
+    <div id="result-photo" class="result-photo">
+      <img src="./family.png" alt="処理後の家族写真">
+      <span aria-hidden="true"></span>
+      <div id="result-sacrifice-mask" class="sacrifice-mask" hidden aria-label="選ばれた人物が生贄に選ばれました">
+      </div>
+    </div>
     <p id="epilogue" class="epilogue"></p>
     <button id="restart-button" class="primary" type="button">もう一度確認する</button>
   </section>
@@ -152,6 +161,6 @@
   </div>
 </main>
 <script src="./analytics.js?v=20260714a"></script>
-<script src="./game.js?v=20260715o"></script>
+<script src="./game.js?v=20260715v"></script>
 </body>
 </html>
