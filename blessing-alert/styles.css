@@ -664,3 +664,98 @@
 .result-screen.bad h2,
 .result-screen.bad .result-copy,
 .result-screen.bad .epilogue{font-family:serif}
+
+/* Desktop presentation: keep the game authored as a phone-sized surface and
+   give the page around it a quiet, dark-red stage.  The app becomes a named
+   query container so its mobile-only rules can follow the frame rather than
+   the browser viewport. */
+@media (min-width:500px){
+  html,body{
+    background:radial-gradient(circle at 50% 42%,#2a1118 0,#11070b 48%,#050304 100%);
+  }
+  .app{
+    inset:50% auto auto 50%;
+    width:min(430px,100vw);
+    height:var(--vvh);
+    --vvh:min(100dvh,900px);
+    container-type:inline-size;
+    container-name:blessing-app;
+    transform:translate(-50%,-50%);
+    border-radius:14px;
+    box-shadow:0 0 0 1px rgba(119,38,54,.45),0 24px 80px rgba(0,0,0,.65);
+    isolation:isolate;
+  }
+  .app .alert-screen:before,
+  .app .alert-screen:after,
+  .app .instruction-screen:before,
+  .app .invite-screen:before{
+    position:absolute;
+  }
+  .app .modal,
+  .app .ending-blackout{
+    position:absolute;
+  }
+  .utility-toolbar{
+    top:max(10px,calc(50% - min(50dvh,450px) + 10px));
+    right:auto;
+    left:50%;
+    width:min(430px,100vw);
+    padding-inline:10px;
+    justify-content:flex-end;
+    transform:translateX(-50%);
+  }
+}
+
+/* The phone layout has a few viewport-relative type/readability adjustments
+   that need to follow the 430px frame on a wide browser.  These are the
+   effective mobile overrides; the real <=430px media queries remain intact
+   for physical phones, so their cascade and rendering do not change. */
+@container blessing-app (max-width:430px){
+  .alert-screen h1{font-size:clamp(34px,10cqw,56px)}
+  .crt-channel{font-size:clamp(8px,1.8cqw,11px)}
+  .crt-broadcast h1{font-size:clamp(15px,3.2cqw,29px)}
+  .crt-subtitle{font-size:clamp(8px,1.7cqw,14px)}
+  .crt-alert-broadcast .crt-channel{font-size:clamp(8px,1.9cqw,12px)}
+  .crt-alert-broadcast h1{font-size:clamp(19px,4.7cqw,37px)}
+  .crt-alert-broadcast .crt-subtitle{font-size:clamp(8px,1.8cqw,13px)}
+  .crt-hint{bottom:max(30px,env(safe-area-inset-bottom))}
+
+  .intro-warning p{font-size:clamp(8px,1.8cqw,12px)}
+  .intro-warning strong{font-size:clamp(19px,4.7cqw,37px)}
+  .intro-message{
+    left:5%;
+    right:5%;
+    bottom:max(13px,env(safe-area-inset-bottom));
+    padding:9px 11px 10px;
+  }
+  .intro-message p{font-size:14px}
+
+  .instruction-screen .broadcast-card{padding:4.5%}
+  .instruction-family{width:43%;margin-right:6%;shape-margin:6%}
+  .instruction-two-screen .broadcast-card{transform:none;padding:5% 7%}
+  .instruction-two-screen .broadcast-copy{overflow-wrap:anywhere}
+  .instruction-screen .broadcast-copy{font-size:15px;line-height:1.34}
+  .instruction-two-screen .broadcast-copy{font-size:16px;line-height:1.32}
+
+  .invite-channel{font-size:clamp(7px,1.75cqw,11px)}
+  .invite-copy{font-size:16px;line-height:1.3}
+  .invite-subtitle{font-size:clamp(8px,1.85cqw,13px)}
+  .invite-broadcast{gap:5px}
+
+  .ending-log{font-size:clamp(13px,3.4cqw,18px)}
+  .instruction-approach-log{font-size:clamp(12px,3.2cqw,17px)}
+  .ending-broadcast{font-size:clamp(15px,4cqw,24px)}
+  .result-screen h2{font-size:clamp(31px,9cqw,48px)}
+  .result-photo{width:min(70cqw,300px)}
+}
+
+/* Desktop CRT captions: enlarge only the long copy while keeping the
+   calibrated mobile-sized frame and its short labels unchanged.  The runtime
+   text-fit pass writes an inline font size, so this desktop-only size wins
+   while the reduced line heights keep the copy inside the glass. */
+@media (min-width:500px){
+  .instruction-screen .broadcast-copy{font-size:17px!important;line-height:1.2}
+  .instruction-two-screen .broadcast-copy{font-size:18px!important;line-height:1.28}
+  .invite-copy{font-size:18px!important;line-height:1.3}
+  .ending-broadcast{font-size:19px!important;line-height:1.35}
+}
