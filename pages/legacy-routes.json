@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "root": {
+    "source": "pages/index.html",
+    "destination": "index.html"
+  },
+  "routes": [
+    {
+      "id": "blessing-alert",
+      "sourceDirectory": "blessing-alert",
+      "sourceEntry": "index.html",
+      "copyMode": "rsync",
+      "exclude": []
+    },
+    {
+      "id": "bookcafe-3d",
+      "sourceDirectory": "bookcafe-3d",
+      "sourceEntry": "bookcafe-3d.html",
+      "copyMode": "rsync",
+      "exclude": [
+        "DESIGN-*.md",
+        "HANDOFF.md",
+        "ASSETS-catalog.md"
+      ]
+    },
+    {
+      "id": "broken-web",
+      "sourceDirectory": "broken-web",
+      "sourceEntry": "index.html",
+      "copyMode": "follow-symlinks",
+      "exclude": []
+    },
+    {
+      "id": "last-stitch",
+      "sourceDirectory": "last-stitch",
+      "sourceEntry": "index.html",
+      "copyMode": "rsync",
+      "exclude": [
+        "DESIGN.md",
+        "verify/"
+      ]
+    },
+    {
+      "id": "notification-gale",
+      "sourceDirectory": "notification-gale",
+      "sourceEntry": "index.html",
+      "copyMode": "rsync",
+      "exclude": [
+        "README.md"
+      ]
+    },
+    {
+      "id": "sic",
+      "sourceDirectory": "sic",
+      "sourceEntry": "index.html",
+      "copyMode": "rsync",
+      "exclude": []
+    },
+    {
+      "id": "still-thread",
+      "sourceDirectory": "still-thread",
+      "sourceEntry": "index.html",
+      "copyMode": "rsync",
+      "exclude": [
+        "DESIGN.md",
+        "verify/"
+      ]
+    },
+    {
+      "id": "three-forward-two-back",
+      "sourceDirectory": "three-forward-two-back",
+      "sourceEntry": "three-forward-two-back.html",
+      "copyMode": "rsync",
+      "exclude": [
+        "broken-web/"
+      ]
+    },
+    {
+      "id": "zoo-escape",
+      "sourceDirectory": "zoo-escape",
+      "sourceEntry": "index.html",
+      "copyMode": "rsync",
+      "exclude": []
+    }
+  ]
+}
