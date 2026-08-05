@@ -166,6 +166,13 @@ for required_root_file in pages/robots.txt pages/CNAME pages/.nojekyll; do
   [[ -f "$source_root/$required_root_file" ]] || die "required root file is missing: $required_root_file"
 done
 
+readonly expected_cname='games.escape-safari.com'
+[[ "$(wc -c < "$source_root/pages/CNAME")" -eq "${#expected_cname}" ]] ||
+  die "pages/CNAME must contain the exact custom domain without a trailing newline"
+cmp -s <(printf '%s' "$expected_cname") "$source_root/pages/CNAME" ||
+  die "pages/CNAME must be exactly $expected_cname"
+[[ ! -s "$source_root/pages/.nojekyll" ]] || die "pages/.nojekyll must be empty"
+
 route_count="$(jq -er '.routes | length' "$manifest_path")"
 [[ "$route_count" == "9" ]] || die "legacy route registry must contain exactly nine routes"
 
