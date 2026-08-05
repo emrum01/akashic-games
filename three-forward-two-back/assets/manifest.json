@@ -1,0 +1,11 @@
+{
+  "models": [
+    {
+      "path": "assets/models/sconce_03/sconce_03.glb",
+      "name": "Lamp/Sconce 03",
+      "source": "https://free3d.com/ja/3d-model/lampsconce-03-43588.html",
+      "author": "TomaszCGB",
+      "license": "Personal Use License"
+    }
+  ]
+}

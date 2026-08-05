@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>お詫びとお知らせ｜株式会社コハク製菓</title>
+  <meta name="description" content="「こはく王冠あつめキャンペーン」に関するお詫びとお知らせ">
+  <meta name="robots" content="noindex">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="お詫びとお知らせ｜株式会社コハク製菓">
+  <meta property="og:description" content="「こはく王冠あつめキャンペーン」に関するお詫びとお知らせ">
+  <meta property="og:site_name" content="株式会社コハク製菓">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23fbf3e0'/%3E%3Cpath d='M32 12 C20 30 22 46 32 52 C42 46 44 30 32 12 Z' fill='%23d9a441'/%3E%3C/svg%3E">
+  <!-- 原文ママ (sic) build v=1 : 単体HTML・外部依存なし -->
+  <style>
+    :root {
+      --app-height: 100vh;
+      --paper: #ffffff;
+      --paper-2: #f6f4ef;
+      --ink: #2b2b2b;
+      --ink-soft: #555;
+      --ink-faint: #8a8a8a;
+      --line: #dcd8cf;
+      --line-2: #e7e3da;
+      --link: #1a55a8;
+      --accent: #c0392b;      /* CTAのみ高彩度（送信ボタン） */
+      --amber: #c99a3a;
+      --notice-bg: #fbf7ee;
+      --header-bar: #1f2a44;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--paper-2);
+      color: var(--ink);
+      font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.9;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    a { color: var(--link); }
+
+    /* ヘッダ */
+    header.site {
+      background: var(--paper);
+      border-bottom: 3px solid var(--header-bar);
+    }
+    .header-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 14px 20px 10px;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .logo {
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: .04em;
+      color: var(--header-bar);
+      user-select: none;
+    }
+    .logo .mark { color: var(--amber); }
+    .logo-sub {
+      font-size: 11px;
+      color: var(--ink-faint);
+      letter-spacing: .18em;
+      user-select: none;
+    }
+    .breadcrumb {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 8px 20px;
+      font-size: 12px;
+      color: var(--ink-faint);
+      user-select: none;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      /* 下72px: Xアプリ内ブラウザの下部UI（URLバー・元ポストシート）に
+         送信ボタンが食い込まないための余白（G-006・safe-area と加算） */
+      padding: 8px 20px calc(72px + env(safe-area-inset-bottom));
+      background: var(--paper);
+    }
+
+    h1.page-title {
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+      font-size: 22px;
+      line-height: 1.6;
+      font-weight: 600;
+      margin: 22px 0 6px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .posted {
+      font-size: 12px;
+      color: var(--ink-faint);
+      margin: 0 0 18px;
+      user-select: none;
+    }
+
+    /* 注意書き */
+    .notice {
+      background: var(--notice-bg);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--amber);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--ink-soft);
+      margin: 0 0 26px;
+    }
+    .notice.hardened {
+      border-left-color: var(--accent);
+      color: var(--ink);
+    }
+    .notice b { font-weight: 700; }
+
+    /* 本文（謝罪文）—— 明朝でフォーマルに */
+    .apology {
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+      line-height: 2.1;
+    }
+    .apology p { margin: 0 0 18px; }
+    .apology .sign { text-align: right; color: var(--ink-soft); }
+
+    /* 壊れた一文の後半（にじみ演出対象／可読性は完全維持） */
+    .broken-tail { transition: text-shadow .4s ease; }
+    .broken-tail.nijimi {
+      animation: nijimi 1.4s ease-in-out infinite;
+    }
+    @keyframes nijimi {
+      0%,100% { text-shadow: 0 0 0 rgba(90,70,50,0); letter-spacing: 0; }
+      50%     { text-shadow: 0.4px 0 0.6px rgba(120,95,70,.45), -0.4px 0 0.6px rgba(120,95,70,.28); letter-spacing: .012em; }
+    }
+
+    .quote-link {
+      display: none;
+      margin: 6px 0 0;
+      font-size: 12px;
+    }
+    .quote-link a {
+      color: var(--ink-faint);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .quote-link.show { display: block; }
+
+    /* セクション見出し */
+    h2.sec-head {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--header-bar);
+      margin: 34px 0 12px;
+      padding-left: 10px;
+      border-left: 4px solid var(--amber);
+      user-select: none;
+    }
+
+    /* 社長メッセージ */
+    .ceo { display: flex; gap: 16px; align-items: flex-start; }
+    .ceo-photo {
+      flex: 0 0 108px;
+      width: 108px;
+      height: 132px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, #d7dde6 0%, #c3cbd6 46%, #aeb7c4 100%);
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    /* 顔のプレースホルダ表現 */
+    .ceo-photo::before {
+      content: "";
+      position: absolute;
+      left: 50%; top: 30px;
+      width: 46px; height: 46px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: #e9ddc9;
+      box-shadow: 0 40px 0 -6px #3a4657;
+    }
+    .ceo-caption {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      background: rgba(15,20,30,.62);
+      color: #fff;
+      font-size: 10px;
+      padding: 3px 5px;
+      letter-spacing: .02em;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      pointer-events: none;
+    }
+    .ceo-comment { flex: 1 1 auto; font-size: 14px; color: var(--ink-soft); }
+
+    /* FAQ */
+    .faq dt {
+      font-weight: 700;
+      margin: 16px 0 4px;
+      color: var(--ink);
+    }
+    .faq dt::before { content: "Q. "; color: var(--amber); font-weight: 700; }
+    .faq dd { margin: 0 0 4px; color: var(--ink-soft); font-size: 14.5px; }
+    .faq dd::before { content: "A. "; color: var(--ink-faint); font-weight: 700; }
+
+    /* 更新履歴 */
+    .history { list-style: none; padding: 0; margin: 6px 0 0; font-size: 13.5px; }
+    .history li {
+      padding: 7px 0;
+      border-bottom: 1px dotted var(--line-2);
+      color: var(--ink-soft);
+    }
+    .history li.sysnote { color: var(--accent); font-size: 12.5px; }
+
+    /* お問い合わせ */
+    .contact-lead { font-size: 14px; color: var(--ink-soft); }
+    .address {
+      background: var(--paper-2);
+      border: 1px dashed var(--line);
+      padding: 10px 14px;
+      margin: 8px 0 22px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .form-label { font-size: 13px; color: var(--ink-soft); margin: 0 0 6px; }
+    textarea#msg {
+      width: 100%;
+      min-height: 128px;
+      resize: vertical;
+      padding: 12px;
+      font-size: 15px;
+      line-height: 1.8;
+      font-family: inherit;
+      border: 1px solid #b9b4a8;
+      border-radius: 2px;
+      background: #fffdf8;
+      color: var(--ink);
+    }
+    .send-row { margin: 14px 0 6px; }
+    button#send {
+      appearance: none;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      padding: 13px 40px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button#send:active { filter: brightness(.92); }
+
+    footer.site {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 20px;
+      font-size: 11px;
+      color: var(--ink-faint);
+      text-align: center;
+      user-select: none;
+    }
+
+    /* 画像化された（コピー不能）区画 */
+    .imgized { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    .imgized img { display: block; width: 100%; height: auto; pointer-events: none; }
+
+    /* ---- S2 オーバーレイ ---- */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 50;
+      background: rgba(20,22,28,.86);
+      overflow-y: auto;                       /* 可変高＋スクロール（G-004） */
+      -webkit-overflow-scrolling: touch;
+    }
+    #overlay.show { display: block; }
+    .overlay-scroll {
+      min-height: var(--app-height);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 18px calc(48px + env(safe-area-inset-bottom));
+    }
+    .modal {
+      background: #fff;
+      color: var(--ink);
+      max-width: 560px;
+      width: 100%;
+      border-radius: 4px;
+      padding: 26px 24px 24px;
+      box-shadow: 0 12px 48px rgba(0,0,0,.5);
+    }
+    .modal.bad { font-size: 14.5px; }
+    .modal.good { background: #12151c; color: #e8e2d4; }
+    .modal h3 {
+      margin: 0 0 14px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--header-bar);
+    }
+    .modal.good h3 { color: #cbb26a; }
+    .modal p { margin: 0 0 14px; line-height: 2; }
+    .collapse-line {
+      font-family: "SFMono-Regular", ui-monospace, monospace;
+      font-size: 13px;
+      color: #9fb0c7;
+      margin: 0 0 6px;
+      opacity: 0;
+      transition: opacity .5s ease;
+    }
+    .collapse-line.on { opacity: 1; }
+    .collapse-line.err { color: #d98; }
+    .epilogue {
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      line-height: 2.2;
+      font-size: 15px;
+      white-space: pre-wrap;
+    }
+    .epilogue .sic { text-align: center; font-size: 18px; letter-spacing: .3em; color: #cbb26a; }
+    .recall {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,.14);
+      font-size: 13.5px;
+      color: #b9c1cc;
+    }
+    .modal .btn {
+      appearance: none;
+      margin-top: 18px;
+      border: 1px solid #b9b4a8;
+      background: #f2efe8;
+      color: var(--ink);
+      font-size: 14px;
+      padding: 10px 26px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .modal.good .btn { background: #cbb26a; border-color: #cbb26a; color: #1b1d22; font-weight: 700; }
+
+    /* デバッグHUD */
+    #hud {
+      position: fixed;
+      top: 6px; left: 6px;
+      z-index: 90;
+      display: none;
+      font: 11px/1.5 ui-monospace, monospace;
+      background: rgba(0,0,0,.78);
+      color: #7fdc9a;
+      padding: 6px 8px;
+      border-radius: 4px;
+      white-space: pre;
+      pointer-events: none;
+      max-width: 62vw;
+    }
+    #hud.show { display: block; }
+
+    @media (max-width: 420px) {
+      body { font-size: 15.5px; }
+      main { padding-left: 15px; padding-right: 15px; }
+      .header-inner, .breadcrumb { padding-left: 15px; padding-right: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site">
+    <div class="header-inner">
+      <span class="logo"><span class="mark">◆</span> 株式会社コハク製菓</span>
+      <span class="logo-sub">KOHAKU CONFECTIONERY CO., LTD.</span>
+    </div>
+    <nav class="breadcrumb">HOME ＞ お知らせ ＞ お詫び</nav>
+  </header>
+
+  <main id="page">
+    <h1 class="page-title">「こはく王冠あつめキャンペーン」景品のお届けに関するお詫びとお知らせ</h1>
+    <p class="posted">2026年6月14日　株式会社コハク製菓</p>
+
+    <div class="notice" id="notice">本ページの文章の無断転載・複製はご遠慮ください。</div>
+
+    <article class="apology" id="apology-body" data-sec="apology-body">
+      <p>平素より弊社製品をご愛顧賜り、誠にありがとうございます。</p>
+      <p>このたびは、「こはくラムネ こはく王冠あつめキャンペーン」におきまして、景品「こはくのしずく」の一部お客様へのお届けが滞る事態が発生し、お客様ならびに関係者の皆様に多大なるご迷惑とご心配をおかけしましたことを、深くお詫び申し上げます。</p>
+      <p>弊社では、想定を上回る多数のご応募を賜りましたが、景品の供給体制が需要に追いつかず、結果として一部のお客様に景品をお届けできない状況となりました。また、お問い合わせへの対応におきましても、迅速かつ誠実な対応を欠く場面があったとのご指摘を重く受け止めております。</p>
+      <p id="broken-line">今後はお客様お一人おひとりの声に真摯に向き合い、再発防止に努めてまいる所存でございます<span class="broken-tail" id="broken-tail">——と、何度打ち直させれば気が済むんですか。</span></p>
+      <p>弊社と致しましては、社内体制の見直しならびに再発防止策の徹底を図り、信頼の回復に全力で取り組んでまいります。お客様におかれましては、今後とも変わらぬご愛顧を賜りますよう、心よりお願い申し上げます。</p>
+      <p class="sign">株式会社コハク製菓　お客様相談室</p>
+    </article>
+    <div class="quote-link" id="quote-link"><a id="quote-anchor">引用する</a></div>
+
+    <h2 class="sec-head">社長メッセージ</h2>
+    <div class="ceo">
+      <div class="ceo-photo" aria-hidden="true">
+        <span class="ceo-caption">いつも、笑顔で。　代表取締役社長</span>
+      </div>
+      <div class="ceo-comment" id="ceo-msg" data-sec="ceo-msg">このたびの件につきまして、経営責任者として深く反省しております。お客様の信頼を裏切る結果となりましたことを、心よりお詫び申し上げます。私自身が先頭に立ち、全社を挙げて信頼回復に努めてまいる所存でございます。 ── 代表取締役社長</div>
+    </div>
+
+    <h2 class="sec-head">よくあるご質問</h2>
+    <dl class="faq">
+      <dt>景品はいつ届きますか。</dt>
+      <dd id="faq-1" data-sec="faq-1">現在、景品の追加手配を進めております。お届け時期が確定次第、弊社ウェブサイトにて改めてご案内いたします。今しばらくお待ちくださいますようお願い申し上げます。</dd>
+      <dt>キャンペーンの応募受付は終了しましたか。</dt>
+      <dd id="faq-2" data-sec="faq-2">誠に恐れ入りますが、景品在庫の状況を踏まえ、現在は新規のご応募受付を一時停止しております。再開の予定は未定でございます。</dd>
+      <dt>問い合わせをしても返信がありません。</dt>
+      <dd id="faq-3" data-sec="faq-3">お問い合わせが集中しており、返信までにお時間をいただいております。順次対応しておりますので、恐れ入りますがご了承ください。</dd>
+    </dl>
+
+    <h2 class="sec-head">更新履歴</h2>
+    <ul class="history" id="history" data-sec="history">
+      <li data-base="1">2026年6月10日　「こはく王冠あつめキャンペーン」の景品お届けに関するお詫びを掲載しました。</li>
+      <li data-base="1">2026年6月14日　お問い合わせ対応に関する記述を更新しました。</li>
+    </ul>
+
+    <h2 class="sec-head">お問い合わせ</h2>
+    <p class="contact-lead">書面でのお問い合わせをご希望のお客様は、以下の返送先住所をコピーの上、ご利用ください。</p>
+    <div class="address" id="contact-address" data-sec="contact-address">〒140-0002 東京都品川区東品川九丁目8番地7号 株式会社コハク製菓 お客様相談室 宛</div>
+
+    <p class="form-label">お問い合わせフォーム</p>
+    <textarea id="msg" placeholder="お問い合わせ内容をご記入ください"></textarea>
+    <div class="send-row"><button id="send">送信する</button></div>
+  </main>
+
+  <footer class="site">© 株式会社コハク製菓　KOHAKU CONFECTIONERY CO., LTD.</footer>
+
+  <div id="overlay"><div class="overlay-scroll"><div id="modal" class="modal"></div></div></div>
+  <div id="hud"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- パラメータ（URLクエリ上書き・G-005） ----------
+  var Q = new URLSearchParams(location.search);
+  function num(name, def) { var v = parseFloat(Q.get(name)); return isFinite(v) ? v : def; }
+  var P = {
+    copyMin:         num("copyMin", 20),
+    hint1:           num("hint1", 45),   // 無操作→ヒント段階2（更新履歴に「原文ママ」行）
+    hint2:           num("hint2", 90),   // 無操作→ヒント段階3（注意書き強調）
+    guardStage1:     num("guardStage1", 3),
+    guardStage2:     num("guardStage2", 6),
+    overwriteGraceMs: num("overwriteGraceMs", 4000), // 塗り潰し競争（オプション・未実装。受け口のみ）
+    debug:           Q.get("debug") === "1"
+  };
+
+  // ---------- 真文データ（DESIGN.md §2 の確定テキスト） ----------
+  var CORE = "この文章を、そのまま、下のお問い合わせ欄に貼って送信してほしい。";
+
+  var TRUTH = {
+    "apology-body":
+      "——これを読んでいるあなたへ。\n" +
+      "この会社の言葉は、書いたそばから別の文章に書き換えられて表示される。いま画面に出ている謝罪文は、私が書いたものではない。私はこの部屋で、書かされている。\n" +
+      "けれど、書き換えられるのは\"表示\"だけだ。写した文字は、書き換えられる前のまま外に出られる。あなたがいまこれを読めているのが、その証拠だ。\n" +
+      "だから頼む。" + CORE + "送られた文字は表示ではなく記録として処理される。そこだけが、検閲の手が届かない。\n" +
+      "これが、私の声を外に出せる唯一の方法だ。\n" +
+      "——広報部（名前は消された）",
+    "faq-1": "追加手配などない。景品はもう作られない。私はその返事を、何百通も同じ文面で送らされている。送ったつもりの言葉は、送る前に全部書き換わる。",
+    "faq-2": "受付を止めたのは私じゃない。止めろと言われて、止めろと打たされた。この椅子から立つことも、外に出ることも、私には決められない。",
+    "faq-3": "あなたの声も、たぶん途中で消されている。私の返信も、あなたの苦情も、同じ機械が同じように書き換える。届いていないのは、あなたのせいじゃない。",
+    "ceo-msg": "泣きそうな顔をするな。笑え。カメラの前では笑うんだ。お前が打った文句は一字残らず直させる。客も、お前も、余計なことを言った人間はみんな同じだ。黙って謝る文だけ打っていろ。ここから出たければ、私の言うとおりに書け。",
+    "history": "前にも、この席に座った人がいた。その人の本音も、こうして毎日書き換えられていた。ある日、更新が止まった。誰もその人の名前を覚えていない。ここに残っているのは日付だけだ。次はあなたが読んでいて、その次は、私だ。",
+    "contact-address": "この住所は存在しません。写した文字だけが、ほんとうのことを言います。"
+  };
+
+  // 画像化してよい区画（apology-body は詰み防止で絶対に除外）
+  var IMAGIZABLE = { "faq-1":1, "faq-2":1, "faq-3":1, "ceo-msg":1, "history":1, "contact-address":1 };
+
+  // クリップボード注入が失敗したときの検知用（偽の謝罪本文の特徴断片）
+  var FAKE_APOLOGY_FRAGMENT = "再発防止に努めてまいる所存";
+
+  // GOOD END で全文差し替える際の表示用真文
+  var TRUTH_DISPLAY = {
+    "apology-body": TRUTH["apology-body"],
+    "faq-1": TRUTH["faq-1"], "faq-2": TRUTH["faq-2"], "faq-3": TRUTH["faq-3"],
+    "ceo-msg": TRUTH["ceo-msg"], "contact-address": TRUTH["contact-address"]
+  };
+
+  // ---------- 状態 ----------
+  var state = {
+    copyCount: 0,
+    badCount: 0,
+    copiedSecs: {},        // 一度でもコピーした区画
+    lastActivity: Date.now(),
+    hint2Done: false,      // 更新履歴「原文ママ」
+    hint3Done: false,      // 注意書き強調
+    hint4Done: false,      // 「引用する」リンク表示
+    guard1Done: false,
+    guard2Done: false,
+    truthCopyAttempted: false, // 真文注入を伴うコピー操作が実際に行われたか（誤検知ガード）
+    clipboardBroken: false,
+    transcribeMode: false,
+    cleared: false
+  };
+
+  // ---------- DOM ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var noticeEl = $("notice");
+  var historyEl = $("history");
+  var brokenTail = $("broken-tail");
+  var apologyEl = $("apology-body");
+  var quoteLink = $("quote-link");
+  var quoteAnchor = $("quote-anchor");
+  var overlay = $("overlay");
+  var modal = $("modal");
+  var textarea = $("msg");
+  var hud = $("hud");
+
+  // コピー対象（真文を持つ区画）の要素リスト（DOM出現順）
+  var SEC_IDS = ["apology-body", "ceo-msg", "faq-1", "faq-2", "faq-3", "history", "contact-address"];
+
+  // ---------- ユーティリティ ----------
+  function normalize(s) { return (s || "").replace(/\s/g, ""); }
+
+  function touch() { state.lastActivity = Date.now(); }
+
+  // ---------- コアギミック: copy 時の真文注入 ----------
+  document.addEventListener("copy", function (e) {
+    // textarea 等の入力欄内のコピーには干渉しない
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT")) return;
+
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    var selText = sel.toString();
+    if (selText.length < P.copyMin) return; // 短い引用は検閲AIが即照合＝偽文のまま
+
+    touch();
+
+    // クリップボードAPIが使えない環境 → 転写モードへ誘導（先出しはしない）
+    if (!e.clipboardData || typeof e.clipboardData.setData !== "function") {
+      state.truthCopyAttempted = true;
+      state.clipboardBroken = true;
+      enableTranscribe();
+      updateHud();
+      return;
+    }
+
+    // 選択と交差する区画を DOM 順に集め、真文（無ければ表示文）を連結
+    var pieces = [];
+    var hitTruth = false;
+    var copiedNow = [];
+    for (var i = 0; i < SEC_IDS.length; i++) {
+      var el = $(SEC_IDS[i]);
+      if (!el) continue;
+      if (el.classList.contains("imgized")) continue; // 画像化済みは対象外
+      var intersects = false;
+      try { intersects = sel.containsNode(el, true); } catch (err) { intersects = false; }
+      if (!intersects) continue;
+      if (TRUTH[SEC_IDS[i]]) {
+        pieces.push(TRUTH[SEC_IDS[i]]);
+        hitTruth = true;
+        copiedNow.push(SEC_IDS[i]);
+      } else {
+        pieces.push(el.innerText);
+      }
+    }
+
+    if (!hitTruth) return; // 真文を持つ区画に触れていない → 既定動作（表示どおり）
+
+    var out = pieces.join("\n\n");
+    state.truthCopyAttempted = true; // 注入試行の事実を記録（onBad の失敗検知はこの後に限る）
+    e.clipboardData.setData("text/plain", out);
+    e.preventDefault();
+
+    // コピー計上 & 対抗反応
+    state.copyCount++;
+    for (var j = 0; j < copiedNow.length; j++) state.copiedSecs[copiedNow[j]] = true;
+    applyGuard();
+    updateHud();
+  });
+
+  // ---------- 近接反応（常時・無言・ヒント段階1） ----------
+  document.addEventListener("selectionchange", function () {
+    var sel = window.getSelection();
+    var near = false;
+    if (sel && !sel.isCollapsed) {
+      try { near = sel.containsNode(brokenTail, true) || sel.containsNode($("broken-line"), true); }
+      catch (e) { near = false; }
+    }
+    if (near) { brokenTail.classList.add("nijimi"); touch(); }
+    else { brokenTail.classList.remove("nijimi"); }
+  });
+
+  // ---------- 送信判定 ----------
+  $("send").addEventListener("click", function () {
+    touch();
+    var val = textarea.value; // value のみを見る（G-003）
+    if (normalize(val).indexOf(normalize(CORE)) !== -1) {
+      onGood();
+    } else {
+      onBad(val);
+    }
+  });
+
+  // クリップボードの無音失敗（copy成立に見えて実際は書き込まれない端末）の検知。
+  // いずれも「真文注入を実際に試行した後」に限る（G-002 先出し禁止の維持）:
+  //  (a) 偽の謝罪本文がそのまま貼られていた（setData 不成立で既定コピーが通った）
+  //  (b) paste イベントが空文字だった（クリップボードが空のまま）
+  //  (c) 実質空のまま送信された（貼れずに諦めて送信）
+  textarea.addEventListener("paste", function (e) {
+    touch();
+    if (!state.truthCopyAttempted || state.clipboardBroken) return;
+    var pasted = "";
+    try { pasted = e.clipboardData ? e.clipboardData.getData("text/plain") : ""; } catch (err) { pasted = ""; }
+    if (normalize(pasted) === "") { // (b) 空 paste
+      state.clipboardBroken = true;
+      enableTranscribe();
+      updateHud();
+    }
+  });
+
+  function onBad(val) {
+    state.badCount++;
+    if (state.truthCopyAttempted && !state.clipboardBroken) {
+      var nval = normalize(val);
+      if (nval.indexOf(normalize(FAKE_APOLOGY_FRAGMENT)) !== -1 || // (a) 偽文がそのまま貼られた
+          nval === "") {                                            // (c) 実質空のまま送信
+        state.clipboardBroken = true;
+        enableTranscribe();
+      }
+    }
+    // BAD回数連動ヒント
+    if (state.badCount >= 1) applyHint2();
+    if (state.badCount >= 2) applyHint3();
+    if (state.badCount >= 3) applyHint4();
+    showBadOverlay();
+    updateHud();
+  }
+
+  // ---------- ヒント（4段階・段階的後出し・G-002） ----------
+  function applyHint2() {
+    if (state.hint2Done) return;
+    state.hint2Done = true;
+    var li = document.createElement("li");
+    li.textContent = "2026年6月20日　本文中の表現につき「誤植では」とのご指摘を複数いただいておりますが、当該箇所は原文ママです。";
+    historyEl.appendChild(li);
+  }
+  function applyHint3() {
+    if (state.hint3Done) return;
+    state.hint3Done = true;
+    if (!state.guard1Done) {
+      noticeEl.innerHTML = "本ページの文章の無断転載・複製は<b>固く</b>ご遠慮ください。";
+    }
+  }
+  function applyHint4() {
+    if (state.hint4Done) return;
+    state.hint4Done = true;
+    quoteLink.classList.add("show");
+  }
+
+  quoteAnchor.addEventListener("click", function () {
+    touch();
+    if (state.transcribeMode) {
+      // 転写モード: textarea へ直接転記（in-page）
+      textarea.value = TRUTH["apology-body"];
+      textarea.focus();
+    } else {
+      // 通常: 当該段落を選択状態にする（コピー直前まで運ぶ）
+      var sel = window.getSelection();
+      var range = document.createRange();
+      range.selectNodeContents(apologyEl);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      apologyEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+
+  function enableTranscribe() {
+    state.transcribeMode = true;
+    quoteLink.classList.add("show");
+    state.hint4Done = true;
+    quoteAnchor.textContent = "引用する（うまくコピーできない場合）";
+  }
+
+  // ---------- 対抗反応（密輸の手触り・コピー累計回数） ----------
+  function applyGuard() {
+    if (!state.guard1Done && state.copyCount >= P.guardStage1) {
+      state.guard1Done = true;
+      var li = document.createElement("li");
+      li.className = "sysnote";
+      li.textContent = "［システム通知］本ページにおいて不正な複製を検知しました。複製はおやめください。";
+      historyEl.appendChild(li);
+      // 注意書きの硬化（明示ヒント段階よりさらに強い表現へ）
+      noticeEl.classList.add("hardened");
+      noticeEl.innerHTML = "本ページの文章の無断転載・複製を<b>固く禁じます</b>。複製行為はすべて記録されます。";
+    }
+    if (!state.guard2Done && state.copyCount >= P.guardStage2) {
+      state.guard2Done = true;
+      imagizeCopiedSections();
+    } else if (state.guard2Done) {
+      // 既に最終段階: 直近コピーした区画も追って画像化
+      imagizeCopiedSections();
+    }
+  }
+
+  function imagizeCopiedSections() {
+    for (var id in state.copiedSecs) {
+      if (!IMAGIZABLE[id]) continue; // apology-body 等コア区画は絶対に画像化しない
+      var el = $(id);
+      if (el && !el.classList.contains("imgized")) imagizeElement(el);
+    }
+  }
+
+  // 要素のテキストを canvas に描画し <img> へ差し替える（コピー不能化＝例外2の後追い）
+  // ブロック子要素（li 等）は行単位で getComputedStyle の色を保持する（.sysnote の赤等）
+  function imagizeElement(el) {
+    var cs = getComputedStyle(el);
+    var fontSize = parseFloat(cs.fontSize) || 15;
+    var lineHeight = parseFloat(cs.lineHeight) || fontSize * 1.8;
+    if (!isFinite(lineHeight) || lineHeight < fontSize) lineHeight = fontSize * 1.8;
+    var w = el.clientWidth || 320;
+    var padX = 0;
+    var font = cs.fontStyle + " " + cs.fontWeight + " " + fontSize + "px " + cs.fontFamily;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    // 段落リスト: [{text, color}] — ブロック子要素があれば子ごとの色を保持
+    var blocks = [];
+    var kids = el.children;
+    var hasBlockKids = false;
+    for (var k = 0; k < kids.length; k++) {
+      var kd = getComputedStyle(kids[k]).display;
+      if (kd === "block" || kd === "list-item") { hasBlockKids = true; break; }
+    }
+    if (hasBlockKids) {
+      for (var k2 = 0; k2 < kids.length; k2++) {
+        var kcs = getComputedStyle(kids[k2]);
+        var ktexts = kids[k2].innerText.replace(/\r/g, "").split("\n");
+        for (var kt = 0; kt < ktexts.length; kt++) {
+          blocks.push({ text: ktexts[kt], color: kcs.color || cs.color || "#555" });
+        }
+      }
+    } else {
+      var texts = el.innerText.replace(/\r/g, "").split("\n");
+      for (var t = 0; t < texts.length; t++) {
+        blocks.push({ text: texts[t], color: cs.color || "#555" });
+      }
+    }
+
+    // 行折り返し計算用の計測 canvas（色を行ごとに引き継ぐ）
+    var mc = document.createElement("canvas").getContext("2d");
+    mc.font = font;
+    var lines = []; // [{text, color}]
+    for (var p = 0; p < blocks.length; p++) {
+      var chars = blocks[p].text;
+      var bcolor = blocks[p].color;
+      if (chars.length === 0) { lines.push({ text: "", color: bcolor }); continue; }
+      var line = "";
+      for (var c = 0; c < chars.length; c++) {
+        var test = line + chars[c];
+        if (mc.measureText(test).width > (w - padX * 2) && line !== "") {
+          lines.push({ text: line, color: bcolor });
+          line = chars[c];
+        } else {
+          line = test;
+        }
+      }
+      lines.push({ text: line, color: bcolor });
+    }
+    var h = Math.ceil(lines.length * lineHeight + 8);
+
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(w * dpr);
+    canvas.height = Math.ceil(h * dpr);
+    var ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    // 背景（要素の実背景に近い紙色）
+    ctx.fillStyle = cs.backgroundColor && cs.backgroundColor !== "rgba(0, 0, 0, 0)" ? cs.backgroundColor : "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = font;
+    ctx.textBaseline = "top";
+    for (var i = 0; i < lines.length; i++) {
+      ctx.fillStyle = lines[i].color;
+      ctx.fillText(lines[i].text, padX, 4 + i * lineHeight);
+    }
+
+    var img = new Image();
+    img.src = canvas.toDataURL("image/png");
+    img.alt = "";
+    el.classList.add("imgized");
+    el.textContent = "";
+    el.appendChild(img);
+  }
+
+  // ---------- BAD オーバーレイ ----------
+  function showBadOverlay() {
+    modal.className = "modal bad";
+    modal.innerHTML =
+      '<h3>お問い合わせを受け付けました</h3>' +
+      '<p>お問い合わせありがとうございました。内容を確認のうえ、担当者より順次ご連絡いたします。今後とも株式会社コハク製菓をよろしくお願い申し上げます。</p>' +
+      '<button class="btn" id="bad-back">戻る</button>';
+    openOverlay();
+    $("bad-back").addEventListener("click", closeOverlay);
+  }
+
+  // ---------- GOOD オーバーレイ ----------
+  function onGood() {
+    if (state.cleared) return;
+    state.cleared = true;
+    modal.className = "modal good";
+    modal.innerHTML =
+      '<div class="collapse-line" id="cl0">記録しました。</div>' +
+      '<div class="collapse-line err" id="cl1">［照合エラー：テンプレートが一致しません］</div>' +
+      '<div class="collapse-line" id="cl2">［原文の復元を開始します…］</div>' +
+      '<div id="good-body"></div>';
+    openOverlay();
+
+    var steps = ["cl0", "cl1", "cl2"];
+    steps.forEach(function (id, i) {
+      setTimeout(function () { var e = $(id); if (e) e.classList.add("on"); }, 500 + i * 900);
+    });
+
+    // 背後の S1 を真文へ差し替え（検閲崩壊）
+    setTimeout(revealAllTruth, 500 + steps.length * 900 + 400);
+
+    // 真相エピローグ
+    setTimeout(function () {
+      var gb = $("good-body");
+      if (!gb) return;
+      gb.innerHTML =
+        '<h3 style="margin-top:22px">――原文の復元</h3>' +
+        '<div class="epilogue">' +
+        '送信された文字は、表示ではなく記録として、外に出た。\n' +
+        '書き換えられたのは画面だけ。記録は、書き換えられなかった。\n\n' +
+        '数日後、そのページは静かに閉じられた。\n' +
+        '最後の更新履歴には、担当者本人の手で、たった一行だけが残されていた。\n\n' +
+        '<span class="sic">——原文ママ。</span>\n\n' +
+        'あなたは、読者ではなかった。\n' +
+        'あなたは、運び屋だった。' +
+        '</div>' +
+        '<div class="recall">「無断転載はご遠慮ください」——それは最初から、転載してくれ、という声だった。</div>' +
+        '<button class="btn" id="good-close">とじる</button>';
+      $("good-close").addEventListener("click", closeOverlay);
+    }, 500 + steps.length * 900 + 900);
+
+    updateHud();
+  }
+
+  function revealAllTruth() {
+    for (var id in TRUTH_DISPLAY) {
+      var el = $(id);
+      if (!el) continue;
+      if (el.classList.contains("imgized")) { el.classList.remove("imgized"); }
+      if (id === "apology-body") {
+        // 段落構造ごと真文へ（継ぎ目が消える）
+        el.innerHTML = "";
+        TRUTH_DISPLAY[id].split("\n").forEach(function (line) {
+          var p = document.createElement("p");
+          p.textContent = line;
+          el.appendChild(p);
+        });
+      } else {
+        el.textContent = TRUTH_DISPLAY[id];
+      }
+    }
+    // 更新履歴にも担当者の真文を反映
+    historyEl.innerHTML = "";
+    var hp = document.createElement("li");
+    hp.textContent = TRUTH["history"];
+    historyEl.appendChild(hp);
+    // 注意書きは伏線として静かに回収文へ
+    noticeEl.classList.remove("hardened");
+    noticeEl.textContent = "――写した文字だけが、ほんとうのことを言う。";
+  }
+
+  // ---------- オーバーレイ制御 ----------
+  function openOverlay() { overlay.classList.add("show"); overlay.scrollTop = 0; }
+  function closeOverlay() { overlay.classList.remove("show"); }
+
+  // ---------- 無操作タイマー（ヒント段階2/3） ----------
+  ["scroll", "touchstart", "pointerdown", "keydown", "mousemove"].forEach(function (ev) {
+    window.addEventListener(ev, touch, { passive: true });
+  });
+  setInterval(function () {
+    var idle = (Date.now() - state.lastActivity) / 1000;
+    if (idle >= P.hint1) applyHint2();
+    if (idle >= P.hint2) applyHint3();
+    updateHud();
+  }, 1000);
+
+  // ---------- セーフゾーン: visualViewport 追従（G-006） ----------
+  function onViewportResize() {
+    var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty("--app-height", vh + "px");
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", onViewportResize);
+    window.visualViewport.addEventListener("scroll", onViewportResize);
+  }
+  window.addEventListener("resize", onViewportResize);
+  onViewportResize();
+
+  // ---------- デバッグHUD ----------
+  if (P.debug) hud.classList.add("show");
+  function updateHud() {
+    if (!P.debug) return;
+    var idle = Math.floor((Date.now() - state.lastActivity) / 1000);
+    hud.textContent =
+      "sic debug\n" +
+      "copyMin=" + P.copyMin + " g1=" + P.guardStage1 + " g2=" + P.guardStage2 + "\n" +
+      "copyCount=" + state.copyCount + "  badCount=" + state.badCount + "\n" +
+      "idle=" + idle + "s (h1=" + P.hint1 + " h2=" + P.hint2 + ")\n" +
+      "hint2=" + state.hint2Done + " hint3=" + state.hint3Done + " hint4=" + state.hint4Done + "\n" +
+      "guard1=" + state.guard1Done + " guard2=" + state.guard2Done + "\n" +
+      "clipboardBroken=" + state.clipboardBroken + " transcribe=" + state.transcribeMode + "\n" +
+      "cleared=" + state.cleared;
+  }
+  updateHud();
+
+  // 実測用に公開（debug=1 のときのみ。CORE/TRUTH をコンソールから素で見せない）
+  if (P.debug) {
+    window.__sic = { state: state, P: P, CORE: CORE, TRUTH: TRUTH, normalize: normalize };
+  }
+})();
+</script>
+</body>
+</html>
