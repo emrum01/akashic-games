@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Ear Scope — Micro Cell</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main id="viewport" tabindex="-1" data-renderer="loading" data-zoom-ready="false" aria-label="耳の奥を進む視点">
+      <div id="scene" data-state="z000">
+        <div id="source-frame">
+          <img id="plate-a" class="zoom-plate" alt="" draggable="false">
+          <img id="plate-b" class="zoom-plate" alt="" draggable="false">
+          <div id="world-item-layer" aria-label="拾える品" hidden></div>
+          <div id="hotspot-layer" aria-label="画面内の調べられる場所" hidden></div>
+          <img id="grandma-sprite" alt="" draggable="false" hidden>
+          <img id="grandma-foreground-occluder" alt="" aria-hidden="true" draggable="false" hidden>
+          <img id="earwax-reveal" alt="耳垢の塊を挟んだピンセット" draggable="false" hidden>
+          <img id="space-character-image" alt="" draggable="false" hidden>
+          <video id="space-character-video" aria-hidden="true" muted loop playsinline preload="none" hidden></video>
+          <output id="boss-brain-overlay" aria-live="polite" hidden></output>
+          <svg class="source-clip-definitions" width="0" height="0" aria-hidden="true" focusable="false">
+            <defs>
+              <clipPath id="grandma-foreground-clip" clipPathUnits="userSpaceOnUse">
+                <path d="M428 755 L434 610 Q442 570 474 565 Q500 568 516 612 L516 755 Z"></path>
+                <path d="M908 755 L910 610 Q920 570 950 563 Q973 572 981 610 L981 755 Z"></path>
+                <path d="M516 929 L526 760 Q536 711 620 687 Q736 670 828 688 Q896 705 912 758 L900 929 Z"></path>
+              </clipPath>
+            </defs>
+          </svg>
+        </div>
+      </div>
+      <div id="scope-blink" data-phase="open" aria-hidden="true" hidden>
+        <div class="scope-lid scope-lid-top"></div>
+        <div class="scope-lid scope-lid-bottom"></div>
+      </div>
+      <div id="bulkhead-event" data-phase="open" aria-hidden="true" hidden></div>
+      <section id="space-hud" aria-label="脳残存率と所持品">
+        <div class="brain-hud-row">
+          <span>脳残存率</span>
+          <progress id="brain-progress" max="100" value="100" aria-label="脳残存率"></progress>
+          <output id="brain-value" aria-live="polite">100%</output>
+        </div>
+        <output id="space-inventory" aria-live="polite" aria-label="所持品なし">所持品 0</output>
+        <output id="space-item-toast" aria-live="assertive" hidden></output>
+        <output id="space-ambient-toast" aria-live="polite" hidden></output>
+      </section>
+      <section id="encounter-dialog" role="dialog" aria-modal="true" aria-labelledby="encounter-message" hidden>
+        <p id="encounter-message" aria-live="polite"></p>
+        <div id="encounter-actions" role="group" aria-label="行動を選ぶ"></div>
+      </section>
+      <section id="space-dialog" role="dialog" aria-modal="true" aria-labelledby="space-heading" aria-describedby="space-message" hidden>
+        <h2 id="space-heading" tabindex="-1"></h2>
+        <output id="space-status" aria-live="polite"></output>
+        <p id="space-message" aria-live="polite"></p>
+        <output id="space-result" aria-live="assertive"></output>
+        <div id="space-actions" role="group" aria-label="行動を選ぶ"></div>
+      </section>
+      <section id="hotspot-inspector" role="dialog" aria-modal="true" aria-labelledby="hotspot-title" aria-describedby="hotspot-observation" hidden>
+        <h2 id="hotspot-title"></h2>
+        <p id="hotspot-observation"></p>
+        <button id="hotspot-close" type="button">閉じる</button>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
