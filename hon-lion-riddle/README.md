@@ -54,6 +54,8 @@
 
 `npm test` はブラウザーを使わず、会話からクリア・再プレイまでの状態遷移、移動完了の待機、ライブ応答が時間切れになった後の再入力を検証します。Workerテストは公式APIのリクエスト形式、入力上限、Origin、鍵の発行条件とエラー処理を検証します。モックのテストは実モデルの精度確認の代わりにはなりません。
 
+スマホでは「質問する」「答えを伝える」で入力欄を表示し、入力欄へのタップでキーボードを開きます。背景はレイアウトの大きさを保ち、会話欄を表示可能領域に合わせます。`npm test` では表示領域の変化・ズーム・ページ復帰も検証します。Python版Playwrightと対象ブラウザーが利用可能な環境では、ローカル配信中に `python3 tests/browser-smoke.py --url http://127.0.0.1:8796/ --keyboard-only --browser chromium`（Safari系は `--browser webkit`）で入力・送信・エラー・回転を確認できます。ブラウザーの実行パスを指定する場合は `--executable-path` を追加します。この検証はAPIとキーボードの表示領域を模擬しており、実機のOSキーボード確認とは区別します。
+
 チャットPOSTは完全一致するOriginとJSONだけを受け付けます。本文16KiB、質問180文字、履歴6件までです。公開版はログイン不要です。Origin検査は認証ではありません。staging・productionではCloudflareのRate Limiting bindingで、同じ接続元IPからの有効な質問を1分30回に制限します。両APIパスで同じカウンターを使い、超過時は429と`Retry-After: 60`を返します。入力は残るので約1分後に再送できます。bindingやCloudflareの接続元IPが欠ける場合、制限処理が失敗する場合は503で停止し、JEVを呼びません。ローカル環境の動作は変わりません。
 
 同じネットワークの利用者は制限を共有します。カウンターはCloudflareの拠点単位で結果整合となるため、厳密な課金上限ではありません。[Cloudflare Rate Limiting公式仕様](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)

@@ -2,14 +2,15 @@
 :root{--ink:#f5ead9;--muted:#d8c8ad;--line:rgba(223,207,181,.48);--panel:rgba(14,8,8,.72);--deep:#0d0907;--mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho",serif;color-scheme:dark;font-family:var(--mincho)}
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;background:var(--deep);color:var(--ink)}
-body{overflow:hidden}
+html,body{overflow:hidden;overscroll-behavior:none}
+body{position:fixed;inset:0}
 button,textarea{font:inherit}
 button{appearance:none;cursor:pointer;color:inherit;-webkit-tap-highlight-color:transparent}
 button:disabled{cursor:wait;opacity:.45}
 button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 [hidden]{display:none!important}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.app{position:fixed;inset:0;min-height:100dvh;overflow:hidden;background:#17100c;transition:background-color 1.3s ease}
+.app{position:fixed;inset:0;top:var(--viewport-top,0px);bottom:auto;height:100%;overflow:hidden;background:#17100c;transition:background-color 1.3s ease}
 .scene-background,.scene-scrim{position:absolute;inset:0;pointer-events:none}
 .scene-background{background:#0b0a09;overflow:hidden}
 .scene-background #scene-error{position:absolute;left:50%;top:18%;transform:translateX(-50%);z-index:4;margin:0;padding:10px 14px;border:1px solid var(--line);background:var(--panel);font-size:14px;max-width:90%;text-align:center}
@@ -30,7 +31,20 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 .connection-note{margin:14px 0 0;font-size:14px;line-height:1.7;text-shadow:0 1px 4px #000}
 
 /* A single name and a single message; the editor replaces the text while open. */
-.conversation{position:absolute;z-index:10;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(1120px,calc(100% - 64px));min-height:164px;max-height:calc(100dvh - 40px);display:flex;flex-direction:column;gap:6px;padding:16px 24px 10px;border:1px solid var(--line);border-radius:0;background:var(--panel);box-shadow:none;backdrop-filter:none}
+.conversation{
+  --window-gap:20px;
+  --window-min-height:164px;
+  --window-bottom:max(var(--window-gap),env(safe-area-inset-bottom));
+  --window-top:max(var(--window-gap),env(safe-area-inset-top));
+  --window-max-height:calc(var(--visible-height,100dvh) - var(--window-bottom) - var(--window-top));
+  position:absolute;z-index:10;left:50%;
+  bottom:calc(var(--keyboard-inset,0px) + var(--window-bottom));
+  transform:translateX(-50%);width:min(1120px,calc(100% - 64px));
+  min-height:min(var(--window-min-height),var(--window-max-height));
+  max-height:var(--window-max-height);overflow:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;gap:6px;padding:16px 24px 10px;
+  border:1px solid var(--line);border-radius:0;background:var(--panel);box-shadow:none;backdrop-filter:none
+}
 .speaker{flex:none;font-size:16px;line-height:1.6;font-weight:400;letter-spacing:.06em}
 .speaker:empty{display:none}
 .conversation-log{flex:1 1 auto;min-height:48px;max-height:48dvh;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
@@ -53,7 +67,7 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 .sound-toggle .sound-off{display:none}
 .sound-toggle[data-muted="true"] .sound-waves{display:none}
 .sound-toggle[data-muted="true"] .sound-off{display:block}
-.composer{flex:1 1 auto;margin:0;min-height:0}
+.composer{flex:none;margin:0;min-height:0}
 .composer textarea{display:block;width:100%;min-width:0;min-height:72px;max-height:35dvh;resize:none;padding:0 0 8px;border:0;border-bottom:1px solid rgba(223,207,181,.3);border-radius:0;background:transparent;color:var(--ink);font:400 19px/1.8 var(--mincho);outline:none}
 .composer textarea::placeholder{color:var(--muted);opacity:.65}
 .composer textarea:focus{border-bottom-color:var(--muted)}
@@ -89,7 +103,7 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 @keyframes weapon-recoil{40%{translate:0 16px}100%{translate:0 0}}
 @keyframes shot-light{0%{opacity:0}22%{opacity:.7}100%{opacity:0}}
 @media(max-width:650px){
-  .conversation{left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));transform:none;width:auto;min-height:146px;max-height:calc(100dvh - 32px);padding:12px 14px 6px;gap:6px}
+  .conversation{--window-gap:16px;--window-min-height:146px;left:12px;right:12px;transform:none;width:auto;padding:12px 14px 6px;gap:6px}
   .speaker{font-size:14px}
   .message{font-size:18px;line-height:1.8}
   .message.greeting{font-size:16px}

@@ -2,6 +2,7 @@ import { API_ENDPOINT, LIVE_TIMEOUT_MS, STATUS_ENDPOINT } from './api-config.js'
 import { track } from './analytics.js';
 import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261018novel';
 import { createSoundDesign } from './sound.js?v=20261018direction';
+import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 
 const $ = (id) => document.getElementById(id);
 const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, key:false, ray:false, cleared:false, busy:false, generation:0, requestController:null };
@@ -86,17 +87,25 @@ function updateComposer(){
   refs.form.dataset.mode=theory?'theory':'question';
 }
 function restoreSpeaker(){ const latest=[...refs.log.children].filter(message=>!message.hidden).at(-1); refs.speaker.textContent=latest?.className.includes('lion')?'本ライオン':latest?.className.includes('player')?'あなた':''; }
-function openComposer(mode){
+function focusComposer(event){
+  // Touch users choose when to open the soft keyboard by tapping the textarea.
+  // Keyboard activation (detail === 0) still moves focus into the editor.
+  // Safari may label a tap "mouse", even with a trackpad as the primary pointer.
+  const touch=event?.pointerType==='touch'||event?.pointerType==='pen'||
+    window.matchMedia?.('(any-pointer: coarse)').matches;
+  if(!touch||event?.detail===0)refs.input.focus({preventScroll:true});
+}
+function openComposer(mode,event){
   if(state.phase!=='question'||state.busy)return;
   if(state.composerOpen)state.drafts[state.questionMode]=refs.input.value;
   state.questionMode=mode; state.composerOpen=true;
   refs.input.value=state.drafts[mode]; refs.speaker.textContent='あなた';
-  setNote(''); updateComposer(); refs.input.focus();
+  setNote(''); updateComposer(); focusComposer(event);
 }
 function closeComposer(){
   if(state.busy)return;
   state.drafts[state.questionMode]=refs.input.value; state.composerOpen=false;
-  restoreSpeaker(); setNote(''); updateComposer(); refs.input.blur?.(); refs.ask.focus();
+  restoreSpeaker(); setNote(''); updateComposer(); refs.input.blur?.(); refs.ask.focus({preventScroll:true});
 }
 function greetLion(){
   if(state.busy||(state.phase!=='intro'&&state.phase!=='question'))return;
@@ -133,6 +142,7 @@ async function submitQuestion(event) {
   if(state.phase!=='question'||state.busy)return;
   const question=refs.input.value.trim();
   if(!question)return;
+  refs.input.blur?.();
   state.busy=true;
   refs.input.disabled=true;
   refs.send.disabled=true;
@@ -189,7 +199,7 @@ async function submitQuestion(event) {
     refs.theoryToggle.disabled=false;
     refs.form.removeAttribute('aria-busy');
     updateComposer();
-    if(state.phase==='question'&&state.composerOpen)refs.input.focus();
+    if(state.phase==='question'&&state.composerOpen)focusComposer();
     else refs.input.blur?.();
   }
 }
@@ -246,8 +256,8 @@ async function burnBug(){
 }
 function reset(){ invalidatePending(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,{phase:'start',questionMode:'question',composerOpen:false,drafts:{question:'',final_theory:''},turns:[],knownInsights:[],questionCount:0,reasoningStage:0,key:false,ray:false,cleared:false,busy:false,generation:state.generation,requestController:null}); showStart(); }
 refs.startButton?.addEventListener('click',beginGame); refs.form.addEventListener('submit',submitQuestion); refs.lion?.addEventListener('click',greetLion);
-refs.ask.addEventListener('click',()=>openComposer('question'));
-refs.theoryToggle.addEventListener('click',()=>openComposer('final_theory'));
+refs.ask.addEventListener('click',event=>openComposer('question',event));
+refs.theoryToggle.addEventListener('click',event=>openComposer('final_theory',event));
 refs.cancel.addEventListener('click',closeComposer);
 window.addEventListener('hon-lion-scene-warning',(event)=>{ if(state.phase!=='clear'&&event.detail?.message)setNote(event.detail.message); });
 $('sound-toggle').addEventListener('click',()=>sound.toggle());
@@ -255,6 +265,7 @@ document.addEventListener('visibilitychange',()=>sound.visibility(document.hidde
 window.addEventListener('pagehide',()=>{invalidatePending();sound.stop();});
 window.addEventListener('pageshow',event=>{if(event.persisted)reset();});
 window.addEventListener('resize',()=>{if(state.phase==='bug')aimWeapon();});
+connectVisualViewport(refs.app);
 refs.input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!state.busy)refs.form.requestSubmit();}});
 async function checkConnection() {
   const note=$('connection-note');

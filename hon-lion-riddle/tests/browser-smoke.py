@@ -278,10 +278,115 @@ async def viewports(browser, static_url):
         assert await page.locator("#question-input").is_visible()
         await page.close()
 
-async def main(static_url, worker_url=None, intro_only=False):
+async def mobile_keyboard(browser, static_url):
+    # Desktop browser emulation cannot open a native soft keyboard. Model its
+    # visual-viewport resize/pan separately from the unchanged layout viewport.
+    for width, height, visible_height in ((390,844,460),(390,590,300),(844,390,230)):
+        page = await browser.new_page(viewport={"width":width,"height":height}, is_mobile=True, has_touch=True, reduced_motion="reduce")
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        await page.add_init_script("""(() => {
+            const viewport = new EventTarget();
+            Object.assign(viewport, {width:innerWidth,height:innerHeight,offsetTop:0,offsetLeft:0,scale:1});
+            Object.defineProperty(window, 'visualViewport', {value:viewport});
+            window.setKeyboardViewport = (height, offsetTop=0, scale=1) => {
+                Object.assign(viewport, {height,offsetTop,scale});
+                viewport.dispatchEvent(new Event('resize'));
+                viewport.dispatchEvent(new Event('scroll'));
+            };
+        })()""")
+        await page.route("**/api/hon-lion/status", lambda route: route.fulfill(json={"configured":True}))
+        await page.route("**/api/hon-lion/chat", lambda route: route.fulfill(json={
+            "outcome":{"choice":"NO","confidence":1,"reasoning_progress":"NONE"},"keyIssued":False
+        }))
+        await page.goto(static_url, wait_until="domcontentloaded")
+        await page.evaluate("setKeyboardViewport(innerHeight)")
+        assert await page.title() == "水平思考ゲーム"
+        await page.get_by_role("button", name="はじめる").tap()
+        await page.get_by_role("button", name="次へ").tap()
+        baseline = await page.locator("#scene-poster").bounding_box()
+        for button in ("#ask-toggle", "#theory-toggle", "#ask-toggle"):
+            await page.locator(button).tap()
+            assert await page.locator("#question-form").is_visible()
+            assert await page.evaluate("document.activeElement.id !== 'question-input'")
+            await page.locator("#question-input").tap()
+            await page.locator("#question-input").fill("入力中の文章を残します。")
+            for offset in (0,70,25):
+                await page.evaluate("([height,offset]) => setKeyboardViewport(height,offset)", [visible_height,offset])
+                await page.wait_for_timeout(50)
+                geometry = await page.evaluate("""() => {
+                    const rect = id => document.getElementById(id).getBoundingClientRect();
+                    return {top:rect('scene-poster').top-visualViewport.offsetTop,
+                        height:rect('scene-poster').height, width:rect('scene-poster').width,
+                        inputTop:rect('question-input').top, inputBottom:rect('question-input').bottom,
+                        sendBottom:rect('question-send').bottom, topLimit:visualViewport.offsetTop,
+                        bottomLimit:visualViewport.offsetTop+visualViewport.height,
+                        scrollY, overflow:document.documentElement.scrollWidth>innerWidth};
+                }""")
+                assert abs(geometry["top"]-baseline["y"]) < 1, geometry
+                assert abs(geometry["height"]-baseline["height"]) < 1, geometry
+                assert abs(geometry["width"]-baseline["width"]) < 1, geometry
+                assert geometry["inputTop"] >= geometry["topLimit"], geometry
+                assert geometry["inputBottom"] <= geometry["bottomLimit"], geometry
+                assert geometry["sendBottom"] <= geometry["bottomLimit"], geometry
+                assert geometry["scrollY"] == 0 and not geometry["overflow"], geometry
+            await page.locator("#composer-cancel").tap()
+            await page.evaluate("setKeyboardViewport(innerHeight)")
+            await page.wait_for_timeout(50)
+            assert await page.locator("#question-form").is_hidden()
+            assert await page.evaluate("document.activeElement.id !== 'question-input'")
+            assert await page.locator("#scene-poster").bounding_box() == baseline
+        # A response restores reading mode; a failed request keeps the draft
+        # without reopening the keyboard or moving focus back into the textarea.
+        await page.locator("#ask-toggle").tap()
+        await page.locator("#question-send").tap()
+        await page.locator(".message.lion:not([hidden])").wait_for(state="visible")
+        assert await page.locator("#question-form").is_hidden()
+        await page.unroute("**/api/hon-lion/chat")
+        await page.route("**/api/hon-lion/chat", lambda route: route.fulfill(status=503, json={"error":"live_unavailable"}))
+        await page.locator("#theory-toggle").tap()
+        await page.locator("#question-send").tap()
+        await page.wait_for_function("document.querySelector('#system-note').textContent.includes('設定されていません')")
+        assert await page.locator("#question-input").input_value() == "入力中の文章を残します。"
+        assert await page.evaluate("document.activeElement.id !== 'question-input'")
+        await page.locator("#question-input").tap()
+        await page.evaluate("(height) => setKeyboardViewport(height)", visible_height)
+        await page.wait_for_timeout(50)
+        assert await page.evaluate("""() => {
+            const input = document.querySelector('#question-input').getBoundingClientRect();
+            const note = document.querySelector('#system-note').getBoundingClientRect();
+            return input.bottom <= note.top;
+        }"""), "the textarea must not overlap the error message on short screens"
+        await page.locator("#conversation").evaluate("el => { el.scrollTop = el.scrollHeight; }")
+        assert await page.evaluate("document.querySelector('#question-send').getBoundingClientRect().bottom <= visualViewport.height")
+        await page.evaluate("setKeyboardViewport(innerHeight)")
+        # Pinch zoom must not be treated as keyboard occlusion.
+        await page.evaluate("setKeyboardViewport(innerHeight/2,40,2)")
+        await page.wait_for_timeout(50)
+        assert await page.locator("#scene-poster").bounding_box() == baseline
+        await page.evaluate("setKeyboardViewport(innerHeight)")
+        await page.locator("#composer-cancel").tap()
+        await page.set_viewport_size({"width":height,"height":width})
+        await page.evaluate("setKeyboardViewport(innerHeight)")
+        await page.wait_for_timeout(50)
+        assert await page.evaluate("document.querySelector('#app').getBoundingClientRect().height === innerHeight")
+        # Keyboard navigation remains available even on a touch-capable device.
+        await page.locator("#ask-toggle").focus()
+        await page.keyboard.press("Enter")
+        assert await page.evaluate("document.activeElement.id === 'question-input'")
+        await page.screenshot(path=str(QA / f"keyboard-{width}x{height}.png"))
+        assert not errors, errors
+        await page.close()
+    print("keyboard smoke PASS: touch focus, resize/pan, drafts, send/error, zoom, rotation, keyboard navigation", flush=True)
+
+async def main(static_url, worker_url=None, intro_only=False, keyboard_only=False, browser_name="chromium", executable_path=None):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=True, executable_path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args=[])
+        browser = await getattr(playwright, browser_name).launch(headless=True, executable_path=executable_path)
         errors=[]; console_errors=[]; requests=[]
+        if keyboard_only:
+            await mobile_keyboard(browser, static_url)
+            await browser.close()
+            return
         if intro_only:
             await intro_greeting(browser, static_url)
             await browser.close()
@@ -300,6 +405,7 @@ async def main(static_url, worker_url=None, intro_only=False):
         page = await browser.new_page(viewport={"width":1280,"height":720})
         await guarded_synthesis(page, static_url)
         await viewports(browser, static_url)
+        await mobile_keyboard(browser, static_url)
         await mobile_rewards(browser, static_url)
         if worker_url: await missing_key(page, worker_url)
         assert not errors, errors
@@ -311,4 +417,12 @@ async def main(static_url, worker_url=None, intro_only=False):
         print("browser smoke PASS: conversation, rewards, guarded gate, clear, missing-key, 4 viewports", flush=True)
 
 if __name__ == "__main__":
-    parser=argparse.ArgumentParser(); parser.add_argument("--url",default="http://127.0.0.1:4174/"); parser.add_argument("--worker-url"); parser.add_argument("--intro-only",action="store_true"); args=parser.parse_args(); asyncio.run(main(args.url,args.worker_url,args.intro_only))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", default="http://127.0.0.1:4174/")
+    parser.add_argument("--worker-url")
+    parser.add_argument("--intro-only", action="store_true")
+    parser.add_argument("--keyboard-only", action="store_true")
+    parser.add_argument("--browser", choices=("chromium", "webkit"), default="chromium")
+    parser.add_argument("--executable-path", help="Optional path to an existing browser binary")
+    args = parser.parse_args()
+    asyncio.run(main(args.url, args.worker_url, args.intro_only, args.keyboard_only, args.browser, args.executable_path))

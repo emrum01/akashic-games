@@ -20,6 +20,7 @@ class Element {
   scrollTo({top}){this.scrollTop=top;}
   scrollIntoView(){}
   focus(){this.focused=true;}
+  blur(){this.focused=false;}
   remove(){if(this.parent)this.parent.children=this.parent.children.filter(node=>node!==this);this.parent=null;}
   querySelector(selector){return this.children.find(node=>node.className.split(' ').includes(selector.slice(1)))||null;}
 }
@@ -35,6 +36,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
     setTimeout:(fn)=>setTimeout(fn,5),clearTimeout,
     OPENING,AUDIBLE_CLUE,LION_GREETING,CLUES,LION_REPLIES,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
     createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
+    connectVisualViewport:()=>{},
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
     window:{location:{search:demo?'?demo=1':''},addEventListener:(name,handler)=>{events[name]=handler;},__HON_LION_SCENE_RUNTIME__:{reset:()=>Promise.resolve({}),setStage:(stage,scene)=>{calls.push({stage,scene});return scene==='entrance'&&arrival?arrival:scene==='bug'&&opening?opening:Promise.resolve({fallback:false});}}},
     fetch:(url,options)=>url==='/api/hon-lion/status'?(status?status():Promise.resolve({ok:true,json:async()=>({configured})})):chat(url,options),
@@ -46,6 +48,37 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+test('touch opens either composer without focus, including Safari taps with a primary mouse or trackpad',()=>{
+  const x=setup();
+  x.context.window.matchMedia=query=>({matches:query==='(any-pointer: coarse)'});
+  x.context.beginGame();x.context.setQuestionFlow();
+  for(const mode of ['question','final_theory']){
+    for(const pointerType of ['touch','mouse']){
+      x.get('question-input').blur();
+      x.context.openComposer(mode,{pointerType,detail:1});
+      assert.equal(x.get('question-form').hidden,false);
+      assert.equal(x.get('question-input').focused,false);
+      x.context.closeComposer();
+    }
+  }
+  x.context.openComposer('question',{pointerType:'',detail:0});
+  assert.equal(x.get('question-input').focused,true,'keyboard activation still focuses the editor');
+});
+
+test('a failed mobile submission preserves the draft without reopening the keyboard',async()=>{
+  const x=setup({chat:async()=>({ok:false,json:async()=>({error:'live_unavailable'})})});
+  x.context.window.matchMedia=()=>({matches:true});
+  x.context.beginGame();x.context.setQuestionFlow();
+  x.context.openComposer('final_theory',{pointerType:'touch',detail:1});
+  x.get('question-input').value='入力中の推理';
+  x.get('question-input').focus();
+  await x.context.submitQuestion({preventDefault(){}});
+  assert.equal(x.get('question-input').focused,false);
+  assert.equal(x.get('question-input').value,'入力中の推理');
+  assert.equal(x.get('question-form').hidden,false);
+  assert.match(x.get('system-note').textContent,/設定されていません/);
+});
 
 test('conversation, correct reasoning, media-gated entry, clear and replay form one game',async()=>{
   let arrive;
