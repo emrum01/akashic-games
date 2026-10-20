@@ -43,7 +43,7 @@ function harness(t, { fetcher, rejectOpus = false, deferEnded = false } = {}) {
     suspend() { this.state = 'suspended'; return Promise.resolve(); }
     decodeAudioData(data) {
       if (rejectOpus && data.includes('.ogg')) return Promise.reject(new Error('unsupported codec'));
-      return Promise.resolve({ duration: data.includes('room-texture') ? 21 : data.includes('presence') ? 1.63 : data.includes('weapon-ready') ? .45 : data.includes('key') ? .67 : data.includes('discharge') ? 1.34 : 2.95, asset: data });
+      return Promise.resolve({ duration: data.includes('room-texture') ? 26 : data.includes('presence') ? 1.63 : data.includes('weapon-ready') ? .45 : data.includes('key') ? .67 : data.includes('discharge') ? 1.34 : 2.95, asset: data });
     }
   }
   globalThis.window = { AudioContext: Context };

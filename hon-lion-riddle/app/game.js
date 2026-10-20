@@ -1,7 +1,7 @@
 import { API_ENDPOINT, LIVE_TIMEOUT_MS, STATUS_ENDPOINT } from './api-config.js';
 import { track } from './analytics.js';
 import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261018novel';
-import { createSoundDesign } from './sound.js?v=20261020crunch3';
+import { createSoundDesign } from './sound.js?v=20261020crunch4';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
 

@@ -2,16 +2,16 @@
 // It stops only when the insect is removed. This texture is the offline fallback.
 // Keep the fallback as dry, intermittent bursts so a failed recording cannot
 // turn the clue into a continuous low rumble.
-export function createPredationTexture(sampleRate = 24_000, seconds = 21) {
+export function createPredationTexture(sampleRate = 24_000, seconds = 26) {
   const samples = new Float32Array(Math.round(sampleRate * seconds));
   let seed = 0x51c0ffee;
   let previous = 0;
   const bursts = [
     [0.38, 0.19], [0.69, 0.11],
-    [4.08, 0.21], [4.43, 0.12],
-    [8.88, 0.2], [9.22, 0.12],
-    [12.08, 0.2], [12.42, 0.11],
-    [16.78, 0.22], [17.14, 0.12],
+    [5.08, 0.21], [5.43, 0.12],
+    [10.88, 0.2], [11.22, 0.12],
+    [15.08, 0.2], [15.42, 0.11],
+    [20.78, 0.22], [21.14, 0.12],
   ];
   let burstIndex = 0;
   for (let i = 0; i < samples.length; i++) {
@@ -58,7 +58,7 @@ export function createSoundDesign(onState = () => {}) {
   const voices = new Set();
   const buffers = new Map();
   const loading = new Map();
-  const revision = '20261020-crunch-2';
+  const revision = '20261020-crunch-4';
   const masterLevel = .65;
   const publish = () => onState({ muted, active, removed, available, running: context?.state === 'running' && active && !muted && !removed });
 

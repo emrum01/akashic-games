@@ -83,13 +83,14 @@ scratch = decode(477710, "atrim=0.17:0.7,highpass=f=900:p=2,lowpass=f=6500,agate
 crunch = decode(816237, "atrim=0.025:0.22,highpass=f=1000:p=2,lowpass=f=6500")
 scratch = fade(normalized(scratch, -22, -7), .006, .035)
 crunch = fade(normalized(crunch, -22, -7), .004, .035)
-# Five differently spaced clusters in 21 seconds; each is at most 0.71 s long.
-texture = mix(21, [
+# Add one second of silence between each cluster, including the loop boundary.
+# Five clusters in 26 seconds; their sound, length and relative levels stay intact.
+texture = mix(26, [
     (scratch, .4, .9), (crunch, .96, .6),
-    (crunch, 4.1, .85), (crunch, 4.39, .6),
-    (scratch, 8.9, .8),
-    (crunch, 12.1, .7), (crunch, 12.35, .9), (crunch, 12.61, .55),
-    (scratch, 16.8, .85), (crunch, 17.35, .65),
+    (crunch, 5.1, .85), (crunch, 5.39, .6),
+    (scratch, 10.9, .8),
+    (crunch, 15.1, .7), (crunch, 15.35, .9), (crunch, 15.61, .55),
+    (scratch, 20.8, .85), (crunch, 21.35, .65),
 ])
 key = decode(650513, "atrim=0.08:0.75,highpass=f=500,lowpass=f=8000")
 weapon = decode(182252, "atrim=0.06:0.45,highpass=f=220,lowpass=f=7500,apad=pad_dur=0.06")
@@ -105,7 +106,8 @@ burst = decode(539972, "atrim=0:0.21,highpass=f=900,lowpass=f=7500")
 shot = mix(1.34, [(normalized(plasma, -16, -3), 0, 1),
                   (normalized(burst, -20, -5), .015, .45)])
 report = [
-    render("room-texture", texture, -29, -7, loop=True),
+    # Account for the added silence so RMS normalization does not boost the bursts.
+    render("room-texture", texture, -29 - 10 * math.log10(26 / 21), -7, loop=True),
     render("key", key, -19, -4),
     render("weapon-ready", weapon, -18, -4),
     render("door", door, -24, -7),
