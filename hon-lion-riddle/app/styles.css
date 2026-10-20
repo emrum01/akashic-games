@@ -20,9 +20,12 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 .scene-background.video-playing #scene-poster{opacity:0}
 .scene-background.video-playing #scene-video{opacity:1}
 .scene-scrim{background:transparent}
-.character-wrap{appearance:none;border:0;padding:0;margin:0;background:transparent;position:absolute;z-index:3;left:5vw;bottom:55dvh;width:min(32vw,360px);height:36dvh;display:grid;place-items:end center;transition:opacity .32s ease,transform .32s ease}
-.character-wrap img{display:block;pointer-events:none;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 20px 28px rgba(0,0,0,.52));animation:lion-breathe 5s ease-in-out infinite}
-.app[data-scene="entrance"] .character-wrap{opacity:.7;transform:translateX(-3vw) scale(.9)}
+.character-wrap{appearance:none;border:0;padding:0;margin:0;background:transparent;position:absolute;z-index:3;left:50%;top:calc((100dvh - 184px)/2);width:min(36vw,380px,55dvh);aspect-ratio:1;display:block;transform:translate(-50%,-50%);transition:opacity .32s ease,transform .32s ease}
+.character-wrap img{display:block;pointer-events:none;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 20px 28px rgba(0,0,0,.52))}
+.app[data-scene="entrance"] .character-wrap{opacity:.7;transform:translate(-50%,-50%) scale(.9)}
+.character-wrap[data-reaction="yes"] img{animation:lion-yes var(--lion-reaction-duration) ease-in-out both}
+.character-wrap[data-reaction="no"] img{animation:lion-no var(--lion-reaction-duration) ease-in-out both}
+.character-wrap[data-reaction="irrelevant"] img{animation:lion-irrelevant var(--lion-reaction-duration) ease-in-out both}
 
 /* Quiet start: the room and a single action. */
 .start-screen{position:absolute;z-index:20;left:50%;bottom:clamp(64px,16dvh,140px);transform:translateX(-50%);width:min(440px,calc(100% - 40px));text-align:center}
@@ -97,7 +100,9 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 .app[data-phase="clear"] .window-footer{justify-content:center}
 .app[data-phase="clear"] .window-footer button{color:#49331f}
 @keyframes message-arrive{from{opacity:0}to{opacity:1}}
-@keyframes lion-breathe{0%,100%{translate:0 0}50%{translate:0 -3px}}
+@keyframes lion-yes{0%,100%{translate:0 0}45%{translate:0 2px}}
+@keyframes lion-no{0%,100%{translate:0 0;rotate:0deg}30%{translate:-3px 0;rotate:-2.5deg}65%{translate:3px 0;rotate:2.5deg}}
+@keyframes lion-irrelevant{0%,100%{rotate:0deg}35%,65%{rotate:2deg}}
 @keyframes insect-stir{0%,100%{translate:0 0}48%{translate:2px -2px}}
 @keyframes insect-burn{0%{opacity:1;filter:brightness(1.2)}45%{opacity:1;filter:brightness(2)}100%{opacity:0;filter:brightness(.2);scale:.65}}
 @keyframes weapon-recoil{40%{translate:0 16px}100%{translate:0 0}}
@@ -119,18 +124,16 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
   .message.media:has(.raygun){grid-template-columns:96px minmax(0,1fr)}
   .message.media img.raygun{width:96px;height:70px}
   .message.media strong{font-size:16px}
-  .character-wrap{left:4vw;bottom:47dvh;width:54vw;height:29dvh}
-  .app[data-scene="entrance"] .character-wrap{opacity:.4;transform:scale(.82)}
+  .character-wrap{top:calc((100dvh - 180px)/2);width:min(72vw,300px,52dvh)}
+  .app[data-scene="entrance"] .character-wrap{opacity:.4;transform:translate(-50%,-50%) scale(.82)}
   .bug-mark{top:26%;left:52%;width:48vw;max-width:220px}
   .held-raygun{width:190vw;max-width:none}
   .app[data-phase="clear"] .conversation{left:20px;right:20px;transform:translateY(-50%);width:auto}
 }
 @media(max-height:620px){
   .conversation-log{max-height:38dvh}
-  .character-wrap{height:27dvh;bottom:49dvh}
   .app[data-phase="clear"] .conversation{padding:16px}
 }
-@media(max-width:650px) and (max-height:620px){.character-wrap{top:70px;bottom:auto;height:22dvh;width:min(45vw,200px)}}
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   .beam{opacity:0}

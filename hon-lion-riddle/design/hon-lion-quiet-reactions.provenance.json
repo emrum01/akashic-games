@@ -1,0 +1,33 @@
+{
+  "tool": "built-in image_gen",
+  "created_at": "2026-10-20",
+  "prompts": {
+    "NO": "Use case: identity-preserve. Edit target: the supplied Hon Lion game sprite. Change ONLY the eyes to gently CLOSED EYES: remove the round open eye outlines and replace each with a short, near-horizontal, very shallow downward-curved eyelid line, relaxed and neutral, NOT happy upward arches. Keep the same neutral muzzle, nose, book head, two page lines on each side, both paws holding the red apple, seated body, feet, tail, bold black linework, warm ivory and tan colors, square framing, scale and transparent margins EXACTLY as the reference. The character is quietly saying no, emotionally restrained. Head remains level in this image; a small head shake is added by game code. No smile, frown, eyebrows, blush, expressive gestures, shrug, raised paw, animation marks, added props, lettering or background. One full-body sprite with real alpha transparency. Preserve the reference character rather than redrawing or embellishing it.",
+    "IRRELEVANT": "Use case: identity-preserve. Edit target: supplied Hon Lion game sprite. Change ONLY the eyes into a quiet EMPTY DEADPAN gaze (Japanese 虚無顔): two symmetrical half-lidded eyes with completely level upper lids and tiny centered plain dark pupils barely visible underneath, no eye highlights. Face reads blank and emotionally absent, not annoyed, suspicious, confused or smug. Keep the existing neutral muzzle and nose. Head stays level in this still image; game code will tilt it very slightly. Preserve open-book head, two page lines on each side, both paws holding the red apple, seated body and feet, tail, bold black outline, warm ivory/tan texture, exact square framing, character scale and transparent margins. Only a tiny eye change. NO raised paw, shrug, side-eye, asymmetrical eyelids, eyebrow, smile, frown, blush, sparkles, symbols, text or added props. No background or floor. One full-body transparent sprite with real alpha. Understated, still, unreadable, no theatrical expression."
+  },
+  "reference": "app/assets/characters/hon-lion-dialogue.png",
+  "direction": "いいえは目を閉じて首を振る、関係ないは虚無顔でくびをかしげる。全体の表情と動きを抑える。",
+  "transparent_background": true,
+  "assets": [
+    {
+      "reaction": "NO",
+      "path": "app/assets/characters/hon-lion-no-quiet.png",
+      "generated_source": "/Users/hirokiiwakubo/.codex/generated_images/01a1578f-cdd2-7720-beb6-560975a54fe9/exec-96a61fbe-eec9-48f6-8ec3-680ab11a0f90.png",
+      "sha256": "7b984f4248b726ab7d6361c12db2838c6f89ceafd26900d8c7043447d3dc84e6"
+    },
+    {
+      "reaction": "IRRELEVANT",
+      "path": "design/retired-reaction-assets/hon-lion-irrelevant-quiet.png",
+      "generated_source": "/Users/hirokiiwakubo/.codex/generated_images/01a1578f-cdd2-7720-beb6-560975a54fe9/exec-9f0d55b3-bbe5-471e-ac13-700d969a102e.png",
+      "sha256": "9719186da139e97e468b544ad7182699e1d6e676c0ad02582143772ad9d329e4"
+    }
+  ],
+  "runtime": {
+    "YES": "Original face, one 2px nod, 600ms",
+    "NO": "Closed eyes, one ±1.2deg shake, 900ms",
+    "IRRELEVANT": "Deadpan face, one 2deg tilt, 900ms",
+    "idle": "Still"
+  },
+  "status": "Previous selection; the unused quiet IRRELEVANT variant is archived under design/retired-reaction-assets. Closed-eye NO is reused in the approved round-eye selection.",
+  "superseded_by": "hon-lion-round-reactions.provenance.json"
+}

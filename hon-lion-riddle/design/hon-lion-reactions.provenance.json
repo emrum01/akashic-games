@@ -1,0 +1,54 @@
+{
+  "created_at": "2026-10-20",
+  "tool": "built-in image_gen",
+  "reference": "app/assets/characters/hon-lion-dialogue.png",
+  "transparent_background": true,
+  "purpose": "本ライオンの「はい」「いいえ」「関係ない」の返答アニメーション",
+  "assets": [
+    {
+      "path": "app/assets/characters/hon-lion-yes.png",
+      "sha256": "6a98901dd4df36b56247a8e95f43fdc9f40b66152b3b30f7c93ee294077738e0",
+      "prompt": "Use case: identity-preserve. Asset type: transparent 2D game character reaction sprite. Input image 1 is the identity and art-style reference: the existing Hon Lion mascot, an ivory open-book head with thick black outline and two black page lines per side, tan seated cub body, dark nose, red apple, black tail tuft. Preserve exactly this character design, warm paper texture, bold hand-drawn black strokes, limb count, seated front-facing pose, proportions and colors. One full-body mascot only, square canvas, absolutely transparent background with real alpha, no text/symbols/lettering, no shadow or ground. Match reference framing and size: book spans about 90% of canvas width, top of book around 22% canvas height, seated feet at about 82%, body centered horizontally. Keep large clear transparent margins matching reference; do not zoom, crop, rotate whole image, redesign book or create multiple characters. Primary change: YES reaction: eyes closed in gently happy upward crescents, small warm contented smile. Book head slightly lowered as if affirmatively nodding; still holding red apple with both paws against chest. Friendly calm approval, no exaggerated expression."
+    },
+    {
+      "path": "design/retired-reaction-assets/hon-lion-no.png",
+      "sha256": "140045c4c23ee3446f65b53b1e6cd35044f5f1a39a9734cc7743d966dd9ba1ab",
+      "prompt": "Use case: identity-preserve. Asset type: production-ready transparent full-body 2D reaction sprite for the existing Hon Lion lateral-thinking mystery game. Input image 1 is the EXACT character identity reference, not an emotional style suggestion. Keep the open ivory book head, two black page lines on each wing, tan seated body, black nose, red apple held against the torso with BOTH paws, black tail tuft, wide seated feet, thick hand-drawn black contour and lightly textured warm paper colors. Same centered square-canvas scale and composition as reference: book covers ~90% canvas width, book top near 22% canvas height, feet near 82%; transparent margins preserved. Real alpha transparency, no background, no floor, no added objects, no text. Direction requested by the user: much less ingratiating, less eager-to-please, inscrutable. This is a quiet autonomous creature whose inner thoughts remain unknown. The reply is a dry matter-of-fact observation, never encouragement, apology or comic puzzlement. Face is still and neutral, mouth a tiny level mark or hidden behind apple, eyes narrow and heavy-lidded with restrained small dark pupils, no eye sparkles. The visual ambiguity comes from the gaze and eyelids, not scary styling. No smiling or happy crescent eyes, no cute eager wide eyes, no raised worried eyebrows, no blush, no shrug or waving, no large gestures, no menacing grin, no angry expression, no horror changes. Keep all body anatomy and both paws on the apple unchanged. Only subtle eye/head adjustment. NO / いいえ: book head held level, symmetrical heavy upper eyelids, small pupils shifted a little to the side as if briefly looking through the listener. Very small head turn, no worried eyebrows and no pout. Neutral flat mouth. Calm unreadable certainty, not hostility or sadness.",
+      "generated_source": "exec-0a3ae66b-079b-4c8f-aeab-35850f7145cf.png",
+      "reference_revision": "Original dialogue sprite"
+    },
+    {
+      "path": "design/retired-reaction-assets/hon-lion-irrelevant.png",
+      "sha256": "b03089b48ea3cf9ef9db77cf79419fd9642cff2fac5888050ef2cc447b479da3",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied original 'not relevant' Hon Lion sprite. Make a VERY SMALL refinement, preserving about 90-95% of the original expression and pose. The user LIKES THIS FIRST VERSION and wants it only a little calmer and less ingratiating. Keep the friendly, cute, mildly curious feeling and the same palm-up raised paw; the other paw still holds the red apple. Keep the open-book head, head/body proportions, feet, tail, thick hand-drawn black lines, ivory/tan lightly textured colors, exact full-body square framing, size and transparent margins. Change only these subtle details: lower the upper eyelids just a little (about 10-15% coverage, eyes still mostly open and round), reduce the pupil highlights slightly, and reduce the existing head tilt by about one quarter while keeping a small tilt. The raised paw stays at almost exactly the same position and shape. Preserve the ordinary neutral muzzle and the short bridge mark between the eyes. Keep it recognizably the original cute shrug, now a little more relaxed and matter-of-fact. DO NOT turn it into a deadpan half-lidded face, bored face, suspicious sideways stare, expressionless face, smug or sinister face. Do not add a grin, extra mouth, eyebrows, blush, text, sparkles, decorations or props. Do not change the body or remove the raised hand. One transparent full-body game sprite, real alpha transparency, no background or ground. This is a delicate adjustment of the supplied original, not a new design.",
+      "generated_source": "exec-7f3a955e-22d2-4d91-96de-fb8ac4d06c2c.png",
+      "reference_revision": "Initial IRRELEVANT sprite, SHA256 de5ebf587c45fc30ec9080595710b7a6a8fc9edbb0a8aabf29d592caca02967d"
+    }
+  ],
+  "initial_assets": [
+    {
+      "path": "app/assets/characters/hon-lion-yes.png",
+      "sha256": "6a98901dd4df36b56247a8e95f43fdc9f40b66152b3b30f7c93ee294077738e0",
+      "prompt": "Use case: identity-preserve. Asset type: transparent 2D game character reaction sprite. Input image 1 is the identity and art-style reference: the existing Hon Lion mascot, an ivory open-book head with thick black outline and two black page lines per side, tan seated cub body, dark nose, red apple, black tail tuft. Preserve exactly this character design, warm paper texture, bold hand-drawn black strokes, limb count, seated front-facing pose, proportions and colors. One full-body mascot only, square canvas, absolutely transparent background with real alpha, no text/symbols/lettering, no shadow or ground. Match reference framing and size: book spans about 90% of canvas width, top of book around 22% canvas height, seated feet at about 82%, body centered horizontally. Keep large clear transparent margins matching reference; do not zoom, crop, rotate whole image, redesign book or create multiple characters. Primary change: YES reaction: eyes closed in gently happy upward crescents, small warm contented smile. Book head slightly lowered as if affirmatively nodding; still holding red apple with both paws against chest. Friendly calm approval, no exaggerated expression."
+    },
+    {
+      "path": "design/retired-reaction-assets/hon-lion-no.png",
+      "sha256": "6a85f293d36685e660f9bc19404af1513b80d613cff876dacf647765b66b91bb",
+      "prompt": "Use case: identity-preserve. Asset type: transparent 2D game character reaction sprite. Input image 1 is the identity and art-style reference: the existing Hon Lion mascot, an ivory open-book head with thick black outline and two black page lines per side, tan seated cub body, dark nose, red apple, black tail tuft. Preserve exactly this character design, warm paper texture, bold hand-drawn black strokes, limb count, seated front-facing pose, proportions and colors. One full-body mascot only, square canvas, absolutely transparent background with real alpha, no text/symbols/lettering, no shadow or ground. Match reference framing and size: book spans about 90% of canvas width, top of book around 22% canvas height, seated feet at about 82%, body centered horizontally. Keep large clear transparent margins matching reference; do not zoom, crop, rotate whole image, redesign book or create multiple characters. Primary change: NO reaction: eyes gently open looking slightly to one side, small closed neutral mouth and subtly concerned brows; book head turned only a few degrees to the side as if beginning a gentle no gesture. Both paws still hold same red apple. Kind disagreement, not angry or sad."
+    },
+    {
+      "path": "design/retired-reaction-assets/hon-lion-irrelevant.png",
+      "sha256": "de5ebf587c45fc30ec9080595710b7a6a8fc9edbb0a8aabf29d592caca02967d",
+      "prompt": "Use case: identity-preserve. Asset type: transparent 2D game character reaction sprite. Input image 1 is the identity and art-style reference: the existing Hon Lion mascot, an ivory open-book head with thick black outline and two black page lines per side, tan seated cub body, dark nose, red apple, black tail tuft. Preserve exactly this character design, warm paper texture, bold hand-drawn black strokes, limb count, seated front-facing pose, proportions and colors. One full-body mascot only, square canvas, absolutely transparent background with real alpha, no text/symbols/lettering, no shadow or ground. Match reference framing and size: book spans about 90% of canvas width, top of book around 22% canvas height, seated feet at about 82%, body centered horizontally. Keep large clear transparent margins matching reference; do not zoom, crop, rotate whole image, redesign book or create multiple characters. Primary change: IRRELEVANT reaction: curious asymmetrical eyes and a small neutral mouth; book head tilted slightly, one paw lifted palm-up in a tiny shrug while the other securely holds the same red apple. Seated body and feet remain same size and position. Friendly puzzled 'not relevant' expression, not sad."
+    }
+  ],
+  "approved_at": "2026-10-20",
+  "selection": {
+    "YES": "最初の普通に可愛いニコニコ顔",
+    "NO": "半目で何を考えているか読めないv2",
+    "IRRELEVANT": "最初の片手を上げる案をほんの少し落ち着かせたv4"
+  },
+  "approval": "User approved the presented selection: これで！",
+  "status": "Expression variants retained as design history under design/retired-reaction-assets; no longer selected by the game runtime.",
+  "superseded_by": "hon-lion-quiet-reactions.provenance.json"
+}

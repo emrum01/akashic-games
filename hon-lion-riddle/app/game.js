@@ -3,10 +3,12 @@ import { track } from './analytics.js';
 import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261018novel';
 import { createSoundDesign } from './sound.js?v=20261020crunch3';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
+import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
 
 const $ = (id) => document.getElementById(id);
 const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, key:false, ray:false, cleared:false, busy:false, generation:0, requestController:null };
-const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button') };
+const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button'), lionImage:$('lion-character') };
+const LION_IDLE_SRC='./assets/characters/hon-lion-dialogue.png?v=20261020round';
 let greetingMessage = null;
 let revealGeneration = -1;
 const beatTimers = new Map();
@@ -31,7 +33,11 @@ const sound = createSoundDesign(({muted,available,removed,running})=>{
   toggle.setAttribute('aria-pressed',String(muted));
   refs.app.dataset.audio=removed?'silent':running?'playing':muted?'muted':'idle';
 });
-function setPhase(phase){ state.phase=phase; refs.app.dataset.phase=phase; refs.lion.hidden=['start','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase); $('sound-toggle').hidden=phase==='start'||phase==='clear'; }
+const lionReactions=createLionReactions({button:refs.lion,image:refs.lionImage,documentRef:document,idleSrc:LION_IDLE_SRC,setTimeoutFn:setTimeout,clearTimeoutFn:clearTimeout});
+const clearLionReaction=()=>lionReactions.clear();
+const preloadLionReactions=()=>lionReactions.preload();
+const showLionReaction=(choice)=>lionReactions.show(choice);
+function setPhase(phase){ state.phase=phase; refs.app.dataset.phase=phase; const hidden=['start','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase); refs.lion.hidden=hidden; if(hidden)clearLionReaction(); $('sound-toggle').hidden=phase==='start'||phase==='clear'; }
 function beatDelay(ms,generation){ return new Promise(resolve=>{ const timer=setTimeout(()=>{beatTimers.delete(timer);resolve(generation===state.generation);},ms); beatTimers.set(timer,resolve); }); }
 function clearBeat(){ refs.log.replaceChildren(); refs.speaker.textContent=''; setNote(''); }
 
@@ -163,12 +169,13 @@ async function liveJudge(mode, question, controller) {
     throw error;
   } finally { clearTimeout(timer); }
 }
-function invalidatePending(){ state.generation+=1; if(state.requestController){state.requestController.abort();state.requestController=null;} for(const [timer,resolve] of beatTimers){clearTimeout(timer);resolve(false);} beatTimers.clear(); for(const cleanup of mediaCleanups)cleanup(); mediaCleanups.clear(); state.busy=false; refs.input.disabled=false; refs.send.disabled=false; refs.theoryToggle.disabled=false; refs.form.removeAttribute('aria-busy'); }
+function invalidatePending(){ state.generation+=1; clearLionReaction(); if(state.requestController){state.requestController.abort();state.requestController=null;} for(const [timer,resolve] of beatTimers){clearTimeout(timer);resolve(false);} beatTimers.clear(); for(const cleanup of mediaCleanups)cleanup(); mediaCleanups.clear(); state.busy=false; refs.input.disabled=false; refs.send.disabled=false; refs.theoryToggle.disabled=false; refs.form.removeAttribute('aria-busy'); }
 async function submitQuestion(event) {
   event.preventDefault();
   if(state.phase!=='question'||state.busy)return;
   const question=refs.input.value.trim();
   if(!question)return;
+  clearLionReaction();
   refs.input.blur?.();
   state.busy=true;
   refs.input.disabled=true;
@@ -193,6 +200,7 @@ async function submitQuestion(event) {
     if(!current())return;
     const result=await liveJudge(mode,question,controller);
     if(!current())return;
+    showLionReaction(result.choice);
     appendTurn(question,result);
     if(result.knownInsights)state.knownInsights=result.knownInsights.slice(0,4);
     const solvedGate=mode==='final_theory'&&result.choice==='SOLVED'&&result.keyIssued===true;
@@ -294,7 +302,7 @@ async function burnBug(){
   const clear=appendMessage('system','脱出成功'); clear.classList.add('clear-message');
   setActions([{label:'もう一度',primary:true,onClick:reset}]); track('game_clear');
 }
-function reset(){ invalidatePending(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,{phase:'start',questionMode:'question',composerOpen:false,drafts:{question:'',final_theory:''},turns:[],knownInsights:[],questionCount:0,reasoningStage:0,key:false,ray:false,cleared:false,busy:false,generation:state.generation,requestController:null}); showStart(); }
+function reset(){ invalidatePending(); clearLionReaction(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,{phase:'start',questionMode:'question',composerOpen:false,drafts:{question:'',final_theory:''},turns:[],knownInsights:[],questionCount:0,reasoningStage:0,key:false,ray:false,cleared:false,busy:false,generation:state.generation,requestController:null}); showStart(); }
 refs.startButton?.addEventListener('click',beginGame); refs.form.addEventListener('submit',submitQuestion); refs.lion?.addEventListener('click',greetLion);
 refs.ask.addEventListener('click',event=>openComposer('question',event));
 refs.theoryToggle.addEventListener('click',event=>openComposer('final_theory',event));
@@ -311,6 +319,7 @@ window.addEventListener('pageshow',event=>{if(event.persisted)reset();});
 window.addEventListener('resize',()=>{if(state.phase==='bug')aimWeapon();});
 connectVisualViewport(refs.app);
 refs.input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!state.busy)refs.form.requestSubmit();}});
+preloadLionReactions();
 async function checkConnection() {
   const note=$('connection-note');
   try {

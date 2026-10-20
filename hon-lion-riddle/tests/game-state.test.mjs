@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from '../app/dialogue.js';
+import { createLionReactions } from '../app/lion-reactions.js';
 import { mockWorkerResponse } from './server-fixtures.mjs';
 import { createPredationTexture } from '../app/sound.js';
 
@@ -10,6 +11,7 @@ import { createPredationTexture } from '../app/sound.js';
 class Element {
   children=[]; dataset={}; hidden=false; disabled=false; value=''; textContent=''; className=''; attributes={}; handlers={}; parent=null;
   complete=true; naturalWidth=1; scrollHeight=100; scrollTop=0;
+  style={setProperty:(name,value)=>{this[name]=value;},removeProperty:(name)=>{delete this[name];}};
   classList={add:(name)=>{this.className+=' '+name;}};
   get isConnected(){return Boolean(this.parent);}
   append(...nodes){for(const node of nodes){node.parent=this;this.children.push(node);}}
@@ -34,7 +36,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
   const context=vm.createContext({
     console,URLSearchParams,AbortController,AbortSignal,DOMException,TypeError,queueMicrotask,
     setTimeout:(fn)=>setTimeout(fn,5),clearTimeout,
-    OPENING,AUDIBLE_CLUE,LION_GREETING,CLUES,LION_REPLIES,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
+    OPENING,AUDIBLE_CLUE,LION_GREETING,CLUES,LION_REPLIES,createLionReactions,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
     createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','reveal','door','stopDoor','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
     connectVisualViewport:()=>{},
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
@@ -207,6 +209,48 @@ test('unrelated questions keep the three-choice reply without adding automatic h
   assert.equal(x.get('system-note').textContent,'');
   assert.doesNotMatch(x.get('system-note').textContent,/幻覚|脳|捕食/);
   assert.deepEqual(x.get('conversation-log').children.filter(node=>node.className==='message lion').map(node=>node.textContent),['関係ない','関係ない','関係ない']);
+});
+
+test('yes uses the smiling face, replays subtle movements, and returns to rest',async()=>{
+  const x=setup();
+  const lion=x.get('lion-character');
+  x.context.beginGame();x.context.setQuestionFlow();
+  await x.ask('ここは幻覚ですか？');
+  assert.match(lion.src,/hon-lion-yes\.png/);
+  assert.equal(x.get('lion-character-button').attributes['data-reaction'],'yes');
+  await x.ask('ここは幻覚ですか？');
+  assert.match(lion.src,/hon-lion-yes\.png/,'the same answer starts a fresh reaction');
+  await wait(15);
+  assert.match(lion.src,/hon-lion-dialogue\.png/);
+  assert.equal(x.get('lion-character-button').attributes['data-reaction'],undefined);
+});
+
+test('the movement state matches the spoken reply for partial, solved, and clarification results',async()=>{
+  for(const [choice,expected] of [['PARTIAL','yes'],['SOLVED','yes'],['NEEDS_CLARIFICATION','irrelevant']]){
+    const x=setup({chat:async()=>({ok:true,json:async()=>({outcome:{choice,confidence:1,reasoning_progress:choice==='SOLVED'?'SYNTHESIS':'NONE'},keyIssued:choice==='SOLVED'})})});
+    x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+    await x.ask('推理の説明');
+    assert.equal(x.get('conversation-log').children.at(-1).textContent,LION_REPLIES[choice]);
+    assert.equal(x.get('lion-character-button').attributes['data-reaction'],expected);
+    x.context.reset();
+  }
+});
+
+test('an answer reaction is cleared when the character is hidden or the game is reset',async()=>{
+  const x=setup();
+  const lion=x.get('lion-character');
+  x.context.beginGame();x.context.setQuestionFlow();
+  await x.ask('ここは幻覚ですか？');
+  assert.match(lion.src,/hon-lion-yes\.png/);
+  x.context.setPhase('entrance');
+  assert.match(lion.src,/hon-lion-dialogue\.png/);
+  assert.equal(x.get('lion-character-button').attributes['data-reaction'],undefined);
+  x.context.setPhase('question');
+  await x.ask('音の主は人間ですか？');
+  assert.match(lion.src,/hon-lion-no-quiet\.png/);
+  x.context.reset();
+  assert.match(lion.src,/hon-lion-dialogue\.png/);
+  assert.equal(x.get('lion-character-button').attributes['data-reaction'],undefined);
 });
 
 test('Japanese composition and shifted Enter never submit an unfinished theory',()=>{

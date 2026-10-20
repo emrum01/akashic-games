@@ -12,4 +12,10 @@ The walk videos and posters are copied byte-for-byte from `/Users/hirokiiwakubo/
 
 The conversation sprite and key card were generated from the approved Book Lion references and copied without raster editing: `app/assets/characters/hon-lion-dialogue.png` and `app/assets/items/key.png`. RGBA provenance is recorded in [`design/hon-lion-character-art.provenance.json`](design/hon-lion-character-art.provenance.json). The ray weapon has an oversized handgun silhouette, realistic worn metal, and a first-person view pointing away into the room with gloved hands at the grip. Its acquisition and held sprites, generation instructions, hashes and sources are recorded in [`design/raygun-art.provenance.json`](design/raygun-art.provenance.json).
 
+The unselected reaction variants remain byte-for-byte available under [`design/retired-reaction-assets/`](design/retired-reaction-assets/), with their original paths and selection history recorded in the reaction provenance files.
+
 The final door opening uses the same unchanged source GLB, camera pose, lighting and exclusions. Only the original entrance door's 16 leaf/hardware parts rotate around their original hinges. Two 3.1-second clips and two open-door posters were recorded through the in-app browser and encoded to H.264. Their separate manifest and hashes are in `app/assets/video/door-manifest.json` and `design/door-opening.provenance.json`. The existing A→B→C→entry walks and posters are unchanged.
+
+## 本ライオンの返答表情（2026-10-20）
+
+組込み image_gen で作成した `hon-lion-yes.png`（ニコニコ）、`hon-lion-no-quiet.png`（閉じ目）、`hon-lion-irrelevant-round.png`（丸い目・大きめの黒目・狭い目の間隔）を使用します。2026-10-20の「これで」という承認に基づく組み合わせです。透過画像は生成出力からそのままコピーしています。採用画像のSHA-256、生成条件と参照元は `design/hon-lion-round-reactions.provenance.json` に記録しています。以前の表情案は検討履歴として保持しています。
