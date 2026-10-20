@@ -1,6 +1,6 @@
 import { API_ENDPOINT, LIVE_TIMEOUT_MS, STATUS_ENDPOINT } from './api-config.js';
 import { track } from './analytics.js';
-import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261018novel';
+import { PROLOGUE, OPENING, LION_DISCOVERY, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261020asmr1';
 import { createSoundDesign } from './sound.js?v=20261020crunch4';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
@@ -37,7 +37,15 @@ const lionReactions=createLionReactions({button:refs.lion,image:refs.lionImage,d
 const clearLionReaction=()=>lionReactions.clear();
 const preloadLionReactions=()=>lionReactions.preload();
 const showLionReaction=(choice)=>lionReactions.show(choice);
-function setPhase(phase){ state.phase=phase; refs.app.dataset.phase=phase; const hidden=['start','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase); refs.lion.hidden=hidden; if(hidden)clearLionReaction(); $('sound-toggle').hidden=phase==='start'||phase==='clear'; }
+function setPhase(phase){
+  state.phase=phase;
+  refs.app.dataset.phase=phase;
+  const hidden=['start','prologue','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase);
+  refs.lion.hidden=hidden;
+  refs.lion.disabled=phase!=='question';
+  if(hidden)clearLionReaction();
+  $('sound-toggle').hidden=phase==='start'||phase==='clear';
+}
 function beatDelay(ms,generation){ return new Promise(resolve=>{ const timer=setTimeout(()=>{beatTimers.delete(timer);resolve(generation===state.generation);},ms); beatTimers.set(timer,resolve); }); }
 function clearBeat(){ refs.log.replaceChildren(); refs.speaker.textContent=''; setNote(''); }
 
@@ -141,16 +149,55 @@ function closeComposer(){
   restoreSpeaker(); setNote(''); updateComposer(); refs.input.blur?.(); refs.ask.focus({preventScroll:true});
 }
 function greetLion(){
-  if(state.busy||(state.phase!=='intro'&&state.phase!=='question'))return;
+  if(state.busy||state.phase!=='question')return;
   if(state.composerOpen){state.drafts[state.questionMode]=refs.input.value;state.composerOpen=false;updateComposer();}
   hidePreviousMessages(); setNote('');
   if(greetingMessage?.isConnected){greetingMessage.hidden=false;refs.speaker.textContent='本ライオン';scrollLogToEnd();return;}
   greetingMessage=appendMessage('lion',LION_GREETING); greetingMessage.classList.add('greeting');
 }
-function setQuestionFlow(){ setPhase('question'); state.questionMode='question'; state.composerOpen=false; hidePreviousMessages(); appendMessage('narration',AUDIBLE_CLUE); updateComposer(); setActions([]); setNote(''); }
-function showIntro(){ greetingMessage=null; setPhase('intro'); state.questionMode='question'; state.composerOpen=false; state.reasoningStage=0; refs.app.dataset.reasoningStage='0'; state.key=false; state.ray=false; state.cleared=false; setScene('hall'); refs.log.replaceChildren(); refs.speaker.textContent=''; appendMessage('narration',OPENING); setActions([{label:'次へ',primary:true,onClick:setQuestionFlow}]); updateComposer(); setNote(''); }
+function setQuestionFlow(){
+  setPhase('question');
+  state.questionMode='question';
+  state.composerOpen=false;
+  hidePreviousMessages();
+  appendMessage('narration',LION_DISCOVERY);
+  updateComposer();
+  setActions([]);
+  setNote('');
+}
+function showNarrationPage(text,onNext){
+  clearBeat();
+  appendMessage('narration',text);
+  setActions([{label:'次へ',primary:true,onClick:onNext}]);
+  updateComposer();
+  refs.log.scrollTo({top:0,left:0,behavior:'auto'});
+}
+function showPrologue(index=0){
+  setPhase('prologue');
+  const onNext=index+1<PROLOGUE.length?()=>showPrologue(index+1):showIntro;
+  showNarrationPage(PROLOGUE[index],onNext);
+}
+function showIntro(){
+  greetingMessage=null;
+  setPhase('intro');
+  state.questionMode='question';
+  state.composerOpen=false;
+  state.reasoningStage=0;
+  refs.app.dataset.reasoningStage='0';
+  state.key=false;
+  state.ray=false;
+  state.cleared=false;
+  setScene('hall');
+  showNarrationPage(OPENING,setQuestionFlow);
+}
 function showStart(){ greetingMessage=null; setPhase('start'); state.questionMode='question'; state.composerOpen=false; refs.input.value=''; refs.start.hidden=false; refs.conversation.hidden=true; refs.lion.hidden=true; setActions([]); setNote(''); refs.log.replaceChildren(); setScene('hall'); }
-function beginGame(){ sound.start(); refs.start.hidden=true; refs.conversation.hidden=false; showIntro(); }
+function beginGame(){
+  if(state.phase!=='start')return;
+  sound.start();
+  refs.start.hidden=true;
+  refs.conversation.hidden=false;
+  showPrologue();
+}
 function appendTurn(question,result){ state.turns.push({player_message:question,turn_outcome:{choice:result.choice,confidence:result.confidence,reasoning_progress:result.reasoning_progress}}); if(state.turns.length>6)state.turns.shift(); }
 async function liveJudge(mode, question, controller) {
   const timer=setTimeout(()=>controller.abort(),LIVE_TIMEOUT_MS);

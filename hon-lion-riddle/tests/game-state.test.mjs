@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
-import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from '../app/dialogue.js';
+import { PROLOGUE, OPENING, LION_DISCOVERY, LION_GREETING, CLUES, LION_REPLIES } from '../app/dialogue.js';
 import { createLionReactions } from '../app/lion-reactions.js';
 import { mockWorkerResponse } from './server-fixtures.mjs';
 import { createPredationTexture } from '../app/sound.js';
@@ -36,7 +36,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
   const context=vm.createContext({
     console,URLSearchParams,AbortController,AbortSignal,DOMException,TypeError,queueMicrotask,
     setTimeout:(fn)=>setTimeout(fn,5),clearTimeout,
-    OPENING,AUDIBLE_CLUE,LION_GREETING,CLUES,LION_REPLIES,createLionReactions,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
+    PROLOGUE,OPENING,LION_DISCOVERY,LION_GREETING,CLUES,LION_REPLIES,createLionReactions,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
     createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','reveal','door','stopDoor','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
     connectVisualViewport:()=>{},
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
@@ -87,11 +87,28 @@ test('conversation, correct reasoning, media-gated entry, clear and replay form 
   const x=setup({arrival:new Promise(resolve=>{arrive=resolve;})});
   assert.equal(x.state().phase,'start');
   x.context.beginGame();
+  for(const page of PROLOGUE){
+    assert.equal(x.state().phase,'prologue');
+    assert.equal(x.get('lion-character-button').hidden,true,'the lion is not present before the manor');
+    assert.equal(x.get('question-form').hidden,true);
+    assert.equal(x.get('conversation-tools').hidden,true);
+    x.context.greetLion();
+    assert.equal(x.get('conversation-log').children.length,1);
+    assert.equal(x.get('conversation-log').children[0].textContent,page);
+    x.get('conversation-actions').children[0].handlers.click();
+  }
+  assert.equal(x.state().phase,'intro');
+  assert.equal(x.get('lion-character-button').hidden,false);
+  assert.equal(x.get('lion-character-button').disabled,true);
+  assert.deepEqual(x.audio,['start'],'the same audio continues through the scene change');
   assert.equal(x.get('conversation-log').children.at(-1).textContent,OPENING);
   x.context.greetLion();
+  assert.equal(x.get('conversation-log').children.at(-1).textContent,OPENING,'greeting cannot interrupt the intro');
+  x.get('conversation-actions').children[0].handlers.click();
+  assert.equal(x.get('conversation-log').children.at(-1).textContent,LION_DISCOVERY);
+  assert.equal(x.get('lion-character-button').disabled,false);
+  x.context.greetLion();
   assert.equal(x.get('conversation-log').children.at(-1).textContent,LION_GREETING);
-  x.context.setQuestionFlow();
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,AUDIBLE_CLUE);
   assert.doesNotMatch(x.get('question-input').placeholder,/虫/);
   await x.ask('ここは幻覚ですか？');
   assert.equal(x.state().reasoningStage,1);
@@ -127,6 +144,10 @@ test('conversation, correct reasoning, media-gated entry, clear and replay form 
   assert.equal(x.state().phase,'start');
   assert.equal(x.state().key,false);
   assert.equal(x.get('app').querySelector('.bug-mark'),null);
+  x.context.beginGame();
+  assert.equal(x.state().phase,'prologue');
+  assert.equal(x.get('lion-character-button').hidden,true);
+  assert.equal(x.get('conversation-log').children[0].textContent,PROLOGUE[0]);
 });
 
 test('replay cancels a pending ending and removes its audio and visual effects',async()=>{
@@ -344,10 +365,12 @@ test('repeating the same partial final theory does not accumulate discoveries',a
 test('the visual-novel window alternates between one message and its on-demand editor',async()=>{
   const x=setup();
   const visible=()=>x.get('conversation-log').hidden?[]:x.get('conversation-log').children.filter(node=>!node.hidden).map(node=>node.textContent);
-  x.context.beginGame();x.context.greetLion();
-  assert.deepEqual(visible(),[LION_GREETING]);
+  x.context.beginGame();
+  for(const _ of PROLOGUE)x.get('conversation-actions').children[0].handlers.click();
   x.context.setQuestionFlow();
-  assert.deepEqual(visible(),[AUDIBLE_CLUE],'the sound clue appears once as story text');
+  assert.deepEqual(visible(),[LION_DISCOVERY],'the discovery leads into free questions');
+  x.context.greetLion();
+  assert.deepEqual(visible(),[LION_GREETING]);
   assert.equal(x.get('question-form').hidden,true,'reading never shows an input field');
   assert.equal(x.get('conversation-tools').hidden,false);
   await x.ask('赤ですか？');
