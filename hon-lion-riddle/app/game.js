@@ -1,13 +1,14 @@
 import { API_ENDPOINT, LIVE_TIMEOUT_MS, STATUS_ENDPOINT } from './api-config.js';
 import { track } from './analytics.js';
 import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261018novel';
-import { createSoundDesign } from './sound.js?v=20261018direction';
+import { createSoundDesign } from './sound.js?v=20261020crunch3';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 
 const $ = (id) => document.getElementById(id);
 const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, key:false, ray:false, cleared:false, busy:false, generation:0, requestController:null };
 const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button') };
 let greetingMessage = null;
+let revealGeneration = -1;
 const beatTimers = new Map();
 const mediaCleanups = new Set();
 const MEDIA_TIMEOUT_MS = 3000;
@@ -46,7 +47,33 @@ function appendMessage(kind,text){ const message=document.createElement('p'); me
 function appendMedia(kind,text,src,alt,extra='',onReady=()=>{}){ const message=document.createElement('div'); message.className=`message media ${kind}`; const image=document.createElement('img'); image.src=src; image.alt=alt; image.decoding='async'; if(extra)image.classList.add(extra); const label=document.createElement('strong'); label.textContent=text; message.append(image,label); refs.log.append(message); scrollLogToEnd(); const generation=state.generation; let settled=false; let timer=0; const cleanup=()=>{ clearTimeout(timer); mediaCleanups.delete(cleanup); }; const settle=(ok,reason='')=>{ if(settled)return; settled=true; cleanup(); if(generation!==state.generation)return; scrollLogToEnd(); onReady(ok,reason); }; mediaCleanups.add(cleanup); timer=setTimeout(()=>settle(false,'timeout'),MEDIA_TIMEOUT_MS); if(image.complete&&image.naturalWidth>0)queueMicrotask(()=>settle(true)); else { image.addEventListener('load',()=>settle(true),{once:true}); image.addEventListener('error',()=>settle(false,'error'),{once:true}); } return message; }
 function appendBeam(){ removeBeam(); const beam=document.createElement('div'); beam.className='beam'; beam.setAttribute('aria-hidden','true'); const ray=document.createElement('div'); ray.className='beam-ray'; beam.append(ray); refs.app.append(beam); aimWeapon(); }
 function removeBeam(){ refs.app.querySelector('.beam')?.remove(); }
-function appendBugMark(){ if(refs.app.querySelector('.bug-mark'))return; const bug=document.createElement('img'); bug.className='bug-mark'; bug.width=1254; bug.height=1254; bug.addEventListener('load',aimWeapon,{once:true}); bug.src='./assets/creatures/insect.png?v=20261018hallucination'; bug.alt='開かずの間で見える、お茶目な白い人型'; refs.app.append(bug); const weapon=document.createElement('div'); weapon.className='held-raygun'; const art=document.createElement('img'); art.src='./assets/items/giant-raygun-first-person.png?v=20261018handgun'; art.alt='一人称で奥の相手に構えた巨大なハンドガン型の光線銃'; const muzzle=document.createElement('span'); muzzle.className='muzzle'; muzzle.setAttribute('aria-hidden','true'); weapon.append(art,muzzle); refs.app.append(weapon); aimWeapon(); }
+function appendBugMark(){
+  if(refs.app.querySelector('.bug-mark')) return;
+  const generation=state.generation;
+  const bug=document.createElement('img');
+  bug.className='bug-mark'; bug.width=1254; bug.height=1254;
+  const reveal=()=>{
+    if (revealGeneration===generation || generation!==state.generation || state.phase!=='bug') return;
+    revealGeneration=generation;
+    sound.reveal();
+  };
+  bug.addEventListener('load',()=>{ aimWeapon(); reveal(); },{once:true});
+  bug.src='./assets/creatures/insect.png?v=20261018hallucination';
+  bug.alt='開かずの間で見える、お茶目な白い人型';
+  refs.app.append(bug);
+  if (bug.complete && bug.naturalWidth>0) queueMicrotask(reveal);
+  const weapon=document.createElement('div');
+  weapon.className='held-raygun';
+  const art=document.createElement('img');
+  art.src='./assets/items/giant-raygun-first-person.png?v=20261018handgun';
+  art.alt='一人称で奥の相手に構えた巨大なハンドガン型の光線銃';
+  const muzzle=document.createElement('span');
+  muzzle.className='muzzle';
+  muzzle.setAttribute('aria-hidden','true');
+  weapon.append(art,muzzle);
+  refs.app.append(weapon);
+  aimWeapon();
+}
 function aimWeapon(){
   const weapon=refs.app.querySelector('.held-raygun'),bug=refs.app.querySelector('.bug-mark');
   if(!weapon?.getBoundingClientRect||!bug)return;
@@ -209,7 +236,7 @@ function grantRaygun() {
   state.ray=true;
   setPhase('entrance');
   clearBeat();
-  sound.reward();
+  sound.reward('raygun');
   const generation=state.generation;
   const current=()=>state.generation===generation&&state.phase==='entrance';
   const visualReadyPromise=Promise.resolve(setScene('entrance'));
@@ -237,12 +264,25 @@ function grantRaygun() {
     maybeEnable();
   });
 }
-async function enterBugRoom(){ if(state.phase!=='entrance'||!state.ray)return; const generation=state.generation;setPhase('opening'); clearBeat();setActions([]);await Promise.resolve(setScene('bug'));if(generation!==state.generation||state.phase!=='opening')return;setPhase('bug');clearBeat();appendBugMark();appendMessage('narration',CLUES.bugroom);setActions([{label:'光線銃を撃つ',primary:true,onClick:burnBug}]); }
+async function enterBugRoom(){
+  if (state.phase!=='entrance' || !state.ray) return;
+  const generation=state.generation;
+  setPhase('opening');
+  clearBeat();
+  setActions([]);
+  await Promise.resolve(setScene('bug'));
+  if (generation!==state.generation || state.phase!=='opening') return;
+  setPhase('bug');
+  clearBeat();
+  appendBugMark();
+  appendMessage('narration',CLUES.bugroom);
+  setActions([{label:'光線銃を撃つ',primary:true,onClick:burnBug}]);
+}
 async function burnBug(){
   if(state.phase!=='bug'||state.cleared)return;
   const generation=state.generation;
   setPhase('firing'); setActions([]); clearBeat(); sound.shoot(); appendBeam();
-  if(!await beatDelay(620,generation))return;
+  if(!await beatDelay(1400,generation))return;
   refs.app.querySelector('.bug-mark')?.remove();
   refs.app.querySelector('.held-raygun')?.remove();
   removeBeam(); sound.removeInsect(); setPhase('silence'); clearBeat();
@@ -260,6 +300,10 @@ refs.ask.addEventListener('click',event=>openComposer('question',event));
 refs.theoryToggle.addEventListener('click',event=>openComposer('final_theory',event));
 refs.cancel.addEventListener('click',closeComposer);
 window.addEventListener('hon-lion-scene-warning',(event)=>{ if(state.phase!=='clear'&&event.detail?.message)setNote(event.detail.message); });
+window.addEventListener('hon-lion-door-audio',(event)=>{
+  if(event.detail?.action==='stop')sound.stopDoor();
+  else if(event.detail?.action==='start'&&state.phase==='opening')sound.door({duration:event.detail.duration});
+});
 $('sound-toggle').addEventListener('click',()=>sound.toggle());
 document.addEventListener('visibilitychange',()=>sound.visibility(document.hidden));
 window.addEventListener('pagehide',()=>{invalidatePending();sound.stop();});

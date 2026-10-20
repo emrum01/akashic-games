@@ -83,9 +83,9 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 
 .beam{position:absolute;inset:0;z-index:8;pointer-events:none;background:radial-gradient(circle at var(--impact-x,55%) var(--impact-y,32%),rgba(215,255,255,.8),transparent 9%);mix-blend-mode:screen}
 .beam-ray{position:absolute;height:6px;translate:0 -3px;transform-origin:0 50%;background:#efffff;box-shadow:0 0 8px 3px #7ce8eb,0 0 28px 6px rgba(126,241,245,.7);border-radius:8px}
-.app[data-phase="firing"] .bug-mark{animation:insect-burn .62s ease-in both}
+.app[data-phase="firing"] .bug-mark{animation:insect-burn 1.4s ease-in both}
 .app[data-phase="firing"] .held-raygun{animation:weapon-recoil .3s ease-out both}
-.beam{animation:shot-light .6s ease-out both}
+.beam{animation:shot-light 1.34s ease-out both}
 
 .app:is([data-phase="silence"],[data-phase="escaping"],[data-phase="clear"]) .sound-toggle{display:none}
 .app[data-phase="escaping"],.app[data-phase="clear"]{background:#eee6d8}

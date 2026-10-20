@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, resolve, relative } from 'node:path';
 const root=resolve(process.argv[2] || new URL('../dist/public', import.meta.url).pathname);
-const allowed=new Set(['.html','.css','.js','.json','.txt','.png','.jpg','.jpeg','.webp','.svg','.ico','.mp4']);
+const allowed=new Set(['.html','.css','.js','.json','.txt','.png','.jpg','.jpeg','.webp','.svg','.ico','.mp4','.ogg','.m4a']);
 const forbidden=/(worker|\.dev\.vars|\.env|\.test\.|package(-lock)?\.json|README|DESIGN|ADR|CREDITS|source-snapshot)/i;
 const files=[];
 async function scan(dir){for(const e of await readdir(dir,{withFileTypes:true})){const p=join(dir,e.name);if(e.isDirectory())await scan(p);else files.push(p)}}

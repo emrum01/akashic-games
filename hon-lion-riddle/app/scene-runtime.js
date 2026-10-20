@@ -118,6 +118,9 @@ function setPoster(node) {
   background?.classList.remove('video-playing');
 }
 function stopMedia(unload = false) {
+  if (diagnostics.media.clip === 'entry-bug') window.dispatchEvent(new CustomEvent('hon-lion-door-audio', { detail: { action: 'stop' } }));
+  state.mediaGeneration += 1;
+  state.pausedForHidden = false;
   clearTimeout(state.loadTimer);
   clearTimeout(state.routeTimer);
   state.loadTimer = 0;
@@ -129,6 +132,7 @@ function stopMedia(unload = false) {
   video.onloadedmetadata = null;
   video.oncanplay = null;
   video.onplay = null;
+  video.onplaying = null;
   video.ontimeupdate = null;
   video.onended = null;
   video.onerror = null;
@@ -190,6 +194,7 @@ function armRouteTimeout(duration, generation) {
 }
 function finishClip(edge, generation) {
   if (generation !== state.generation) return;
+  if (edge === 'entry-bug') window.dispatchEvent(new CustomEvent('hon-lion-door-audio', { detail: { action: 'stop' } }));
   clearTimeout(state.loadTimer);
   clearTimeout(state.routeTimer);
   state.loadTimer = 0;
@@ -217,6 +222,8 @@ function failClip(generation, message) {
 }
 function startClip(edge, generation) {
   if (!video || generation !== state.generation) return;
+  const mediaGeneration = ++state.mediaGeneration;
+  let audioStarted = false;
   const profile = currentProfile();
   diagnostics.profile = profile;
   diagnostics.media.clip = edge;
@@ -241,6 +248,13 @@ function startClip(edge, generation) {
     diagnostics.status = 'playing';
     diagnostics.media.playing = true;
     background?.classList.add('video-playing');
+  };
+  video.onplaying = () => {
+    if (generation !== state.generation || mediaGeneration !== state.mediaGeneration || audioStarted || document.hidden) return;
+    audioStarted = true;
+    if (edge === 'entry-bug') window.dispatchEvent(new CustomEvent('hon-lion-door-audio', {
+      detail: { action: 'start', duration: Number(video.duration || 0) },
+    }));
   };
   video.ontimeupdate = () => {
     if (generation !== state.generation) return;

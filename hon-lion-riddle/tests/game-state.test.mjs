@@ -35,7 +35,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
     console,URLSearchParams,AbortController,AbortSignal,DOMException,TypeError,queueMicrotask,
     setTimeout:(fn)=>setTimeout(fn,5),clearTimeout,
     OPENING,AUDIBLE_CLUE,LION_GREETING,CLUES,LION_REPLIES,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
-    createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
+    createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','reveal','door','stopDoor','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
     connectVisualViewport:()=>{},
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
     window:{location:{search:demo?'?demo=1':''},addEventListener:(name,handler)=>{events[name]=handler;},__HON_LION_SCENE_RUNTIME__:{reset:()=>Promise.resolve({}),setStage:(stage,scene)=>{calls.push({stage,scene});return scene==='entrance'&&arrival?arrival:scene==='bug'&&opening?opening:Promise.resolve({fallback:false});}}},
@@ -120,7 +120,7 @@ test('conversation, correct reasoning, media-gated entry, clear and replay form 
   assert.equal(x.get('app').querySelector('.beam'),null);
   assert.equal(x.get('app').querySelector('.held-raygun'),null);
   assert.ok(x.get('conversation-log').children.some(node=>node.textContent==='脱出成功'));
-  assert.deepEqual(x.audio,['start','reward','reward','shoot','removeInsect']);
+  assert.deepEqual(x.audio,['start','reward','reward','reveal','shoot','removeInsect']);
   x.context.reset();
   assert.equal(x.state().phase,'start');
   assert.equal(x.state().key,false);
@@ -161,6 +161,44 @@ test('the insect appears only after the door opens, and resetting cancels that r
   assert.equal(x.get('app').querySelector('.bug-mark'),null);
 });
 
+test('the insect reveal waits for its image, plays once, and ignores late loads',async()=>{
+  const x=setup({imageState:'pending'});
+  x.context.beginGame();
+  vm.runInContext("state.phase='entrance';state.ray=true",x.context);
+  await x.context.enterBugRoom();
+  const bug=x.get('app').querySelector('.bug-mark');
+  assert.deepEqual(x.audio,['start'],'a pending image cannot reveal early');
+  assert.equal(typeof bug.handlers.error,'undefined');
+  bug.handlers.load();
+  assert.deepEqual(x.audio,['start','reveal']);
+  bug.handlers.load();
+  vm.runInContext('appendBugMark()',x.context);
+  assert.deepEqual(x.audio,['start','reveal'],'duplicate load/append does not duplicate the sting');
+  vm.runInContext("state.phase='firing'",x.context);
+  bug.handlers.load();
+  assert.deepEqual(x.audio,['start','reveal'],'a late load after firing is ignored');
+
+  const reset=setup({imageState:'pending'});
+  reset.context.beginGame();
+  vm.runInContext("state.phase='entrance';state.ray=true",reset.context);
+  await reset.context.enterBugRoom();
+  const late=reset.get('app').querySelector('.bug-mark');
+  reset.context.reset();
+  late.handlers.load();
+  assert.deepEqual(reset.audio,['start','stop'],'a late load after reset is ignored');
+});
+
+test('door audio follows actual playback and is ignored outside the opening scene',()=>{
+  const x=setup();
+  const event={detail:{action:'start',duration:3}};
+  x.events['hon-lion-door-audio'](event);
+  assert.deepEqual(x.audio,[]);
+  vm.runInContext("state.phase='opening'",x.context);
+  x.events['hon-lion-door-audio'](event);
+  x.events['hon-lion-door-audio']({detail:{action:'stop'}});
+  assert.deepEqual(x.audio,['door','stopDoor']);
+});
+
 test('unrelated questions keep the three-choice reply without adding automatic hints',async()=>{
   const x=setup();
   x.context.beginGame();x.context.setQuestionFlow();
@@ -190,6 +228,11 @@ test('the audible clue has a bounded signal and a quiet seamless loop boundary',
   assert.ok(peak<.65,`texture peak ${peak}`);
   assert.equal(Math.abs(texture[0]),0);
   assert.equal(Math.abs(texture.at(-1)),0);
+  const zeroSamples=texture.filter(sample=>sample===0).length;
+  assert.ok(zeroSamples>texture.length*.8,`sparse fallback has ${zeroSamples/texture.length*100}% exact silence`);
+  let longest=0,current=0;
+  for(const sample of texture){ current=sample===0?current+1:0; longest=Math.max(longest,current); }
+  assert.ok(longest>2*24_000,'fallback keeps multi-second gaps between crunch clusters');
 });
 
 test('a configured old demo link uses JEV and accumulates separate discoveries after checking the connection',async()=>{

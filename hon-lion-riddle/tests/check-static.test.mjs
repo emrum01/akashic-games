@@ -58,3 +58,15 @@ test('static checker rejects solution fixture text', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('static checker accepts browser audio formats but rejects source recordings', async () => {
+  const directory = await makeOutput({});
+  try {
+    for (const extension of ['ogg', 'm4a']) await writeFile(join(directory, `door.${extension}`), '');
+    assert.equal((await runChecker(directory)).ok, true);
+    await writeFile(join(directory, 'source-recording.mp3'), '');
+    assert.equal((await runChecker(directory)).ok, false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
