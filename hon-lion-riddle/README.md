@@ -84,3 +84,17 @@
 本番Workerは `hon-lion-riddle`、確認用Workerは `hon-lion-riddle-staging` です。両方にJEVのSecretと1分30回のチャット制限を登録しています。本番では `workers.dev` とpreview URLを無効にし、manor専用ルートで配信します。
 
 通常の本番更新は、CloudflareのWorker編集・ルート編集・ゾーン参照権限を持つ環境で `npm run deploy:production` を実行します。初回公開は既存のCLI認証がWorker編集だけに限定されていたため、同じ本番変数・bindingでWorkerを作成してから、Cloudflareの管理画面で専用ルートとDNSプロキシを接続しました。既存CNAME先は `emrum01.github.io` です。
+
+
+## mainへのマージ後の自動デプロイ
+
+`.github/workflows/hon-lion-riddle-ci.yml` は、このゲームのディレクトリまたは同workflowに変更がある `main` へのpushで起動します。PRではオフライン検証のみを実行し、マージ後はテスト・型検査・公開allowlist検査・staging/productionのdry runが成功してからWranglerの `production` 環境で本番Workerを更新します。GitHub Actionsの同workflowを `main` で手動実行して再デプロイすることもできます。
+
+本番ジョブは直列に実行し、デプロイ開始前に最新mainとゲーム・workflowの内容を比較します。新しい変更があれば古い実行をスキップし、無関係なディレクトリだけの変更ではスキップしません。配信後は `node scripts/check-deployment.mjs` で、公開されたHTML・JavaScript・CSS・JSON・SVGがそのビルドと一致すること、およびJEVのSecretとレート制限bindingが設定済みであることを確認します。この確認は有料のチャットAPIを呼びません。
+
+初回設定はGitHubの `hon-lion-production` Environmentに行います。デプロイ可能なブランチを `main` に限定し、以下を登録してください。
+
+- Environment secret `CLOUDFLARE_API_TOKEN`: 本番の `hon-lion-riddle` 単体のEditor権限と、`escape-safari.com` のWorkers Routes編集・Zone参照に限定した専用Account API token（[Cloudflareの権限仕様](https://developers.cloudflare.com/workers/authorization/workers/)）。
+- Environment variable `CLOUDFLARE_ACCOUNT_ID`: 本番WorkerがあるアカウントID。
+
+依存の導入・公開ファイル生成・dry runは資格情報なしで行い、トークンはWranglerを実行するデプロイstepだけに渡します。`TYPESAFE_API_KEY` は登録済みのWorker Secretをそのまま使い、GitHubや公開ファイルへ複製しません。トークンの失効・権限不足・未登録はジョブを失敗させます。失敗した場合はGitHub Actionsのログで原因を修正してから、最新mainのworkflowを再実行してください。切り戻しはゲーム変更をrevertするPRをmainへマージすると同じ経路で反映されます。
