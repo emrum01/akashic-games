@@ -1,8 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createSoundDesign } from '../app/sound.js';
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
+
+function rendererFixture() {
+  const root = mkdtempSync(join(tmpdir(), 'hon-lion-audio-'));
+  mkdirSync(join(root, 'scripts'), { recursive: true });
+  mkdirSync(join(root, 'audio'), { recursive: true });
+  mkdirSync(join(root, 'app', 'assets', 'audio'), { recursive: true });
+  cpSync(join(repoRoot, 'scripts', 'build-audio.py'), join(root, 'scripts', 'build-audio.py'));
+  cpSync(join(repoRoot, 'audio', 'approved-masters'), join(root, 'audio', 'approved-masters'), { recursive: true });
+  cpSync(join(repoRoot, 'app', 'sound.js'), join(root, 'app', 'sound.js'));
+  for (const extension of ['ogg', 'm4a']) writeFileSync(join(root, 'app', 'assets', 'audio', `key.${extension}`), 'sentinel');
+  return root;
+}
+
+function runRenderer(root) {
+  return execFileSync('python3', [join(root, 'scripts', 'build-audio.py'), '--only', 'key'], {
+    cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
 function harness(t, { fetcher, rejectOpus = false, deferEnded = false } = {}) {
   const previous = { window: globalThis.window, fetch: globalThis.fetch };
   const nodes = [], gains = [], requests = [], contexts = [], resumes = [], states = [];
@@ -43,7 +68,7 @@ function harness(t, { fetcher, rejectOpus = false, deferEnded = false } = {}) {
     suspend() { this.state = 'suspended'; return Promise.resolve(); }
     decodeAudioData(data) {
       if (rejectOpus && data.includes('.ogg')) return Promise.reject(new Error('unsupported codec'));
-      return Promise.resolve({ duration: data.includes('room-texture') ? 26 : data.includes('presence') ? 1.63 : data.includes('weapon-ready') ? .45 : data.includes('key') ? .67 : data.includes('discharge') ? 1.34 : 2.95, asset: data });
+      return Promise.resolve({ duration: data.includes('room-texture') ? 26 : data.includes('presence') ? 4.8 : data.includes('weapon-ready') ? 2.95 : data.includes('key') ? 2.35 : data.includes('discharge') ? 4.4 : 2.95, asset: data });
     }
   }
   globalThis.window = { AudioContext: Context };
@@ -91,6 +116,10 @@ test('replay reuses in-flight asset requests without scheduling delayed one-shot
   assert.equal(x.requests.length, initialRequests);
   assert.ok(x.nodes.some(node => node.buffer.asset?.includes('room-texture')));
   assert.ok(x.nodes.every(node => node.loop), 'loading a cue never plays it late');
+  assert.equal(x.gains.at(-1).gain.value, 1, 'async recorded texture uses unity gain');
+  x.sound.stop();
+  x.sound.start();
+  assert.equal(x.gains.at(-1).gain.value, 1, 'cached recorded texture uses unity gain');
 });
 
 test('mute and hidden state suppress one-shots; replay and codec fallback remain usable', async t => {
@@ -98,6 +127,7 @@ test('mute and hidden state suppress one-shots; replay and codec fallback remain
   x.sound.start();
   await tick();
   assert.equal(x.requests.filter(url => url.includes('.m4a')).length, 6);
+  assert.ok(x.gains.slice(1).some(gain => gain.gain.value === 1), 'recorded texture uses the calibrated unity cue gain');
   x.sound.start();
   assert.equal(x.contexts.length, 1);
   x.sound.toggle();
@@ -111,10 +141,14 @@ test('mute and hidden state suppress one-shots; replay and codec fallback remain
   assert.equal(x.contexts[0].state, 'suspended', 'unmuting in a hidden tab cannot resume audio');
   x.sound.visibility(false);
   await tick();
+  x.sound.reward('key');
+  assert.ok(x.gains.at(-1).gain.calls.includes(1), 'key cue uses unity gain');
   x.sound.reward('raygun');
   assert.match(x.nodes.at(-1).buffer.asset, /weapon-ready\.m4a/);
+  assert.ok(x.gains.at(-1).gain.calls.includes(1), 'recorded weapon cue is calibrated at unity before the .65 master bus');
   x.sound.door({ duration: 3 });
   const door = x.nodes.at(-1);
+  assert.ok(x.gains.at(-1).gain.calls.includes(1), 'door cue uses unity gain');
   assert.equal(door.playbackRate.value, 2.95 / 3);
   assert.equal(door.stopped, false, 'a scheduled natural end is not an immediate cancellation');
   const doorStops = door.stopCalls.length;
@@ -124,7 +158,9 @@ test('mute and hidden state suppress one-shots; replay and codec fallback remain
   assert.equal(door.stopCalls.at(-1), 0);
   x.sound.reveal();
   const reveal = x.nodes.at(-1);
+  assert.ok(x.gains.at(-1).gain.calls.includes(1), 'presence cue uses unity gain');
   assert.match(reveal.buffer.asset, /presence\.m4a/);
+  assert.equal(reveal.buffer.duration, 4.8);
   assert.equal(reveal.stopped, false);
   const revealStops = reveal.stopCalls.length;
   x.sound.shoot();
@@ -132,8 +168,12 @@ test('mute and hidden state suppress one-shots; replay and codec fallback remain
   assert.equal(reveal.stopCalls.length, revealStops + 1);
   assert.equal(reveal.stopCalls.at(-1), 0);
   assert.match(x.nodes.at(-1).buffer.asset, /discharge\.m4a/);
+  assert.ok(x.gains.at(-1).gain.calls.includes(1), 'discharge cue uses unity gain');
+  assert.equal(x.nodes.at(-1).buffer.duration, 4.4);
+  assert.equal(x.nodes.at(-1).stopCalls.at(-1), 4.41, 'the 4.4 second discharge reaches its natural end before cleanup');
   x.sound.removeInsect();
   assert.ok(x.nodes.every(node => node.stopped));
+  assert.ok(x.nodes.every(node => node.stopCalls.length > 0), 'removing the insect leaves final silence');
   x.sound.visibility(false);
   count = x.nodes.length;
   await tick();
@@ -204,4 +244,42 @@ test('an environment without Web Audio can finish without throwing', t => {
   x.sound.removeInsect(); x.sound.visibility(false);
   assert.equal(x.states.at(-1).available, false);
   assert.equal(x.states.at(-1).removed, true);
+});
+
+test('audio renderer rejects tampered masters and gain metadata before replacing delivery files', () => {
+  const tampered = rendererFixture();
+  try {
+    appendFileSync(join(tampered, 'audio', 'approved-masters', 'key.flac'), Buffer.from([0]));
+    assert.throws(() => runRenderer(tampered), /SHA-256/);
+    assert.equal(readFileSync(join(tampered, 'app', 'assets', 'audio', 'key.ogg'), 'utf8'), 'sentinel');
+    assert.equal(readFileSync(join(tampered, 'app', 'assets', 'audio', 'key.m4a'), 'utf8'), 'sentinel');
+  } finally {
+    rmSync(tampered, { recursive: true, force: true });
+  }
+
+  const invalidGain = rendererFixture();
+  try {
+    const manifestPath = join(invalidGain, 'audio', 'approved-masters', 'manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    manifest.sounds.key.gain = 0.5;
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    assert.throws(() => runRenderer(invalidGain), /manifest gain/);
+    assert.equal(readFileSync(join(invalidGain, 'app', 'assets', 'audio', 'key.ogg'), 'utf8'), 'sentinel');
+    assert.equal(readFileSync(join(invalidGain, 'app', 'assets', 'audio', 'key.m4a'), 'utf8'), 'sentinel');
+  } finally {
+    rmSync(invalidGain, { recursive: true, force: true });
+  }
+
+  const malformedCalibration = rendererFixture();
+  try {
+    const manifestPath = join(malformedCalibration, 'audio', 'approved-masters', 'manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    manifest.runtime_master_gain = 'not-a-number';
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    assert.throws(() => runRenderer(malformedCalibration), /gain calibration is incomplete/);
+    assert.equal(readFileSync(join(malformedCalibration, 'app', 'assets', 'audio', 'key.ogg'), 'utf8'), 'sentinel');
+    assert.equal(readFileSync(join(malformedCalibration, 'app', 'assets', 'audio', 'key.m4a'), 'utf8'), 'sentinel');
+  } finally {
+    rmSync(malformedCalibration, { recursive: true, force: true });
+  }
 });

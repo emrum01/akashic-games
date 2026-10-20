@@ -3,7 +3,7 @@ import { track } from './analytics.js';
 import { PROLOGUE, OPENING, LION_DISCOVERY, LION_GREETING, PROBLEM, THEORY_PROMPT, ARRIVAL_OBSERVATION, NOISE_OBSERVATION, DEATH_NARRATION, CLUES, LION_REPLIES } from './dialogue.js?v=20261020deadline1';
 import { createDeadlineController } from './deadline.js?v=20261020deadline1';
 import { createObservationController } from './observation.js?v=20261020deadline3';
-import { createSoundDesign } from './sound.js?v=20261020gnaw1';
+import { createSoundDesign } from './sound.js?v=20261021-sfx-approved-1';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
 import { createBeamEffects } from './beam-effects/controller.js?v=20261020beam3';

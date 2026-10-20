@@ -1,0 +1,66 @@
+{
+  "approval": {
+    "status": "approved-by-user",
+    "date": "2026-10-21",
+    "note": "Room texture A, key 2.35s, reveal A, and the remaining accepted audition proposals.",
+    "rendering_source_of_truth": "approved-masters"
+  },
+  "runtime_master_gain": 0.65,
+  "production_gain": 1.5384615384615385,
+  "sounds": {
+    "room-texture": {
+      "master": "room-texture.flac",
+      "source": "hon-lion-sfx/audio/asmr-a-full.m4a",
+      "source_sha256": "492e7c47b1447814d028c4cd792bb9b800d7d7cff9e153281e14c993e1ea0414",
+      "sha256": "2ec3cdb6b0ce342548a4586122a55c1e4fde89948504c4b8d941e5505553bed2",
+      "duration_seconds": 26.0,
+      "gain": 1.5384615384615385,
+      "processing": "Decoded to stereo 48 kHz FLAC and trimmed to 26.000 seconds; production render applies 1/.65."
+    },
+    "key": {
+      "master": "key.flac",
+      "source": "hon-lion-sfx/acquisition-v2/audio/key-v2-material-and-dread.wav",
+      "source_sha256": "1f8bba1540aaf3015672f99dc6369d9701012f1c386700f92b1a783daff8bc63",
+      "sha256": "cda1599b353d7e5effc702fc1753fc25d8795a40184871ae6dac6846dfe3cd36",
+      "duration_seconds": 2.35,
+      "gain": 1.5384615384615385,
+      "processing": "Preserved approved stereo 48 kHz master; production render applies 1/.65."
+    },
+    "weapon-ready": {
+      "master": "weapon-ready.flac",
+      "source": "hon-lion-sfx/acquisition-v2/audio/weapon-ready-v2-material-and-dread.wav",
+      "source_sha256": "2763120019810df85e667bdc010a0898df86e99e9229bf0c535137e1dc705989",
+      "sha256": "55d64e9888a52254474a0a42b46e131d2c01981bb5b2020f2f87dc04483b76a5",
+      "duration_seconds": 2.95,
+      "gain": 1.5384615384615385,
+      "processing": "Preserved approved stereo 48 kHz master; production render applies 1/.65."
+    },
+    "door": {
+      "master": "door.flac",
+      "source": "hon-lion-sfx/audio/candidate-door.m4a",
+      "source_sha256": "46ef5f154942f099abad6df7d68ffecff1aa38fb8ac4c92e831afa9fab4cc5e6",
+      "sha256": "8c14fee0968814f97a2236c1296eb524561a1906c7c85ebe8a7a43c79a743f24",
+      "duration_seconds": 2.95,
+      "gain": 1.5384615384615385,
+      "processing": "Decoded to stereo 48 kHz FLAC and trimmed to 2.950 seconds; production render applies 1/.65."
+    },
+    "presence": {
+      "master": "presence.flac",
+      "source": "hon-lion-sfx/reveal-v2/audio/reveal-v2-a-despair.m4a",
+      "source_sha256": "4ac4462661e4e69ebae3976e383440f69518b3fe2a1c70a71e6fe8c6be296739",
+      "sha256": "91354228ca498abb65360b9d59814dd2b8156c10209c7ad19db9c87805916c8c",
+      "duration_seconds": 4.8,
+      "gain": 1.5384615384615385,
+      "processing": "Preserved approved stereo 48 kHz master; production render applies 1/.65."
+    },
+    "discharge": {
+      "master": "discharge.flac",
+      "source": "hon-lion-sfx/audio/candidate-discharge.m4a",
+      "source_sha256": "52c8527baf3bd8db7fd441445f9acde853678c6c5f6ebbc31b01cc6ab9eadd52",
+      "sha256": "99a7fe67db1adb72d007833bd55dd66eba7bfe455173bac1d3d7f933ca8315a7",
+      "duration_seconds": 4.4,
+      "gain": 1.5384615384615385,
+      "processing": "Decoded to stereo 48 kHz FLAC and trimmed to 4.400 seconds; production render applies 1/.65."
+    }
+  }
+}

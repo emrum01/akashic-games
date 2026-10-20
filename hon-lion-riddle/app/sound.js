@@ -40,11 +40,11 @@ export function createPredationTexture(sampleRate = 24_000, seconds = 26) {
 }
 
 const CUES = Object.freeze({
-  key: Object.freeze({ name: 'key', level: .68 }),
-  raygun: Object.freeze({ name: 'weapon-ready', level: .68 }),
-  door: Object.freeze({ name: 'door', level: .55, group: 'door' }),
-  reveal: Object.freeze({ name: 'presence', level: .72, group: 'reveal' }),
-  discharge: Object.freeze({ name: 'discharge', level: .8 }),
+  key: Object.freeze({ name: 'key', level: 1 }),
+  raygun: Object.freeze({ name: 'weapon-ready', level: 1 }),
+  door: Object.freeze({ name: 'door', level: 1, group: 'door' }),
+  reveal: Object.freeze({ name: 'presence', level: 1, group: 'reveal' }),
+  discharge: Object.freeze({ name: 'discharge', level: 1 }),
 });
 const PRELOAD_NAMES = Object.freeze([...new Set(Object.values(CUES).map(cue => cue.name))]);
 
@@ -63,7 +63,7 @@ export function createSoundDesign(onState = () => {}) {
   const voices = new Set();
   const buffers = new Map();
   const loading = new Map();
-  const revision = '20261020-gnaw-move-1';
+  const revision = '20261021-sfx-approved-1';
   const masterLevel = .65;
   const publish = () => onState({ muted, active, removed, available, running: context?.state === 'running' && active && !muted && !removed });
 
@@ -179,7 +179,7 @@ export function createSoundDesign(onState = () => {}) {
   function useRecordedTexture(buffer, session) {
     if (!buffer || session !== generation || !active || removed) return;
     const old = ambience;
-    const next = loop(buffer, .72);
+    const next = loop(buffer, 1);
     ambience = next;
     if (old) {
       const now = context.currentTime;
@@ -198,7 +198,7 @@ export function createSoundDesign(onState = () => {}) {
     if (!hidden) context.resume().then(publish).catch(() => { available = false; publish(); });
     const recorded = buffers.get('room-texture');
     if (recorded) {
-      const next = loop(recorded, .72);
+      const next = loop(recorded, 1);
       ambience = next;
     } else {
       const texture = createPredationTexture(context.sampleRate);
