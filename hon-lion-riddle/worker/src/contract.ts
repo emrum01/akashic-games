@@ -11,16 +11,33 @@ export const LION_REPLIES: Record<Choice, string> = {
 export type ChatMode = 'question' | 'final_theory';
 export const REASONING_PROGRESS = ['NONE','PARTIAL_INSIGHT','CAUSAL_LINK','SYNTHESIS'] as const;
 export type ReasoningProgress = typeof REASONING_PROGRESS[number];
+export const CHECKPOINT_IDS = ['cp1','cp2','cp3','cp4','cp5'] as const;
+export type CheckpointId = typeof CHECKPOINT_IDS[number];
+export const ORDINARY_CHECKPOINT_JUDGMENTS = ['CONFIRMED_BY_YES','CONFIRMED_BY_NO','UNCONFIRMED'] as const;
+export type OrdinaryCheckpointJudgment = typeof ORDINARY_CHECKPOINT_JUDGMENTS[number];
+export const FINAL_CHECKPOINT_JUDGMENTS = ['CONFIRMED','UNCONFIRMED'] as const;
+export type FinalCheckpointJudgment = typeof FINAL_CHECKPOINT_JUDGMENTS[number];
+export type CheckpointJudgments = Partial<Record<CheckpointId, OrdinaryCheckpointJudgment | FinalCheckpointJudgment>>;
 export type SafeTurn = { player_message: string; turn_outcome?: { choice: Choice; confidence: number; reasoning_progress?: ReasoningProgress } };
-export type ChatRequest = { mode: ChatMode; question: string; recentTurns?: SafeTurn[]; knownInsights?: SafeTurn[] };
-export type Outcome = { choice: Choice; confidence: number; reasoning_progress: ReasoningProgress; fact?: string };
+export type ChatRequest = { mode: ChatMode; question: string; recentTurns?: SafeTurn[]; knownInsights?: SafeTurn[]; reachedCheckpointIds?: CheckpointId[] };
+export type Outcome = { choice: Choice; confidence: number; reasoning_progress: ReasoningProgress; fact?: string; checkpointJudgments?: CheckpointJudgments };
 export const MAX_MESSAGE_CHARS = 180;
 export const MAX_TURNS = 6;
 export const MAX_INSIGHTS = 4;
+export const CHECKPOINT_CONFIDENCE_THRESHOLD = .9;
 const POSITIVE_CHOICES = new Set<Choice>(['YES', 'PARTIAL', 'SOLVED']);
 
 export function normalizeInsight(value: string): string {
   return value.normalize('NFKC').replace(/[？?。！!、，,\s]/g, '');
+}
+
+export function sanitizeReachedCheckpointIds(value: unknown): CheckpointId[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((id, index): id is CheckpointId => typeof id === 'string' && CHECKPOINT_IDS.includes(id as CheckpointId) && value.indexOf(id) === index);
+}
+
+export function isCheckpointIdList(value: unknown): value is CheckpointId[] {
+  return Array.isArray(value) && value.length <= CHECKPOINT_IDS.length && value.every((id) => typeof id === 'string' && CHECKPOINT_IDS.includes(id as CheckpointId));
 }
 
 function isSafeTurn(value: unknown, requirePositiveProgress = false): value is SafeTurn {
@@ -42,6 +59,7 @@ export function isChatRequest(value: unknown): value is ChatRequest {
   if (!body.question.trim() || body.question.length > MAX_MESSAGE_CHARS) return false;
   if (body.recentTurns !== undefined && (!Array.isArray(body.recentTurns) || body.recentTurns.length > MAX_TURNS || !body.recentTurns.every((turn) => isSafeTurn(turn)))) return false;
   if (body.knownInsights !== undefined && (!Array.isArray(body.knownInsights) || body.knownInsights.length > MAX_INSIGHTS || !body.knownInsights.every((turn) => isSafeTurn(turn, true)))) return false;
+  if (body.reachedCheckpointIds !== undefined && !isCheckpointIdList(body.reachedCheckpointIds)) return false;
   return true;
 }
 
@@ -101,5 +119,19 @@ export function parseOutcome(payload: unknown, mode: ChatMode = 'question'): Out
   if (!choice || confidence === null) return null;
   const progressRow = answers.reasoning_progress;
   const progressChoice = progressRow && typeof progressRow === 'object' ? (progressRow as Record<string, unknown>).choice : undefined;
-  return { choice, confidence, reasoning_progress: normalizeProgress(progressChoice, mode, choice) };
+  const checkpointJudgments: CheckpointJudgments = {};
+  if ((choice === 'YES' || choice === 'NO') && confidence >= CHECKPOINT_CONFIDENCE_THRESHOLD) {
+    for (const id of CHECKPOINT_IDS) {
+      const rawJudgment = answers[id];
+      if (!rawJudgment || typeof rawJudgment !== 'object') continue;
+      const judgmentRow = rawJudgment as Record<string, unknown>;
+      if (judgmentRow.type !== 'choice' || typeof judgmentRow.confidence !== 'number' || !Number.isFinite(judgmentRow.confidence) || judgmentRow.confidence < CHECKPOINT_CONFIDENCE_THRESHOLD || judgmentRow.confidence > 1) continue;
+      const judgment = judgmentRow.choice;
+      if (typeof judgment !== 'string' || !ORDINARY_CHECKPOINT_JUDGMENTS.includes(judgment as OrdinaryCheckpointJudgment)) continue;
+      if (judgment === 'CONFIRMED_BY_YES' && choice !== 'YES') continue;
+      if (judgment === 'CONFIRMED_BY_NO' && choice !== 'NO') continue;
+      checkpointJudgments[id] = judgment as OrdinaryCheckpointJudgment;
+    }
+  }
+  return { choice, confidence, reasoning_progress: normalizeProgress(progressChoice, mode, choice), ...(Object.keys(checkpointJudgments).length ? { checkpointJudgments } : {}) };
 }

@@ -88,7 +88,7 @@ button:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
 .system-note{flex:none;margin:0;font-size:14px;line-height:1.7;overflow-wrap:anywhere}
 .system-note:empty{display:none}
 .app:is([data-phase="opening"],[data-phase="firing"]) .conversation{opacity:0;pointer-events:none}
-.app[data-reward-busy="true"] .conversation{opacity:0;pointer-events:none}
+.app[data-reward-busy="true"]:not([data-phase="checkpoint_step"]) .conversation{opacity:0;pointer-events:none}
 .bug-mark{position:absolute;z-index:7;left:52%;top:29%;width:clamp(175px,22vw,240px);height:auto;transform:translate(-50%,-50%);filter:drop-shadow(0 12px 8px rgba(0,0,0,.7));animation:insect-stir 2.4s ease-in-out infinite;pointer-events:none}
 .held-raygun{position:absolute;z-index:6;left:10vw;top:42%;bottom:auto;width:min(76vw,960px);height:auto;filter:drop-shadow(0 18px 24px rgba(0,0,0,.55));pointer-events:none}
 .held-raygun{aspect-ratio:3/2}

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { askJev, buildJevRequest } from '../src/jev';
-import { CANONICAL_TRUTH, SOLUTION_CRITERIA, UNDECIDED } from '../src/scenario';
+import { CANONICAL_TRUTH, CHECKPOINT_CRITERIA, CHECKPOINT_FACTS, SOLUTION_CRITERIA, UNDECIDED } from '../src/scenario';
 import worker, { chat, type Env } from '../src/index';
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
 const env:Env={ASSETS:{fetch:vi.fn()} as unknown as Fetcher,TYPESAFE_API_KEY:'test-only-key',JEV_MODEL:'jev-latest'};
@@ -14,13 +14,19 @@ describe('TypeSafe request and supplied scenario',()=>{
       }
       expect(body.state.canonical_truth).toEqual(CANONICAL_TRUTH);
       expect(body.state.unresolved).toEqual(UNDECIDED);
+      expect(body.state.checkpoint_facts).toEqual(CHECKPOINT_FACTS);
     }
     expect(Object.keys(buildJevRequest('jev-latest','question','質問',[]).questions.turn_outcome.criteria)).toEqual(['YES','NO','IRRELEVANT']);
-    expect(Object.keys(buildJevRequest('jev-latest','final_theory','説明',[]).questions)).toEqual(Object.keys(SOLUTION_CRITERIA));
+    expect(Object.keys(buildJevRequest('jev-latest','final_theory','説明',[]).questions)).toEqual([...Object.keys(SOLUTION_CRITERIA), 'cp1','cp2','cp3','cp4','cp5']);
+    for (const id of ['cp1','cp2','cp3','cp4','cp5'] as const) {
+      expect(buildJevRequest('jev-latest','final_theory','説明',[]).questions[id].instructions).toContain(CHECKPOINT_CRITERIA[id]);
+    }
     expect(Object.keys(SOLUTION_CRITERIA)).toEqual(['world','threat','sound']);
     expect(CANONICAL_TRUTH).toContain('プレイヤーの視点は、病院で自分の耳の中を映しているカメラの映像である。');
     expect(buildJevRequest('jev-latest','final_theory','説明',[]).questions.world.instructions).toContain('省略されていても判定を下げない');
     expect(SOLUTION_CRITERIA.threat).toContain('自分の脳');
+    expect(buildJevRequest('jev-latest','question','外のラジオの音ですか？',[]).questions.turn_outcome.instructions).toContain('候補の一つを否定しただけでは');
+    expect(buildJevRequest('jev-latest','question','質問',[]).state.checkpoint_facts.join('')).toContain('音を聞くこと自体が原因ではない');
   });
   it('assesses the current final theory independently of earlier guesses',()=>{
     const history=[{player_message:'耳に虫がいる',turn_outcome:{choice:'YES',confidence:.98,reasoning_progress:'PARTIAL_INSIGHT'}}];

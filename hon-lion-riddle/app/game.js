@@ -7,19 +7,19 @@ import { createSoundDesign } from './sound.js?v=20261020gnaw1';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
 import { createBeamEffects } from './beam-effects/controller.js?v=20261020beam3';
+import { createCheckpointProgress, normalizeCheckpointIds } from './checkpoint-progress.js?v=20261021checkpoint1';
 
 const $ = (id) => document.getElementById(id);
-const createInitialState = (generation=0) => ({ mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, cabinetKey:false, doorKey:false, ray:false, cabinetOpen:false, rewardBusy:false, cleared:false, busy:false, generation, requestController:null });
+const createInitialState = (generation=0) => ({ mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], reachedCheckpointIds:[], checkpointProgress:null, questionCount:0, reasoningStage:0, cabinetKey:false, doorKey:false, ray:false, cabinetOpen:false, rewardBusy:false, cleared:false, busy:false, generation, requestController:null });
 const state = createInitialState();
 const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button'), lionImage:$('lion-character') };
 const LION_IDLE_SRC='./assets/characters/hon-lion-dialogue.png?v=20261020round';
 let greetingMessage = null;
 let revealGeneration = -1;
 const beatTimers = new Map();
-const mediaCleanups = new Set();
+let checkpointActionCancel = null;
 const beamEffectsFactory = typeof createBeamEffects === 'function' ? createBeamEffects : null;
 let beamEffects = null;
-const MEDIA_TIMEOUT_MS = 3000;
 const CONNECTION_ERROR = '本ライオンに声が届きませんでした。もう一度送ってください。';
 const API_ERROR_MESSAGES = Object.freeze({
   rate_limited: '質問が続いています。1分ほど待って、もう一度送ってください。',
@@ -87,11 +87,39 @@ const lionReactions=createLionReactions({button:refs.lion,image:refs.lionImage,d
 const clearLionReaction=()=>lionReactions.clear();
 const preloadLionReactions=()=>lionReactions.preload();
 const showLionReaction=(choice)=>lionReactions.show(choice);
+let lastCompletedCheckpointCount=0;
+const checkpoints=createCheckpointProgress({
+  runStep:(stepId,context)=>{
+    const runtime=window.__HON_LION_SCENE_RUNTIME__;
+    return runtime?.runCheckpointStep
+      ? runtime.runCheckpointStep(stepId,{...context,onAction:handleCheckpointAction})
+      : Promise.resolve({completed:false,reason:'unassigned'});
+  },
+  onChange:progress=>{
+    state.reachedCheckpointIds=progress.reachedCheckpointIds;
+    state.checkpointProgress=progress;
+    // Kept as presentation diagnostics, never as evidence of understanding.
+    state.reasoningStage=progress.completedStepIds.length;
+    refs.app.dataset.reasoningStage=String(state.reasoningStage);
+    refs.app.dataset.checkpointStatus=progress.blocked?'blocked':progress.activeStepId?'running':'idle';
+    if (progress.completedStepIds.length < lastCompletedCheckpointCount) {
+      lastCompletedCheckpointCount=progress.completedStepIds.length;
+    } else if (progress.completedStepIds.length > lastCompletedCheckpointCount) {
+      lastCompletedCheckpointCount=progress.completedStepIds.length;
+      const ticket=observations.queueArrival();
+      if (ticket) observations.markArrival(ticket, { cancelled:false });
+      observations.flush();
+    }
+    if (progress.blocked && state.phase !== 'start' && state.phase !== 'dead') showCheckpointRetry(progress);
+  },
+});
+state.checkpointProgress=checkpoints.snapshot();
+window.__HON_LION_CHECKPOINTS__=Object.freeze({snapshot:()=>checkpoints.snapshot()});
 function setPhase(phase){
   state.phase=phase;
   refs.app.dataset.phase=phase;
   refs.app.dataset.rewardBusy=String(state.rewardBusy);
-  refs.lion.hidden=['start','prologue','key','cabinet','cabinet-open','gun-acquired','gun-stowed','door-key','armed','entrance','opening','bug','firing','silence','escaping','clear','dead'].includes(phase);
+  refs.lion.hidden=['start','prologue','checkpoint_completion','key','cabinet','cabinet-open','gun-acquired','gun-stowed','door-key','armed','entrance','opening','bug','firing','silence','escaping','clear','dead'].includes(phase);
   refs.lion.disabled=phase!=='question';
   if(refs.lion.hidden)clearLionReaction();
   const itemDialog=['key','cabinet','cabinet-open','gun-acquired','door-key','armed'].includes(phase);
@@ -119,23 +147,23 @@ function setScene(scene){
   const ticket=state.reasoningStage>0?observations.queueArrival():null;
   return watchSceneArrival(runtime?.setStage(state.reasoningStage,scene),ticket);
 }
-function updateScene(){ if(state.phase==='entrance'||state.phase==='bug'||state.phase==='clear'||state.phase==='dead')return Promise.resolve({cancelled:true}); return setScene(state.reasoningStage===0?'hall':state.reasoningStage===1?'living':'close'); }
-function applyReasoningProgress(progress,cumulative=false){
-  const next=progress==='SYNTHESIS'||progress==='CAUSAL_LINK'?2:progress==='PARTIAL_INSIGHT'?(cumulative?Math.min(2,state.reasoningStage+1):1):state.reasoningStage;
-  if(next>state.reasoningStage){
-    state.reasoningStage=next;
-    refs.app.dataset.reasoningStage=String(state.reasoningStage);
-    return updateScene();
-  }
-  return Promise.resolve({cancelled:false});
-}
 function setNote(text=''){ refs.note.textContent=text; }
 function setActions(actions=[]){ refs.actions.replaceChildren(); actions.forEach(({label,onClick,primary=false})=>{ const button=document.createElement('button'); button.type='button'; button.textContent=label; if(primary)button.className='primary-action'; if(label==='次へ'){ button.classList.add('advance-action'); button.setAttribute('aria-label',label); button.innerHTML='<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m4 7 6 7 6-7z" fill="currentColor"/></svg>'; } button.addEventListener('click',onClick); refs.actions.append(button); }); }
+function showCheckpointRetry(progress=checkpoints.snapshot()){
+  if (!progress.blocked || deadline.check() || state.rewardBusy) return;
+  setNote('映像または到着画像を表示できませんでした。もう一度試してください。');
+  setActions([{label:'映像を再試行',primary:true,onClick:retryCheckpointProcedure}]);
+}
+function retryCheckpointProcedure(){
+  if (deadline.check() || state.rewardBusy || !checkpoints.snapshot().blocked) return;
+  setActions([]);
+  setNote('');
+  checkpoints.retry();
+}
 function scrollLogToEnd(){ refs.log.scrollTo({top:refs.log.scrollHeight,left:0,behavior:'auto'}); }
 // Keep the conversation context while showing only the current exchange.
 function hidePreviousMessages(){ for(const message of refs.log.children)message.hidden=true; }
 function appendMessage(kind,text){ const message=document.createElement('p'); message.className=`message ${kind}`; message.textContent=text; refs.log.append(message); scrollLogToEnd(); if(kind==='lion')refs.speaker.textContent='本ライオン'; else if(kind==='player')refs.speaker.textContent='あなた'; else refs.speaker.textContent=''; return message; }
-function appendMedia(kind,text,src,alt,extra='',onReady=()=>{}){ const message=document.createElement('div'); message.className=`message media ${kind}`; const image=document.createElement('img'); image.src=src; image.alt=alt; image.decoding='async'; if(extra)image.classList.add(extra); const label=document.createElement('strong'); label.textContent=text; message.append(image,label); refs.log.append(message); scrollLogToEnd(); const generation=state.generation; let settled=false; let timer=0; const cleanup=()=>{ clearTimeout(timer); mediaCleanups.delete(cleanup); }; const settle=(ok,reason='')=>{ if(settled)return; settled=true; cleanup(); if(generation!==state.generation)return; scrollLogToEnd(); onReady(ok,reason); }; mediaCleanups.add(cleanup); timer=setTimeout(()=>settle(false,'timeout'),MEDIA_TIMEOUT_MS); if(image.complete&&image.naturalWidth>0)queueMicrotask(()=>settle(true)); else { image.addEventListener('load',()=>settle(true),{once:true}); image.addEventListener('error',()=>settle(false,'error'),{once:true}); } return message; }
 function appendBeam(){
   removeBeam();
   const target=refs.app.querySelector('.bug-mark'), weapon=refs.app.querySelector('.held-raygun'), muzzle=weapon?.querySelector('.muzzle');
@@ -287,21 +315,21 @@ function appendTurn(question,result){ state.turns.push({player_message:question,
 async function liveJudge(mode, question, controller) {
   const timer=setTimeout(()=>controller.abort(),LIVE_TIMEOUT_MS);
   try {
-    const response=await fetch(API_ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode,question,recentTurns:state.turns.slice(-6),knownInsights:state.knownInsights.slice(0,4)}),signal:controller.signal});
+    const response=await fetch(API_ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode,question,recentTurns:state.turns.slice(-6),knownInsights:state.knownInsights.slice(0,4),reachedCheckpointIds:state.reachedCheckpointIds}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok) {
       const message = Object.hasOwn(API_ERROR_MESSAGES, data.error) ? API_ERROR_MESSAGES[data.error] : CONNECTION_ERROR;
       throw new Error(message);
     }
     if(!data.outcome||!LION_REPLIES[data.outcome.choice]||!Number.isFinite(data.outcome.confidence)||data.outcome.confidence<0||data.outcome.confidence>1)throw new Error('返事を受け取れませんでした。もう一度送ってください。');
-    return {...data.outcome,keyIssued:data.keyIssued===true,knownInsights:Array.isArray(data.knownInsights)?data.knownInsights:null};
+    return {...data.outcome,keyIssued:data.keyIssued===true,knownInsights:Array.isArray(data.knownInsights)?data.knownInsights:null,reachedCheckpointIds:normalizeCheckpointIds(data.reachedCheckpointIds)};
   } catch(error) {
     if(error.name==='AbortError')throw new Error('返事に時間がかかっています。もう一度送ってください。');
     if(error instanceof TypeError)throw new Error('本ライオンに声が届きませんでした。接続を確認して、もう一度送ってください。');
     throw error;
   } finally { clearTimeout(timer); }
 }
-function invalidatePending(){ state.generation+=1; observations.invalidate(); clearLionReaction(); if(state.requestController){state.requestController.abort();state.requestController=null;} for(const [timer,resolve] of beatTimers){clearTimeout(timer);resolve(false);} beatTimers.clear(); for(const cleanup of mediaCleanups)cleanup(); mediaCleanups.clear(); state.busy=false; refs.input.disabled=false; refs.send.disabled=false; refs.theoryToggle.disabled=false; refs.form.removeAttribute('aria-busy'); }
+function invalidatePending(){ state.generation+=1; observations.invalidate(); checkpoints.reset(); checkpointActionCancel?.(); checkpointActionCancel=null; clearLionReaction(); if(state.requestController){state.requestController.abort();state.requestController=null;} for(const [timer,resolve] of beatTimers){clearTimeout(timer);resolve(false);} beatTimers.clear(); state.busy=false; refs.input.disabled=false; refs.send.disabled=false; refs.theoryToggle.disabled=false; refs.form.removeAttribute('aria-busy'); }
 async function submitQuestion(event) {
   event.preventDefault();
   if(state.phase!=='question'||state.busy||deadline.check())return;
@@ -336,26 +364,19 @@ async function submitQuestion(event) {
     appendTurn(question,result);
     if(result.knownInsights)state.knownInsights=result.knownInsights.slice(0,4);
     const solvedGate=mode==='final_theory'&&result.choice==='SOLVED'&&result.keyIssued===true;
-    const safeProgress=result.reasoning_progress==='SYNTHESIS'&&!solvedGate?'NONE':result.reasoning_progress;
     hidePreviousMessages();
     appendMessage('lion',LION_REPLIES[result.choice]||LION_REPLIES.NEEDS_CLARIFICATION);
-    // Question progress denotes a new discovery; a final theory assesses its whole explanation.
-    applyReasoningProgress(safeProgress,mode==='question');
-    if(solvedGate&&state.reasoningStage<2){
-      state.reasoningStage=2;
-      refs.app.dataset.reasoningStage='2';
-      updateScene();
-    }
+    // Credit every new fixed ID, independently from history and presentation order.
+    // Solving fills the procedure queue, not the understanding ledger.
+    checkpoints.accept({reachedCheckpointIds:result.reachedCheckpointIds,finalSolved:solvedGate});
     state.questionCount+=1;
     if(mode==='question'||solvedGate){refs.input.value='';state.drafts[mode]='';}
     if(solvedGate) {
-      setPhase('key');
-      clearBeat();
-      appendMessage('lion','はい');
-      updateComposer();
+      setPhase('checkpoint_completion');
       setActions([]);
-      prepareKeyArrival();
+      updateComposer();
       track('theory_solved',{confidence:result.confidence});
+      finishSolvedCheckpoints(generation);
     } else {
       state.questionMode=mode;
     }
@@ -377,11 +398,111 @@ async function submitQuestion(event) {
     else refs.input.blur?.();
   }
 }
+function handleCheckpointAction(action, { signal } = {}) {
+  const generation = state.generation;
+  const returnPhase = state.phase;
+  if (signal?.aborted || deadline.check()) return Promise.resolve({ completed: false, cancelled: true });
+  const labels = {
+    continue: '次へ',
+    'cabinet-key': '戸棚の鍵を拾う',
+    'unlock-cabinet': '戸棚を開ける',
+    'take-gun': '光線銃を取る',
+    'stow-gun': '次へ',
+    'take-door-key': '十字の鍵を取る',
+  };
+  const label = labels[action.type];
+  if (!label) return Promise.resolve({ completed: false, reason: 'action_unassigned' });
+  setPhase('checkpoint_step');
+  setRewardBusy(true);
+  setActions([]);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      checkpointActionCancel = null;
+      signal?.removeEventListener?.('abort', abort);
+      if (generation !== state.generation || result?.cancelled) {
+        setRewardBusy(false);
+        resolve({ completed: false, cancelled: true });
+        return;
+      }
+      setRewardBusy(false);
+      // A solved theory owns the drain until every procedure ACKs.  An action
+      // may finish after that ledger flips to solved; restoring the stale
+      // question phase would make finishSolvedCheckpoints discard the queue.
+      const restorePhase = checkpoints.snapshot().solved ? 'checkpoint_completion' : returnPhase;
+      setPhase(restorePhase);
+      setActions([]);
+      updateComposer();
+      observations.flush();
+      resolve(result);
+    };
+    const abort = () => finish({ completed: false, cancelled: true });
+    checkpointActionCancel = abort;
+    signal?.addEventListener?.('abort', abort, { once: true });
+    const perform = () => {
+      if (settled || generation !== state.generation || signal?.aborted || deadline.check()) {
+        abort();
+        return;
+      }
+      if (action.type === 'cabinet-key') {
+        if (!state.cabinetKey) {
+          state.cabinetKey = true;
+          sound.reward();
+          appendMessage('system', '別の戸棚の鍵を手に入れた。');
+        }
+      } else if (action.type === 'unlock-cabinet') {
+        if (!state.cabinetKey) return finish({ completed: false, reason: 'cabinet_key_required' });
+        if (!state.cabinetOpen) {
+          state.cabinetOpen = true;
+          appendMessage('system', '戸棚が開いた。');
+        }
+      } else if (action.type === 'take-gun') {
+        if (!state.cabinetOpen) return finish({ completed: false, reason: 'cabinet_required' });
+        if (!state.ray) {
+          state.ray = true;
+          sound.reward('raygun');
+          appendMessage('system', '光線銃を手に入れた。');
+        }
+      } else if (action.type === 'take-door-key') {
+        if (!state.ray) return finish({ completed: false, reason: 'raygun_required' });
+        if (!state.doorKey) {
+          state.doorKey = true;
+          sound.reward();
+          appendMessage('system', '十字のドアの鍵を手に入れた。');
+        }
+      }
+      finish({ completed: true });
+    };
+    setActions([{ label, primary: true, onClick: perform }]);
+    updateComposer();
+  });
+}
+async function finishSolvedCheckpoints(generation) {
+  const result=await checkpoints.whenSolvedComplete();
+  if(result.cancelled||generation!==state.generation||state.phase!=='checkpoint_completion')return;
+  setPhase('entrance');
+  clearBeat();
+  appendMessage('lion','はい');
+  updateComposer();
+  if (!state.ray || !state.doorKey) {
+    setNote('手順が完了していません。もう一度やり直してください。');
+    setActions([]);
+    return;
+  }
+  setActions([{label:'部屋の鍵でドアを開ける',primary:true,onClick:enterBugRoom}]);
+  observations.flush();
+}
 async function waitForScene(scene,generation,phase){
   const current=()=>generation===state.generation&&state.phase===phase;
   try {
     const result=await setScene(scene);
     if(!current()||deadline.check()||result?.cancelled||result?.superseded)return null;
+    if(result?.completed===false){
+      setNote('映像と到着画像を表示できませんでした。もう一度試してください。');
+      return {retryable:true};
+    }
     setNote(result?.fallback?'屋敷の映像を静止画で表示しています。':'');
     return result||{};
   } catch {
@@ -390,101 +511,19 @@ async function waitForScene(scene,generation,phase){
     return {fallback:true};
   }
 }
-// A transition owns the controls until arrival. Reset cancels its completion;
-// an old completion must never unlock a newer playthrough's transition.
-async function playRewardScene(scene,narration='',{keepMessage=false}={}){
-  if(deadline.check())return null;
-  const generation=state.generation,phase=state.phase;
-  setRewardBusy(true);
-  setActions([]);
-  if(!keepMessage)clearBeat();
-  if(narration)appendMessage('narration',narration);
-  try {
-    return await waitForScene(scene,generation,phase);
-  } finally {
-    if(generation===state.generation)setRewardBusy(false);
-  }
-}
-async function prepareKeyArrival(){
-  if(!await playRewardScene('close','',{keepMessage:true}))return;
-  hidePreviousMessages();
-  appendMessage('narration','ランプの下で何か光っている');
-  setActions([{label:'調べる',primary:true,onClick:grantKey}]);
-  observations.flush();
-}
-async function grantKey(){
-  if(state.phase!=='key'||state.cabinetKey||state.rewardBusy||deadline.check())return;
-  if(!await playRewardScene('key'))return;
-  state.cabinetKey=true;
-  sound.reward();
-  appendMedia('system','戸棚のカギを見つけた','./assets/items/key.png','戸棚のカギ','',(ok)=>{
-    if(!ok&&state.phase==='cabinet')setNote('鍵の画像を読み込めませんでした。');
-  });
-  setPhase('cabinet');
-  setActions([{label:'奥の戸棚へ',primary:true,onClick:moveToCabinet}]);
-  observations.flush();
-}
-async function moveToCabinet(){
-  if(state.phase!=='cabinet'||!state.cabinetKey||state.rewardBusy||deadline.check())return;
-  if(!await playRewardScene('cabinet','奥の部屋の左側にある戸棚へ向かう。'))return;
-  hidePreviousMessages();
-  appendMessage('narration','戸棚の前に着いた。');
-  setActions([{label:'鍵で戸棚を開ける',primary:true,onClick:openCabinet}]);
-  observations.flush();
-}
-async function openCabinet(){
-  if(state.phase!=='cabinet'||!state.cabinetKey||state.cabinetOpen||state.rewardBusy||deadline.check())return;
-  if(!await playRewardScene('cabinet-open','鍵を差し込み、戸棚の扉を開ける。'))return;
-  state.cabinetOpen=true;
-  setPhase('cabinet-open');
-  hidePreviousMessages();
-  appendMessage('system','戸棚が開いた。棚の奥に光線銃が見える。');
-  setActions([{label:'光線銃を取る',primary:true,onClick:takeRaygun}]);
-  observations.flush();
-}
-async function takeRaygun(){
-  if(state.phase!=='cabinet-open'||!state.cabinetOpen||state.ray||state.rewardBusy||deadline.check())return;
-  if(!await playRewardScene('gun-held','戸棚の中へ手を伸ばし、光線銃を取る。'))return;
-  state.ray=true;
-  sound.reward('raygun');
-  setPhase('gun-acquired');
-  hidePreviousMessages();
-  appendMessage('system','光線銃を手に入れた。');
-  setActions([{label:'次へ',primary:true,onClick:stowRaygun}]);
-  observations.flush();
-}
-async function stowRaygun(){
-  if(state.phase!=='gun-acquired'||!state.ray||state.rewardBusy||deadline.check())return;
-  if(!await playRewardScene('gun-stowed'))return;
-  setPhase('door-key');
-  appendMessage('narration','戸棚の奥に、部屋のドアの鍵が残っている。');
-  setActions([{label:'ドアの鍵を取る',primary:true,onClick:takeDoorKey}]);
-  observations.flush();
-}
-async function takeDoorKey(){
-  if(state.phase!=='door-key'||state.doorKey||state.rewardBusy||deadline.check())return;
-  if(!await playRewardScene('armed'))return;
-  state.doorKey=true;
-  setPhase('armed');
-  sound.reward();
-  appendMessage('system','部屋のドアの鍵を手に入れた。');
-  setActions([{label:'入口へ',primary:true,onClick:moveToEntry}]);
-  observations.flush();
-}
-async function moveToEntry(){
-  if(state.phase!=='armed'||!state.ray||!state.doorKey||state.rewardBusy||deadline.check())return;
-  if(!await playRewardScene('entry','光線銃を持って入口へ戻る。'))return;
-  setPhase('entrance');
-  setActions([{label:'部屋の鍵でドアを開ける',primary:true,onClick:enterBugRoom}]);
-  observations.flush();
-}
 async function enterBugRoom(){
   if (state.phase!=='entrance' || !state.ray || !state.doorKey || deadline.check()) return;
   const generation=state.generation;
   setPhase('opening');
   clearBeat();
   setActions([]);
-  if(!await waitForScene('bug',generation,'opening'))return;
+  const arrival=await waitForScene('bug',generation,'opening');
+  if(!arrival){return;}
+  if(arrival.retryable){
+    setPhase('entrance');
+    setActions([{label:'部屋の鍵でドアを開ける',primary:true,onClick:enterBugRoom}]);
+    return;
+  }
   setPhase('bug');
   clearBeat();
   appendBugMark();
@@ -514,7 +553,7 @@ async function burnBug(){
   const clear=appendMessage('system','脱出成功'); clear.classList.add('clear-message');
   setActions([{label:'もう一度',primary:true,onClick:reset}]); track('game_clear');
 }
-function reset(){ invalidatePending(); deadline.stop(); clearLionReaction(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,createInitialState(state.generation)); showStart(); }
+function reset(){ invalidatePending(); deadline.stop(); clearLionReaction(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,createInitialState(state.generation)); lastCompletedCheckpointCount=0; state.checkpointProgress=checkpoints.snapshot(); showStart(); }
 refs.startButton?.addEventListener('click',beginGame); refs.form.addEventListener('submit',submitQuestion); refs.lion?.addEventListener('click',greetLion);
 refs.ask.addEventListener('click',event=>openComposer('question',event));
 refs.theoryToggle.addEventListener('click',event=>openComposer('final_theory',event));

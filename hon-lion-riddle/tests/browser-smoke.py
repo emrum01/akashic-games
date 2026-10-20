@@ -47,16 +47,40 @@ async def wait_scene(page, stage=None):
     assert snapshot["media"]["kind"] == "video", snapshot
     return snapshot
 
-async def start_demo(page, static_url, wait_for_scene=True):
+async def install_procedure_test_double(page, manual=False):
+    """Test-only ACKs, not production cut assignments or evidence of new media."""
+    await page.wait_for_function("Boolean(window.__HON_LION_SCENE_RUNTIME__)")
+    await page.evaluate("""manual => {
+        const original=window.__HON_LION_SCENE_RUNTIME__;
+        window.__TEST_STEP_CALLS__=[];
+        window.__TEST_STEP_RELEASES__={};
+        window.__HON_LION_SCENE_RUNTIME__=Object.freeze({...original,runCheckpointStep:async(id,{signal})=>{
+            window.__TEST_STEP_CALLS__.push(id);
+            if(manual)return new Promise(resolve=>{window.__TEST_STEP_RELEASES__[id]=resolve;});
+            // Only the legacy two clips are real media. Remaining ACKs are mocked.
+            const result=id==='step1'?await original.setStage(1,'living'):
+                id==='step2'?await original.setStage(2,'close'):{};
+            return {...result,completed:!signal.aborted&&!result.cancelled,cancelled:signal.aborted||result.cancelled};
+        }});
+    }""", manual)
+
+async def start_demo(page, static_url, wait_for_scene=True, procedure_fixture=True):
     # Keep offline UI fixtures deterministic even when a real key is configured.
     await page.route("**/api/hon-lion/status*", lambda route: route.fulfill(status=200, content_type="application/json", body='{"configured":false}'))
     await page.goto(static_url + "?demo=1", wait_until="domcontentloaded")
     initial_scene = await wait_scene(page, 0) if wait_for_scene else None
+    if procedure_fixture:
+        await install_procedure_test_double(page)
     assert await page.locator("#scene-video").is_hidden()
     if wait_for_scene:
         assert initial_scene["currentNode"] == "a"
     await page.get_by_role("button", name="はじめる").click()
-    revision = await page.evaluate("fetch('./assets/video/video-manifest.json').then(r => r.json()).then(m => m.asset_revision || '')")
+    revision = await page.evaluate("""async () => {
+        const checkpoint = await fetch('./assets/video/checkpoint-manifest.json');
+        const manifest = checkpoint.ok ? await checkpoint.json()
+            : await fetch('./assets/video/video-manifest.json').then(r => r.json());
+        return manifest.asset_revision || '';
+    }""")
     if revision:
         await page.wait_for_function("(v) => document.querySelector('#scene-poster').src.includes('v=' + v)", arg=revision)
     assert await page.locator("#demo-badge").count() == 0
@@ -198,140 +222,148 @@ async def assert_reward_visible(page, image_part, label_text):
     assert info["naturalWidth"] > 0, info
     assert info["imageVisible"] and info["labelVisible"] and info["screenVisible"], info
 
+CHECKPOINT_SEGMENTS = {
+    "step1": [("hall-entrance", "次へ")],
+    "step2": [("entrance-rear-door", "次へ")],
+    "step3": [("rear-door-cross", None), ("cross-key", "戸棚の鍵を拾う")],
+    "step4": [("key-cabinet", "戸棚を開ける"), ("cabinet-open", "光線銃を取る"), ("cabinet-take", "次へ"), ("cabinet-stow", "十字の鍵を取る"), ("cabinet-door-key", None)],
+    "step5": [("cabinet-rear-door", "次へ")],
+}
+
+async def configure_production_checkpoint_media(page):
+    manifest = await page.evaluate("fetch('./assets/video/checkpoint-manifest.json', {cache:'no-store'}).then(async r => ({ok:r.ok, body:r.ok ? await r.json() : null}))")
+    assert manifest["ok"], "checkpoint-manifest.json is required for the production-media suite"
+    body = manifest["body"]
+    assert body.get("schema") == "hon-lion-checkpoint-media-v1", body
+    assert body.get("source_scene_sha256") == "6c2c34a3816c501d58e307d0f4e171fb39e4aee97aab89c0879e9b64e815035d", body
+    assert len(body.get("asset_revision", "")) == 64, body
+    for key in [segment[0] for segments in CHECKPOINT_SEGMENTS.values() for segment in segments] + ["rear-door-open"]:
+        assert key in body.get("clips", {}), key
+    await page.locator("#scene-video").evaluate("""video => {
+        video.defaultPlaybackRate=4;
+        video.playbackRate=4;
+        video.addEventListener('loadedmetadata',()=>{video.playbackRate=4;});
+    }""")
+
+async def wait_for_production_clip(page, clip):
+    await page.wait_for_function("key => window.__HON_LION_SCENE__.snapshot().media.clip === key", arg=clip, timeout=180000)
+    await page.wait_for_function("key => { const video=document.querySelector('#scene-video'); return video.currentSrc.includes('checkpoint-' + key + '-') && video.duration > 0 && video.currentTime > 0; }", arg=clip, timeout=180000)
+    snapshot = await page.evaluate("window.__HON_LION_SCENE__.snapshot()")
+    assert snapshot["media"]["clip"] == clip and snapshot["media"]["duration"] > 0, snapshot
+    if clip in ("entrance-rear-door", "rear-door-cross", "cabinet-rear-door"):
+        assert snapshot["media"]["duration"] > 5, snapshot
+
+async def complete_production_steps(page, step_ids=("step1", "step2", "step3", "step4", "step5")):
+    """Use actual MP4 playback and visible production controls, never mocked ACKs."""
+    for step_id in step_ids:
+        for clip, action in CHECKPOINT_SEGMENTS[step_id]:
+            await wait_for_production_clip(page, clip)
+            print(f"checkpoint media: {step_id} / {clip}", flush=True)
+            if action:
+                await page.get_by_role("button", name=action, exact=True).click(timeout=30000)
+        await page.wait_for_function("step => window.__HON_LION_CHECKPOINTS__.snapshot().completedStepIds.includes(step)", arg=step_id, timeout=180000)
+
+async def complete_real_procedures(page):
+    await page.wait_for_function("window.__HON_LION_CHECKPOINTS__.snapshot().queuedStepIds.length > 0")
+    await configure_production_checkpoint_media(page)
+    await complete_production_steps(page)
+    await page.wait_for_function("window.__HON_LION_CHECKPOINTS__.snapshot().completedStepIds.length === 5")
+
 async def full_demo(page, static_url):
-    print("smoke: conversation demo", flush=True)
-    await start_demo(page, static_url)
+    print("smoke: production checkpoint manifest traversal", flush=True)
+    await start_demo(page, static_url, procedure_fixture=False)
     await page.screenshot(path=str(QA / "conversation-desktop.png"), full_page=True)
-    await page.screenshot(path=str(QA / "scene-live-stage-a.png"), full_page=True)
-    (QA / "scene-live-stage-a.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
     await ask(page, "生き物ですか？", "関係ない")
-    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "0"
-    await ask(page, "ここは幻覚ですか？", "はい")
-    await assert_transition_started(page, 1, "a-b")
-    await ask(page, "心地よい音は虫と無関係ですか？", "いいえ")
-    await ask(page, "天気は？", "関係ない")
-    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "1"
-    await ask(page, "ここは幻覚ですか？", "はい")
-    await wait_scene(page, 1)
-    await page.screenshot(path=str(QA / "scene-live-stage-b.png"), full_page=True)
-    (QA / "scene-live-stage-b.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
-    await ask(page, "この洋館は幻覚で、自分の耳のカメラ映像ですか？", "はい")
-    await assert_transition_started(page, 2, "b-c")
-    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "2"
-    await wait_scene(page, 2)
-    await page.screenshot(path=str(QA / "scene-live-stage-c.png"), full_page=True)
-    (QA / "scene-live-stage-c.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
     await page.locator("#theory-toggle").click()
-    assert await page.locator("#question-label").text_content() == "あなたの推理"
     await page.locator("#question-input").fill(THEORY)
     await page.locator("#question-send").click()
     assert await page.locator(".message.lion").last.text_content() == "はい"
-    assert await page.locator("#question-form").is_hidden()
-    await wait_reward_node(page, "c")
-    assert await page.get_by_text("ランプの下で何か光っている", exact=True).is_visible()
-    await page.get_by_role("button", name="調べる").click()
-    await wait_reward_node(page, "key")
-    assert await page.locator("img[src*='key.png']").is_visible()
-    await assert_reward_visible(page, "key.png", "戸棚のカギを見つけた")
-    await page.screenshot(path=str(QA / "key-acquired.png"), full_page=True)
-    await page.get_by_role("button", name="奥の戸棚へ").click()
-    await wait_reward_node(page, "cabinet")
-    await page.get_by_role("button", name="鍵で戸棚を開ける").click()
-    await wait_reward_node(page, "cabinet-open")
-    assert await page.get_by_text("戸棚が開いた。棚の奥に光線銃が見える。", exact=True).is_visible()
-    assert await page.locator("img[src*='giant-raygun.png']").count() == 0
-    await wait_visual_node(page, "cabinet-open")
-    await page.get_by_role("button", name="光線銃を取る").click()
-    await wait_reward_node(page, "gun-held")
-    assert await page.locator("#app").get_attribute("data-phase") == "gun-acquired"
-    assert await page.get_by_text("光線銃を手に入れた。", exact=True).is_visible()
-    await page.get_by_role("button", name="次へ").click()
-    await wait_reward_node(page, "gun-stowed")
-    await page.get_by_role("button", name="ドアの鍵を取る").click()
-    await wait_reward_node(page, "armed")
-    assert await page.get_by_text("部屋のドアの鍵を手に入れた。", exact=True).is_visible()
-    await page.get_by_role("button", name="入口へ").click()
-    await wait_reward_node(page, "entry")
-    await page.screenshot(path=str(QA / "raygun-acquired.png"), full_page=True)
-    await page.get_by_role("button", name="部屋の鍵でドアを開ける").click()
+    await page.locator("#question-form").wait_for(state="hidden")
+    await complete_real_procedures(page)
+    assert await page.locator("#app").get_attribute("data-phase") == "entrance"
+    assert await page.locator("img[src*='key.png']").count() == 0
+    await page.get_by_role("button", name="部屋の鍵でドアを開ける", exact=True).click()
     await page.locator(".bug-mark").wait_for(state="visible", timeout=15000)
     assert await page.locator("#app").get_attribute("data-scene") == "bug"
-    await wait_scene(page, 2)
-    await page.screenshot(path=str(QA / "scene-live-entry.png"), full_page=True)
-    (QA / "scene-live-entry.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
-    assert await page.locator(".bug-mark").count() == 1
     await page.screenshot(path=str(QA / "entrance-final.png"), full_page=True)
-    await page.get_by_role("button", name="光線銃を撃つ").click()
+    await page.get_by_role("button", name="光線銃を撃つ", exact=True).click()
     await page.locator(".clear-message").wait_for(state="visible", timeout=10000)
     assert await page.locator("#app").get_attribute("data-scene") == "clear"
     assert await page.locator(".bug-mark").count() == 0
     assert await page.locator(".beam").count() == 0
-    await page.wait_for_timeout(300)
-    await page.locator("#conversation-log").evaluate("el => { el.scrollTop = 0; }")
-    await page.screenshot(path=str(QA / "firing.png"), full_page=True)
     await page.screenshot(path=str(QA / "clear.png"), full_page=True)
-    await page.get_by_role("button", name="もう一度").click()
-    await page.get_by_role("button", name="はじめる").click()
-    assert await page.locator("#app").get_attribute("data-scene") == "hall"
-    assert await page.locator(".bug-mark").count() == 0
-    await wait_scene(page, 0)
-    replay_log = await page.locator("#conversation-log").text_content()
-    assert PROLOGUE_COPY[0] in replay_log and "屋敷の夜は" not in replay_log
-    assert await page.locator("#conversation-log .message.narration").last.text_content() == PROLOGUE_COPY[0]
-    await page.wait_for_timeout(450)
-    await page.screenshot(path=str(QA / "replay-after-clear.png"), full_page=True)
-    assert await page.locator("#question-form").is_hidden()
-    # Replay the entire reward path far enough to prove the bug marker is recreated once.
-    await advance_intro(page)
-    for question in ("ここは幻覚ですか？", "ここは幻覚ですか？", "この洋館は幻覚で、自分の耳のカメラ映像ですか？"):
-        await ask(page, question, "はい")
-    await page.locator("#theory-toggle").click()
-    await page.locator("#question-input").fill(THEORY)
-    await page.locator("#question-send").click()
-    await page.get_by_role("button", name="調べる").click()
-    await wait_reward_node(page, "key")
-    await page.get_by_role("button", name="奥の戸棚へ").click()
-    await wait_reward_node(page, "cabinet")
-    await page.get_by_role("button", name="鍵で戸棚を開ける").click()
-    await wait_reward_node(page, "cabinet-open")
-    await page.get_by_role("button", name="光線銃を取る").click()
-    await wait_reward_node(page, "gun-held")
-    await page.get_by_role("button", name="次へ").click()
-    await wait_reward_node(page, "gun-stowed")
-    await page.get_by_role("button", name="ドアの鍵を取る").click()
-    await wait_reward_node(page, "armed")
-    await page.get_by_role("button", name="入口へ").click()
-    await wait_reward_node(page, "entry")
-    await page.get_by_role("button", name="部屋の鍵でドアを開ける").click()
-    await page.locator(".bug-mark").wait_for(state="visible", timeout=15000)
-    assert await page.locator("#app").get_attribute("data-scene") == "bug"
-    await wait_scene(page, 2)
-    assert await page.locator(".bug-mark").count() == 1
-    await page.screenshot(path=str(QA / "replay-second-bug.png"), full_page=True)
+    await page.get_by_role("button", name="もう一度", exact=True).click()
+    assert await page.locator("#app").get_attribute("data-phase") == "start"
+
 
 
 async def mobile_rewards(browser, static_url):
-    print("smoke: mobile reward visibility", flush=True)
+    print("smoke: mobile checkpoint media visibility", flush=True)
     page = await browser.new_page(viewport={"width":390,"height":590})
-    await start_demo(page, static_url, wait_for_scene=False)
-    for question in ("ここは幻覚ですか？", "ここは幻覚ですか？", "この洋館は幻覚で、自分の耳のカメラ映像ですか？"):
-        await ask(page, question, "はい")
+    await start_demo(page, static_url, wait_for_scene=False, procedure_fixture=False)
     await page.locator("#theory-toggle").click()
     await page.locator("#question-input").fill(THEORY)
     await page.locator("#question-send").click()
-    await page.get_by_role("button", name="調べる").click()
-    await wait_reward_node(page, "key")
-    await assert_reward_visible(page, "key.png", "戸棚のカギを見つけた")
-    await page.screenshot(path=str(QA / "reward-key-mobile-390x590.png"), full_page=True)
-    await page.get_by_role("button", name="奥の戸棚へ").click()
-    await wait_reward_node(page, "cabinet")
-    await page.get_by_role("button", name="鍵で戸棚を開ける").click()
-    await wait_reward_node(page, "cabinet-open")
-    assert await page.get_by_text("戸棚が開いた。棚の奥に光線銃が見える。", exact=True).is_visible()
-    assert await page.locator("img[src*='giant-raygun.png']").count() == 0
-    await wait_visual_node(page, "cabinet-open")
-    await page.screenshot(path=str(QA / "reward-raygun-mobile-390x590.png"), full_page=True)
+    await complete_real_procedures(page)
+    assert await page.locator("#app").get_attribute("data-phase") == "entrance"
+    assert await page.locator("#app").get_attribute("data-reward-busy") == "false"
+    await page.screenshot(path=str(QA / "checkpoint-ready-mobile-390x590.png"), full_page=True)
     await page.close()
+
+async def production_checkpoint_media(browser, static_url):
+    """Release gate for the captured checkpoint media, run only once files exist."""
+    print("smoke: actual checkpoint media on desktop and mobile", flush=True)
+    desktop = await browser.new_page(viewport={"width":1280,"height":720})
+    errors=[]
+    desktop.on("pageerror", lambda error: errors.append(str(error)))
+    await start_demo(desktop, static_url, procedure_fixture=False)
+    await configure_production_checkpoint_media(desktop)
+    await desktop.locator("#theory-toggle").click()
+    await desktop.locator("#question-input").fill(THEORY)
+    await desktop.locator("#question-send").click()
+    assert await desktop.locator(".message.lion").last.text_content() == "はい"
+    await complete_production_steps(desktop)
+    assert await desktop.locator("#app").get_attribute("data-phase") == "entrance"
+    await desktop.screenshot(path=str(QA / "checkpoint-production-desktop-ready.png"), full_page=True, animations="disabled")
+    await desktop.get_by_role("button", name="部屋の鍵でドアを開ける", exact=True).click()
+    await wait_for_production_clip(desktop, "rear-door-open")
+    await desktop.locator(".bug-mark").wait_for(state="visible", timeout=180000)
+    poster_src = await desktop.locator("#scene-poster").get_attribute("src")
+    assert "checkpoint-bug-" in (poster_src or "")
+    await desktop.screenshot(path=str(QA / "checkpoint-production-desktop-bug.png"), full_page=True, animations="disabled")
+    await desktop.get_by_role("button", name="光線銃を撃つ", exact=True).click()
+    await desktop.locator(".clear-message").wait_for(state="visible", timeout=30000)
+    poster_src = await desktop.locator("#scene-poster").get_attribute("src")
+    assert "checkpoint-bug-" in (poster_src or "")
+    await desktop.screenshot(path=str(QA / "checkpoint-production-desktop-clear.png"), full_page=True, animations="disabled")
+    await desktop.get_by_role("button", name="もう一度", exact=True).click()
+    assert await desktop.locator("#app").get_attribute("data-phase") == "start"
+    replay = await desktop.evaluate("window.__HON_LION_SCENE__.snapshot()")
+    assert replay["currentNode"] == "a" and replay["checkpointNode"] == "hall", replay
+    assert not errors, errors
+    await desktop.close()
+
+    mobile = await browser.new_page(viewport={"width":390,"height":844})
+    await start_demo(mobile, static_url, procedure_fixture=False)
+    await configure_production_checkpoint_media(mobile)
+    for question, answer, step in [
+        ("音も幻覚ですか？", "いいえ", "step1"),
+        ("音を出しているのは自分ですか？", "いいえ", "step2"),
+        ("音を生む出来事が認知機能を低下させていますか？", "はい", "step3"),
+        ("ここは幻覚ですか？", "はい", "step4"),
+        ("音は自分の耳の中から聞こえますか？", "はい", "step5"),
+    ]:
+        await ask(mobile, question, answer)
+        await complete_production_steps(mobile, (step,))
+    progress = await mobile.evaluate("window.__HON_LION_CHECKPOINTS__.snapshot()")
+    assert progress["reachedCheckpointIds"] == ["cp1","cp2","cp3","cp4","cp5"], progress
+    mobile_phase = await mobile.locator("#app").get_attribute("data-phase")
+    assert progress["solved"] is False and mobile_phase == "question", progress
+    assert await mobile.get_by_role("button", name="部屋の鍵でドアを開ける", exact=True).count() == 0
+    await mobile.screenshot(path=str(QA / "checkpoint-production-mobile-unsolved.png"), full_page=True, animations="disabled")
+    await mobile.close()
+    print(f"checkpoint production media PASS: desktop solved/replay, mobile NO-first unsolved five IDs; {QA}", flush=True)
+
 
 async def partial_and_direct(page, static_url, wait_for_scene=False):
     print("smoke: partial and direct theory", flush=True)
@@ -342,7 +374,7 @@ async def partial_and_direct(page, static_url, wait_for_scene=False):
     await page.locator("#question-input").fill("耳に虫がいる")
     await page.locator("#question-send").click()
     assert await page.locator(".message.lion").last.text_content() == "はい"
-    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "1"
+    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "0"
     assert await page.locator("img[src*='key.png']").count() == 0
 
 async def guarded_synthesis(page, static_url):
@@ -491,10 +523,62 @@ async def mobile_keyboard(browser, static_url):
         await page.close()
     print("keyboard smoke PASS: touch focus, resize/pan, drafts, send/error, zoom, rotation, keyboard navigation", flush=True)
 
-async def main(static_url, worker_url=None, intro_only=False, keyboard_only=False, browser_name="chromium", executable_path=None):
+async def checkpoint_state_smoke(browser, static_url):
+    for viewport in ({"width":1280,"height":720},{"width":390,"height":844}):
+        page=await browser.new_page(viewport=viewport)
+        errors=[]
+        console_errors=[]
+        page.on("pageerror",lambda error:errors.append(str(error)))
+        page.on("console",lambda message:console_errors.append(message.text) if message.type=="error" else None)
+        await start_demo(page,static_url,procedure_fixture=False)
+        assert await page.title()=="水平思考ゲーム"
+        await ask(page,"音も幻覚ですか？","いいえ")
+        await page.wait_for_function("window.__HON_LION_CHECKPOINTS__.snapshot().blocked?.reason === 'unassigned'")
+        progress=await page.evaluate("window.__HON_LION_CHECKPOINTS__.snapshot()")
+        assert progress["reachedCheckpointIds"]==["cp2"]
+        assert progress["completedStepIds"]==[]
+        await ask(page,"音は幻覚ですか？","いいえ")
+        assert (await page.evaluate("window.__HON_LION_CHECKPOINTS__.snapshot()"))["queuedStepIds"]==["step1"]
+        await page.screenshot(path=str(QA/f"checkpoint-pending-{viewport['width']}.png"),full_page=True,animations="disabled")
+        # A fresh page gets an explicit manual runner. No new media is claimed.
+        await page.reload()
+        await page.wait_for_function("Boolean(window.__HON_LION_CHECKPOINTS__)")
+        await install_procedure_test_double(page,manual=True)
+        await page.get_by_role("button",name="はじめる").click()
+        await advance_intro(page)
+        await page.locator("#theory-toggle").click()
+        await page.locator("#question-input").fill(THEORY)
+        await page.locator("#question-send").click()
+        await page.wait_for_function("document.querySelector('#app').dataset.phase === 'checkpoint_completion'")
+        for i in range(1,6):
+            step=f"step{i}"
+            await page.wait_for_function("id=>Boolean(window.__TEST_STEP_RELEASES__[id])",arg=step)
+            assert await page.locator("img[src*='key.png']").count()==0
+            await page.evaluate("id=>window.__TEST_STEP_RELEASES__[id]({completed:true})",step)
+        await page.wait_for_function("document.querySelector('#app').dataset.phase === 'entrance'")
+        assert await page.evaluate("window.__TEST_STEP_CALLS__")==["step1","step2","step3","step4","step5"]
+        await page.screenshot(path=str(QA/f"checkpoint-reward-{viewport['width']}.png"),full_page=True,animations="disabled")
+        await page.evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))")
+        progress=await page.evaluate("window.__HON_LION_CHECKPOINTS__.snapshot()")
+        assert progress["reachedCheckpointIds"]==[] and progress["queuedStepIds"]==[] and progress["completedStepIds"]==[]
+        assert await page.locator("#app").get_attribute("data-phase")=="start"
+        assert not errors,errors
+        assert not console_errors,console_errors
+        await page.close()
+    print(f"checkpoint browser PASS: NO confirmation, duplicate, honest unassigned state, five manual ACKs before rear-door state, reset; {QA}",flush=True)
+
+async def main(static_url, worker_url=None, intro_only=False, keyboard_only=False, browser_name="chromium", executable_path=None, checkpoints_only=False, checkpoint_production=False):
     async with async_playwright() as playwright:
         browser = await getattr(playwright, browser_name).launch(headless=True, executable_path=executable_path)
         errors=[]; console_errors=[]; requests=[]
+        if checkpoints_only:
+            await checkpoint_state_smoke(browser,static_url)
+            await browser.close()
+            return
+        if checkpoint_production:
+            await production_checkpoint_media(browser, static_url)
+            await browser.close()
+            return
         if keyboard_only:
             await mobile_keyboard(browser, static_url)
             await browser.close()
@@ -534,7 +618,9 @@ if __name__ == "__main__":
     parser.add_argument("--worker-url")
     parser.add_argument("--intro-only", action="store_true")
     parser.add_argument("--keyboard-only", action="store_true")
+    parser.add_argument("--checkpoints-only", action="store_true")
+    parser.add_argument("--checkpoint-production", action="store_true")
     parser.add_argument("--browser", choices=("chromium", "webkit"), default="chromium")
     parser.add_argument("--executable-path", help="Optional path to an existing browser binary")
     args = parser.parse_args()
-    asyncio.run(main(args.url, args.worker_url, args.intro_only, args.keyboard_only, args.browser, args.executable_path))
+    asyncio.run(main(args.url, args.worker_url, args.intro_only, args.keyboard_only, args.browser, args.executable_path,args.checkpoints_only,args.checkpoint_production))

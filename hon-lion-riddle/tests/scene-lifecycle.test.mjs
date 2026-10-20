@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
+import { createCheckpointStepRunner } from '../app/checkpoint-procedures.js';
 
-const source = await readFile(new URL('../app/scene-runtime.js', import.meta.url), 'utf8');
+const source = (await readFile(new URL('../app/scene-runtime.js', import.meta.url), 'utf8')).replace(/^import .*;$/gm, '');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function deferred() {
   let resolve, reject;
@@ -46,7 +47,7 @@ function setup({ fetchManifest = async () => ({ ok: true, json: async () => ({})
     dispatchEvent: event => warnings.push(event),
   };
   const context = vm.createContext({
-    window, document, URL, structuredClone, console,
+    window, document, URL, structuredClone, console, createCheckpointStepRunner,
     fetch: fetchManifest,
     setTimeout: setTimer, clearTimeout: id => timers.delete(id),
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },

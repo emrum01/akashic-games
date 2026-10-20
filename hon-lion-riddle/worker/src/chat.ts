@@ -1,4 +1,4 @@
-import { appendKnownInsight, isChatRequest, LION_REPLIES, normalizeInsight, sanitizeKnownInsights, type ChatRequest, type Outcome, type SafeTurn } from './contract';
+import { appendKnownInsight, CHECKPOINT_IDS, isChatRequest, LION_REPLIES, normalizeInsight, sanitizeKnownInsights, sanitizeReachedCheckpointIds, type ChatRequest, type CheckpointId, type Outcome, type SafeTurn } from './contract';
 import { askJev, JevError } from './jev';
 import { demoOutcome } from './demo';
 import { error, isJsonContentType, json, MAX_BODY_BYTES, readBoundedBody, sameOrigin } from './http';
@@ -27,6 +27,58 @@ function canonicalizeOutcome(mode: ChatRequest['mode'], question: string, outcom
   return { ...outcome, reasoning_progress: exactRepeat ? 'NONE' : progress };
 }
 
+function newlyReachedCheckpointIds(mode: ChatRequest['mode'], outcome: Outcome): CheckpointId[] {
+  const judgments = outcome.checkpointJudgments;
+  if (!judgments) return [];
+  return CHECKPOINT_IDS.filter((id) => mode === 'final_theory'
+    ? judgments[id] === 'CONFIRMED'
+    : judgments[id] === 'CONFIRMED_BY_YES' || judgments[id] === 'CONFIRMED_BY_NO');
+}
+
+function checkpointResponse(previous: unknown, mode: ChatRequest['mode'], outcome: Outcome): { reachedCheckpointIds: CheckpointId[]; newlyReachedCheckpointIds: CheckpointId[] } {
+  const prior = sanitizeReachedCheckpointIds(previous);
+  const fresh = newlyReachedCheckpointIds(mode, outcome).filter((id) => !prior.includes(id));
+  const reachedCheckpointIds = [...prior];
+  for (const id of fresh) if (!reachedCheckpointIds.includes(id)) reachedCheckpointIds.push(id);
+  return { reachedCheckpointIds, newlyReachedCheckpointIds: fresh };
+}
+
+function publicOutcome(outcome: Outcome): Omit<Outcome, 'checkpointJudgments'> {
+  const { checkpointJudgments: _privateJudgments, ...visible } = outcome;
+  return visible;
+}
+
+function assembleChatResponse({
+  mode,
+  question,
+  outcome,
+  knownInsights,
+  previousCheckpointIds,
+  solved,
+  model,
+}: {
+  mode: ChatRequest['mode'];
+  question: string;
+  outcome: Outcome;
+  knownInsights: SafeTurn[];
+  previousCheckpointIds: unknown;
+  solved: boolean;
+  model: string;
+}) {
+  const canonicalOutcome = canonicalizeOutcome(mode, question, outcome, knownInsights, solved);
+  const updatedInsights = appendKnownInsight(knownInsights, question, canonicalOutcome);
+  const checkpoints = checkpointResponse(previousCheckpointIds, mode, canonicalOutcome);
+  return {
+    outcome: publicOutcome(canonicalOutcome),
+    reply: LION_REPLIES[canonicalOutcome.choice],
+    reasoningProgress: canonicalOutcome.reasoning_progress,
+    keyIssued: solved,
+    knownInsights: updatedInsights,
+    model,
+    ...checkpoints,
+  };
+}
+
 export async function chat(request: Request, env: Env, originalRequest = request): Promise<Response> {
   if (request.method !== 'POST') return error('method_not_allowed', 405);
   if (!sameOrigin(originalRequest)) return error('origin_not_allowed', 403);
@@ -44,9 +96,15 @@ export async function chat(request: Request, env: Env, originalRequest = request
   if (isLocalDemoRequest(originalRequest, env)) {
     const outcome = demoOutcome(requestBody.mode, requestBody.question, requestBody.recentTurns, knownInsights);
     const solved = requestBody.mode === 'final_theory' && outcome.choice === 'SOLVED';
-    const canonicalOutcome = canonicalizeOutcome(requestBody.mode, requestBody.question, outcome, knownInsights, solved);
-    const updatedInsights = appendKnownInsight(knownInsights, requestBody.question, canonicalOutcome);
-    return json({ outcome: canonicalOutcome, reply: LION_REPLIES[canonicalOutcome.choice], reasoningProgress: canonicalOutcome.reasoning_progress, keyIssued: solved, knownInsights: updatedInsights, model: 'local-demo' });
+    return json(assembleChatResponse({
+      mode: requestBody.mode,
+      question: requestBody.question,
+      outcome,
+      knownInsights,
+      previousCheckpointIds: requestBody.reachedCheckpointIds,
+      solved,
+      model: 'local-demo',
+    }));
   }
   if (!env.TYPESAFE_API_KEY?.trim()) return error('live_unavailable', 503);
   const limited = await enforceChatRateLimit(originalRequest, env);
@@ -59,9 +117,15 @@ export async function chat(request: Request, env: Env, originalRequest = request
     const configuredThreshold = Number(env.PROVISIONAL_SOLVED_CONFIDENCE || '.9');
     const threshold = Number.isFinite(configuredThreshold) && configuredThreshold >= .8 && configuredThreshold <= 1 ? configuredThreshold : .9;
     const solved = requestBody.mode === 'final_theory' && outcome.choice === 'SOLVED' && outcome.confidence >= threshold;
-    const canonicalOutcomeWithRepeatGuard = canonicalizeOutcome(requestBody.mode, requestBody.question, outcome, knownInsights, solved);
-    const updatedInsights = appendKnownInsight(knownInsights, requestBody.question, canonicalOutcomeWithRepeatGuard);
-    return json({ outcome: canonicalOutcomeWithRepeatGuard, reply: LION_REPLIES[canonicalOutcomeWithRepeatGuard.choice], reasoningProgress: canonicalOutcomeWithRepeatGuard.reasoning_progress, keyIssued: solved, knownInsights: updatedInsights, model });
+    return json(assembleChatResponse({
+      mode: requestBody.mode,
+      question: requestBody.question,
+      outcome,
+      knownInsights,
+      previousCheckpointIds: requestBody.reachedCheckpointIds,
+      solved,
+      model,
+    }));
   } catch (caught) {
     const code = caught instanceof Error && caught.name === 'AbortError'
       ? 'upstream_timeout' : caught instanceof JevError ? caught.code : 'provider_unavailable';

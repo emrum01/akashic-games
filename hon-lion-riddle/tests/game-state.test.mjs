@@ -8,6 +8,7 @@ import { createObservationController } from '../app/observation.js';
 import { createLionReactions } from '../app/lion-reactions.js';
 import { mockWorkerResponse } from './server-fixtures.mjs';
 import { createPredationTexture } from '../app/sound.js';
+import { createCheckpointProgress, normalizeCheckpointIds } from '../app/checkpoint-progress.js';
 
 // State tests with a small DOM double; no browser, media engine or remote API.
 class Element {
@@ -29,31 +30,132 @@ class Element {
   querySelector(selector){return this.children.find(node=>node.className.split(' ').includes(selector.slice(1)))||null;}
 }
 const source=(await readFile(new URL('../app/game.js',import.meta.url),'utf8')).replace(/^import .*;$/gm,'');
-function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,opening,movement,closing,scenePromises={},status,imageState='loaded'}={}) {
+function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,opening,movement,closing,scenePromises={},status,imageState='loaded',checkpointStep}={}) {
   const elements=new Map();
   const get=(id)=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   const calls=[];
+  const stepCalls=[];
   const audio=[];
   const beamCalls=[];
   const events={};
   const context=vm.createContext({
     console,URLSearchParams,AbortController,AbortSignal,DOMException,TypeError,queueMicrotask,
     setTimeout:(fn)=>setTimeout(fn,5),clearTimeout,
-    PROLOGUE,OPENING,LION_DISCOVERY,LION_GREETING,PROBLEM,THEORY_PROMPT,ARRIVAL_OBSERVATION,NOISE_OBSERVATION,DEATH_NARRATION,CLUES,LION_REPLIES,createDeadlineController,createObservationController,createLionReactions,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
+    PROLOGUE,OPENING,LION_DISCOVERY,LION_GREETING,PROBLEM,THEORY_PROMPT,ARRIVAL_OBSERVATION,NOISE_OBSERVATION,DEATH_NARRATION,CLUES,LION_REPLIES,createDeadlineController,createObservationController,createLionReactions,createCheckpointProgress,normalizeCheckpointIds,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
     createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','reveal','door','stopDoor','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
     connectVisualViewport:()=>{},
     createBeamEffects:()=>({shotDuration:6,start:()=>beamCalls.push('start'),stop:()=>beamCalls.push('stop'),dispose:()=>beamCalls.push('dispose')}),
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
-    window:{location:{search:demo?'?demo=1':''},setTimeout:(fn,delay)=>{const timer=setTimeout(fn,delay);timer.unref?.();return timer;},clearTimeout,addEventListener:(name,handler)=>{events[name]=handler;},__HON_LION_SCENE_RUNTIME__:{reset:()=>Promise.resolve({}),setStage:(stage,scene)=>{calls.push({stage,scene});return scenePromises[scene]??(scene==='living'&&movement?movement:scene==='close'&&closing?closing:scene==='entrance'&&arrival?arrival:scene==='bug'&&opening?opening:Promise.resolve({fallback:false}));}}},
+    window:{location:{search:demo?'?demo=1':''},setTimeout:(fn,delay)=>{const timer=setTimeout(fn,delay);timer.unref?.();return timer;},clearTimeout,addEventListener:(name,handler)=>{events[name]=handler;},__HON_LION_SCENE_RUNTIME__:{
+      reset:()=>Promise.resolve({}),
+      runCheckpointStep:async(id,context)=>{
+        stepCalls.push(id);
+        if(checkpointStep)return checkpointStep(id,context);
+        const actions={step1:'continue',step2:'continue',step3:'cabinet-key',step4:['unlock-cabinet','take-gun','stow-gun','take-door-key'],step5:'continue'};
+        for(const type of (Array.isArray(actions[id])?actions[id]:[actions[id]])){
+          const pending=context.onAction?.({type,stepId:id},{signal:context.signal});
+          await tick();
+          get('conversation-actions').children.at(-1)?.handlers.click();
+          await pending;
+        }
+        return {completed:true};
+      },
+      setStage:(stage,scene)=>{calls.push({stage,scene});return scenePromises[scene]??(scene==='living'&&movement?movement:scene==='close'&&closing?closing:scene==='entrance'&&arrival?arrival:scene==='bug'&&opening?opening:Promise.resolve({fallback:false}));},
+    }},
     fetch:(url,options)=>url==='/api/hon-lion/status'?(status?status():Promise.resolve({ok:true,json:async()=>({configured})})):chat(url,options),
   });
   vm.runInContext(source,context);
   const state=()=>vm.runInContext('state',context);
-  const ask=async(question)=>{context.openComposer(state().questionMode);get('question-input').value=question;await context.submitQuestion({preventDefault(){}});};
-  return {context,get,state,ask,calls,audio,beamCalls,events};
+  const ask=async(question)=>{context.openComposer(state().questionMode);get('question-input').value=question;await context.submitQuestion({preventDefault(){}});await new Promise(resolve=>setImmediate(resolve));};
+  return {context,get,state,ask,calls,stepCalls,audio,beamCalls,events};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+test('NO confirmation is credited and fixed IDs survive a history rollover',async()=>{
+  const posts=[];
+  const x=setup({chat:async(url,init)=>{posts.push(JSON.parse(init.body));return mockWorkerResponse(url,init);}});
+  x.context.beginGame();x.context.setQuestionFlow();
+  await x.ask('音も幻覚ですか？');
+  assert.equal(x.get('conversation-log').children.at(-1).textContent,'いいえ');
+  assert.deepEqual(x.state().reachedCheckpointIds,['cp2']);
+  for(let i=0;i<8;i++)await x.ask(`関係のない質問${i}`);
+  assert.equal(x.state().turns.length,6);
+  await x.ask('音は幻覚ですか？');
+  assert.deepEqual(x.stepCalls,['step1']);
+  assert.deepEqual(posts.at(-1).reachedCheckpointIds,['cp2']);
+});
+
+test('old reasoning_progress never substitutes for checkpoint judgments',async()=>{
+  const x=setup({chat:async()=>({ok:true,json:async()=>({outcome:{choice:'YES',confidence:1,reasoning_progress:'CAUSAL_LINK'},keyIssued:false})})});
+  x.context.beginGame();x.context.setQuestionFlow();
+  await x.ask('何らかの質問');
+  assert.deepEqual(Array.from(x.state().reachedCheckpointIds),[]);
+  assert.deepEqual(x.stepCalls,[]);
+});
+
+test('first-turn solution waits for all five procedure ACKs before enabling rewards',async()=>{
+  const releases=[];
+  const x=setup({checkpointStep:()=>new Promise(resolve=>releases.push(resolve))});
+  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  assert.equal(x.state().phase,'checkpoint_completion');
+  assert.equal(x.state().cabinetKey,false);
+  assert.deepEqual(x.state().reachedCheckpointIds,[], 'finishing presentation does not claim all five were explicitly understood');
+  for(let i=0;i<5;i++){
+    assert.equal(x.state().phase,'checkpoint_completion');
+    assert.equal(x.get('conversation-actions').children.length,0);
+    releases[i]({completed:true});
+    await tick();
+  }
+  assert.deepEqual(x.stepCalls,['step1','step2','step3','step4','step5']);
+  assert.equal(x.state().phase,'entrance');
+  assert.equal(x.get('conversation-actions').children.length,0,'ACK-only fixtures do not synthesize item acquisition');
+});
+
+test('new arrivals and a final solution share an already running queue without duplicates',async()=>{
+  const releases=[];
+  const x=setup({checkpointStep:()=>new Promise(resolve=>releases.push(resolve))});
+  x.context.beginGame();x.context.setQuestionFlow();
+  await x.ask('音は自分の耳の中から聞こえますか？');
+  await x.ask('見ている洋館は幻覚で、聞こえる音は現実の音ですか？');
+  assert.deepEqual(x.state().reachedCheckpointIds,['cp1','cp2','cp3']);
+  assert.deepEqual(x.stepCalls,['step1']);
+  assert.deepEqual(x.state().checkpointProgress.queuedStepIds,['step2','step3']);
+  x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  for(let i=0;i<5;i++){releases[i]({completed:true});await tick();}
+  assert.deepEqual(x.stepCalls,['step1','step2','step3','step4','step5']);
+  assert.equal(x.state().phase,'entrance');
+});
+
+
+
+test('unassigned procedures block rewards honestly and reset discards the solved queue',async()=>{
+  const x=setup({checkpointStep:async()=>({completed:false,reason:'unassigned'})});
+  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  assert.equal(x.state().phase,'checkpoint_completion');
+  assert.equal(x.state().checkpointProgress.blocked.reason,'unassigned');
+  assert.deepEqual(x.state().checkpointProgress.completedStepIds,[]);
+  x.context.reset();await tick();
+  assert.equal(x.state().phase,'start');
+  assert.deepEqual(Array.from(x.state().reachedCheckpointIds),[]);
+  assert.deepEqual(x.state().checkpointProgress.queuedStepIds,[]);
+});
+
+test('reset during the solved drain prevents a stale arrival from issuing rewards',async()=>{
+  let finish;
+  const x=setup({checkpointStep:()=>new Promise(resolve=>{finish=resolve;})});
+  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  x.context.reset();
+  finish({completed:true});await tick();
+  assert.equal(x.state().phase,'start');
+  assert.equal(x.state().cabinetKey,false);
+  assert.deepEqual(x.state().checkpointProgress.completedStepIds,[]);
+  assert.deepEqual(x.stepCalls,['step1']);
+});
 
 test('touch opens either composer without focus, including Safari taps with a primary mouse or trackpad',()=>{
   const x=setup();
@@ -86,168 +188,9 @@ test('a failed mobile submission preserves the draft without reopening the keybo
   assert.match(x.get('system-note').textContent,/設定されていません/);
 });
 
-test('conversation, correct reasoning, cabinet reward route, clear and replay form one game',async()=>{
-  const x=setup();
-  assert.equal(x.state().phase,'start');
-  x.context.beginGame();
-  for(const page of PROLOGUE){
-    assert.equal(x.state().phase,'prologue');
-    assert.equal(x.get('lion-character-button').hidden,true,'the lion is not present before the manor');
-    assert.equal(x.get('question-form').hidden,true);
-    assert.equal(x.get('conversation-tools').hidden,true);
-    x.context.greetLion();
-    assert.equal(x.get('conversation-log').children.length,1);
-    assert.equal(x.get('conversation-log').children[0].textContent,page);
-    x.get('conversation-actions').children[0].handlers.click();
-  }
-  assert.equal(x.state().phase,'intro');
-  assert.equal(x.get('lion-character-button').hidden,false);
-  assert.equal(x.get('lion-character-button').disabled,true);
-  assert.deepEqual(x.audio,['start'],'the same audio continues through the scene change');
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,OPENING);
-  x.context.greetLion();
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,OPENING,'greeting cannot interrupt the intro');
-  x.get('conversation-actions').children[0].handlers.click();
-  assert.equal(x.state().phase,'problem');
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,PROBLEM);
-  assert.equal(x.get('lion-character-button').disabled,true);
-  assert.equal(vm.runInContext('deadline.started',x.context),false,'reading the problem does not consume the deadline');
-  x.get('conversation-actions').children[0].handlers.click();
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,LION_DISCOVERY);
-  assert.equal(x.get('lion-character-button').disabled,false);
-  x.context.greetLion();
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,LION_GREETING);
-  assert.doesNotMatch(x.get('question-input').placeholder,/虫/);
-  await x.ask('ここは幻覚ですか？');
-  assert.equal(x.state().reasoningStage,1);
-  await x.ask('天気はどうですか？');
-  assert.equal(x.state().reasoningStage,1);
-  await x.ask('この洋館は幻覚ですか？');
-  assert.equal(x.state().reasoningStage,1,'rephrasing a known insight does not count twice');
-  await x.ask('耳に入った虫が自分の脳を食べていますか？');
-  assert.equal(x.state().reasoningStage,2);
-  assert.deepEqual(x.calls.filter(call=>call.scene==='living'||call.scene==='close').map(call=>call.scene),['living','close']);
-  x.context.openComposer('final_theory');
-  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  assert.equal(x.state().phase,'key');
-  await tick();
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,'ランプの下で何か光っている');
-  assert.equal(x.get('conversation-log').children.filter(node=>!node.hidden).length,1);
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'調べる');
-  await x.context.grantKey(); await tick();
-  assert.equal(x.state().cabinetKey,true);
-  assert.equal(x.get('conversation-log').children.some(node=>node.className.includes('media')&&node.children.at(-1).textContent==='戸棚のカギを見つけた'),true);
-  assert.equal(x.state().phase,'cabinet');
-  x.context.moveToCabinet(); await tick();
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'鍵で戸棚を開ける');
-  x.context.openCabinet(); await tick();
-  assert.equal(x.state().phase,'cabinet-open');
-  assert.equal(x.state().ray,false,'the gun is unavailable until the take animation finishes');
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る');
-  x.context.takeRaygun(); await tick();
-  assert.equal(x.state().ray,true);
-  assert.equal(x.state().phase,'gun-acquired');
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,'光線銃を手に入れた。');
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'次へ');
-  x.context.stowRaygun(); await tick();
-  assert.equal(x.state().phase,'door-key');
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'ドアの鍵を取る');
-  x.context.takeDoorKey(); await tick();
-  assert.equal(x.state().doorKey,true);
-  assert.equal(x.get('conversation-log').children.some(node=>node.textContent==='部屋のドアの鍵を手に入れた。'),true);
-  x.context.moveToEntry(); await tick();
-  assert.equal(x.state().phase,'entrance');
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'部屋の鍵でドアを開ける');
-  await x.context.enterBugRoom();
-  const ending=x.context.burnBug();
-  assert.equal(x.state().phase,'firing');
-  assert.equal(x.state().cleared,false,'a shot does not immediately announce success');
-  await ending;
-  assert.equal(x.state().cleared,true);
-  assert.equal(x.state().phase,'clear');
-  assert.equal(vm.runInContext('deadline.started',x.context),false,'removing the insect stops the wall-clock deadline');
-  assert.equal(x.get('app').querySelector('.bug-mark'),null);
-  assert.equal(x.get('app').querySelector('.beam'),null);
-  assert.equal(x.get('app').querySelector('.held-raygun'),null);
-  assert.ok(x.get('conversation-log').children.some(node=>node.textContent==='脱出成功'));
-  assert.deepEqual(x.audio,['start','reward','reward','reward','reveal','shoot','removeInsect']);
-  assert.deepEqual(x.beamCalls,['start','stop','dispose'],'the shot renderer is disposed after its six-second lifecycle');
-  x.context.reset();
-  assert.equal(x.state().phase,'start');
-  assert.equal(x.state().cabinetKey,false);
-  assert.equal(x.state().doorKey,false);
-  assert.equal(x.get('app').querySelector('.bug-mark'),null);
-  x.context.beginGame();
-  assert.equal(x.state().phase,'prologue');
-  assert.equal(x.get('lion-character-button').hidden,true);
-  assert.equal(x.get('conversation-log').children[0].textContent,PROLOGUE[0]);
-});
 
-test('reward transitions wait for their background edge and reset or double clicks cannot award early',async()=>{
-  let resolveClose;
-  const close=new Promise(resolve=>{resolveClose=resolve;});
-  const x=setup({scenePromises:{close}});
-  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
-  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  assert.equal(x.state().phase,'key');
-  assert.equal(x.state().rewardBusy,true);
-  assert.equal(x.get('conversation-actions').children.length,0);
-  x.context.reset();
-  resolveClose({cancelled:true});
-  await tick();
-  assert.equal(x.state().cabinetKey,false);
-  assert.equal(x.state().phase,'start');
 
-  let resolveKey;
-  const key=new Promise(resolve=>{resolveKey=resolve;});
-  const y=setup({scenePromises:{key}});
-  y.context.beginGame();y.context.setQuestionFlow();y.context.openComposer('final_theory');
-  await y.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  await tick();
-  y.context.grantKey();y.context.grantKey();
-  assert.equal(y.state().cabinetKey,false);
-  assert.equal(y.calls.filter(call=>call.scene==='key').length,1);
-  y.context.reset();
-  resolveKey({cancelled:true});
-  await tick();
-  assert.equal(y.state().cabinetKey,false);
 
-  let resolveOpen;
-  const cabinetOpen=new Promise(resolve=>{resolveOpen=resolve;});
-  const z=setup({scenePromises:{'cabinet-open':cabinetOpen}});
-  z.context.beginGame();z.context.setQuestionFlow();z.context.openComposer('final_theory');
-  await z.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  await tick();
-  await z.context.grantKey();
-  z.context.moveToCabinet();await tick();
-  z.context.openCabinet();z.context.openCabinet();
-  assert.equal(z.state().phase,'cabinet');
-  assert.equal(z.state().cabinetOpen,false);
-  assert.equal(z.state().ray,false);
-  z.context.reset();
-  resolveOpen({cancelled:true});
-  await tick();
-  assert.equal(z.state().phase,'start');
-  assert.equal(z.state().ray,false);
-
-  let resolveGunHeld;
-  const gunHeld=new Promise(resolve=>{resolveGunHeld=resolve;});
-  const w=setup({scenePromises:{'gun-held':gunHeld}});
-  w.context.beginGame();w.context.setQuestionFlow();w.context.openComposer('final_theory');
-  await w.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  await tick();
-  await w.context.grantKey();
-  await w.context.moveToCabinet();
-  await w.context.openCabinet();
-  w.context.takeRaygun();w.context.takeRaygun();
-  assert.equal(w.state().ray,false);
-  assert.equal(w.state().rewardBusy,true);
-  resolveGunHeld({fallback:false});
-  await tick();
-  assert.equal(w.state().ray,true);
-  assert.equal(w.state().phase,'gun-acquired');
-  w.context.reset();
-});
 
 test('replay cancels a pending ending and removes its audio and visual effects',async()=>{
   const x=setup();
@@ -355,17 +298,7 @@ test('yes uses the smiling face, replays subtle movements, and returns to rest',
   assert.equal(x.get('lion-character-button').attributes['data-reaction'],undefined);
 });
 
-test('the movement state matches the spoken reply for partial, solved, and clarification results',async()=>{
-  for(const [choice,expected] of [['PARTIAL','yes'],['SOLVED','yes'],['NEEDS_CLARIFICATION','irrelevant']]){
-    const x=setup({chat:async()=>({ok:true,json:async()=>({outcome:{choice,confidence:1,reasoning_progress:choice==='SOLVED'?'SYNTHESIS':'NONE'},keyIssued:choice==='SOLVED'})})});
-    x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
-    await x.ask('推理の説明');
-    assert.equal(x.get('conversation-log').children.at(-1).textContent,LION_REPLIES[choice]);
-    assert.equal(x.get('lion-character-button').attributes['data-reaction'],choice==='SOLVED'?undefined:expected);
-    assert.equal(x.get('lion-character-button').hidden,choice==='SOLVED');
-    x.context.reset();
-  }
-});
+
 
 test('the first movement queues one arrival observation only after the scene arrives',async()=>{
   let arrive;
@@ -407,48 +340,9 @@ test('a superseding movement still offers the sound observation at its actual ar
   assert.equal(x.get('conversation-log').children.filter(node=>node.textContent===ARRIVAL_OBSERVATION).length,1);
 });
 
-test('an arrived observation stays deferred through final-theory composition and the lamp transition',async()=>{
-  let arrive;
-  let close;
-  const x=setup({movement:new Promise(resolve=>{arrive=resolve;}),closing:new Promise(resolve=>{close=resolve;})});
-  x.context.beginGame();
-  x.context.setQuestionFlow();
-  await x.ask('ここは幻覚ですか？');
-  x.context.openComposer('final_theory');
-  arrive({fallback:false});
-  await wait(12);
-  assert.equal(x.get('conversation-log').children.filter(node=>node.textContent===ARRIVAL_OBSERVATION).length,0);
-  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  assert.equal(x.state().phase,'key');
-  assert.equal(x.get('conversation-actions').children.length,0);
-  close({fallback:false});
-  await wait(12);
-  assert.equal(x.get('conversation-log').children.filter(node=>node.textContent===ARRIVAL_OBSERVATION).length,1);
-  assert.equal(x.get('conversation-actions').children[0].textContent,'調べる');
-});
 
-test('a direct solved theory keeps the first arrival observation beside the lamp and its control',async()=>{
-  let completeMovement;
-  const x=setup();
-  x.context.window.__HON_LION_SCENE_RUNTIME__.setStage=()=>{
-    // Match the real runtime: a new destination cancels the previous waiter.
-    completeMovement?.({cancelled:true,superseded:true});
-    return new Promise(resolve=>{completeMovement=resolve;});
-  };
-  x.context.beginGame();
-  x.context.setQuestionFlow();
-  x.context.openComposer('final_theory');
-  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  assert.equal(x.state().phase,'key');
-  await tick();
-  assert.equal(x.get('conversation-log').children.filter(node=>node.textContent===ARRIVAL_OBSERVATION).length,0);
-  assert.equal(x.get('conversation-actions').children.length,0,'the lamp waits for scene arrival');
-  completeMovement({fallback:false});
-  await wait(12);
-  assert.equal(x.get('conversation-log').children.filter(node=>node.textContent===ARRIVAL_OBSERVATION).length,1);
-  assert.equal(x.get('conversation-log').children.some(node=>node.textContent==='ランプの下で何か光っている'),true);
-  assert.equal(x.get('conversation-actions').children[0].textContent,'調べる');
-});
+
+
 
 test('every noise increase repeats the observation without duplicating the same level or losing drafts',async()=>{
   const x=setup();
@@ -558,7 +452,7 @@ test('a configured old demo link uses JEV and accumulates separate discoveries a
   const x=setup({demo:true,status:()=>new Promise(resolve=>{ready=resolve;}),chat:async(_url,init)=>{
     posts.push(JSON.parse(init.body));
     const progress=posts.length===2?'NONE':'PARTIAL_INSIGHT';
-    return {ok:true,json:async()=>({outcome:{choice:'YES',confidence:.98,reasoning_progress:progress},keyIssued:false})};
+    return {ok:true,json:async()=>({outcome:{choice:'YES',confidence:.98,reasoning_progress:progress},keyIssued:false,reachedCheckpointIds:posts.length<3?['cp1']:['cp1','cp3']})};
   }});
   x.context.beginGame();x.context.setQuestionFlow();
   const first=x.ask('この屋敷は幻覚ですか？');
@@ -571,11 +465,11 @@ test('a configured old demo link uses JEV and accumulates separate discoveries a
   assert.equal(x.state().reasoningStage,1);
   await x.ask('では、幻覚を見ているんですか？');
   assert.equal(x.state().reasoningStage,1,'repeated insight never starts another walk');
-  await x.ask('耳の虫に自分の脳を食べられているんですか？');
+  await x.ask('音は自分の体内で鳴っているんですか？');
   assert.equal(x.state().reasoningStage,2);
   assert.equal(posts.length,3,'free-form questions reach the real judging path');
   assert.equal(posts[2].recentTurns[0].turn_outcome.reasoning_progress,'PARTIAL_INSIGHT');
-  assert.deepEqual(x.calls.filter(call=>call.stage>0).map(call=>call.stage),[1,2]);
+  assert.deepEqual(x.stepCalls,['step1','step2']);
   x.context.reset();
   assert.equal(x.state().reasoningStage,0);
   assert.equal(x.state().mode,'live');
@@ -597,56 +491,24 @@ test('repeating the same partial final theory does not accumulate discoveries',a
   const x=setup({chat:async(_url,init)=>{
     const body=JSON.parse(init.body);posts.push(body);
     const repeated=posts.length>1;
-    return {ok:true,json:async()=>({outcome:{choice:'PARTIAL',confidence:1,reasoning_progress:repeated?'NONE':'PARTIAL_INSIGHT'},keyIssued:false,knownInsights:repeated?body.knownInsights:[{player_message:body.question,turn_outcome:{choice:'PARTIAL',confidence:1,reasoning_progress:'PARTIAL_INSIGHT'}}]})};
+    return {ok:true,json:async()=>({outcome:{choice:'PARTIAL',confidence:1,reasoning_progress:repeated?'NONE':'PARTIAL_INSIGHT'},keyIssued:false,reachedCheckpointIds:['cp3'],knownInsights:repeated?body.knownInsights:[{player_message:body.question,turn_outcome:{choice:'PARTIAL',confidence:1,reasoning_progress:'PARTIAL_INSIGHT'}}]})};
   }});
   x.context.beginGame();x.context.setQuestionFlow();
   for(let i=0;i<2;i++){
     x.context.openComposer('final_theory');
-    await x.ask('耳に虫がいる');
+    await x.ask('音は自分の内部で鳴っている');
     assert.equal(x.state().questionMode,'final_theory','partial explanations remain editable');
-    assert.equal(x.get('question-input').value,'耳に虫がいる','the player does not have to rewrite their explanation');
+    assert.equal(x.get('question-input').value,'音は自分の内部で鳴っている','the player does not have to rewrite their explanation');
     assert.equal(x.state().reasoningStage,1);
     assert.equal(x.state().cabinetKey,false);
   }
-  assert.equal(x.calls.filter(call=>call.stage>0).length,1);
+  assert.equal(x.stepCalls.length,1);
   assert.equal(posts[1].knownInsights.length,1);
   x.context.reset();
   assert.equal(x.state().knownInsights.length,0);
 });
 
-test('the visual-novel window alternates between one message and its on-demand editor',async()=>{
-  const x=setup();
-  const visible=()=>x.get('conversation-log').hidden?[]:x.get('conversation-log').children.filter(node=>!node.hidden).map(node=>node.textContent);
-  x.context.beginGame();
-  for(const _ of PROLOGUE)x.get('conversation-actions').children[0].handlers.click();
-  x.context.setQuestionFlow();
-  assert.deepEqual(visible(),[LION_DISCOVERY],'the discovery leads into free questions');
-  x.context.greetLion();
-  assert.deepEqual(visible(),[LION_GREETING]);
-  assert.equal(x.get('question-form').hidden,true,'reading never shows an input field');
-  assert.equal(x.get('conversation-tools').hidden,false);
-  await x.ask('赤ですか？');
-  await x.ask('水曜日ですか？');
-  assert.deepEqual(visible(),['関係ない'],'the answer replaces the player question');
-  assert.equal(x.state().turns.length,2,'the judge retains the full recent context');
-  x.context.greetLion();
-  assert.deepEqual(visible(),[LION_GREETING]);
-  x.get('theory-toggle').handlers.click();
-  assert.deepEqual(visible(),[],'the editor replaces the message area');
-  assert.equal(x.get('question-form').hidden,false);
-  await x.ask('耳に虫がいる');
-  await wait(12);
-  assert.deepEqual(visible(),['はい',ARRIVAL_OBSERVATION]);
-  assert.equal(x.get('question-form').hidden,true);
-  assert.equal(x.get('theory-toggle').textContent,'推理を直す');
-  x.get('theory-toggle').handlers.click();
-  assert.equal(x.get('question-input').value,'耳に虫がいる','partial theories remain editable');
-  x.get('composer-cancel').handlers.click();
-  assert.deepEqual(visible(),['はい',ARRIVAL_OBSERVATION],'cancelling restores the reply and the queued arrival observation');
-  x.context.setPhase('key');x.context.updateComposer();
-  assert.equal(x.get('conversation-tools').hidden,true);
-  assert.equal(x.get('composer-actions').hidden,true);
-});
+
 
 test('question and theory drafts survive cancelling independently and reset on replay',()=>{
   const x=setup();x.context.beginGame();x.context.setQuestionFlow();
@@ -720,55 +582,33 @@ test('a server-approved solved theory is accepted below the old client confidenc
   const x=setup({chat:async()=>({ok:true,json:async()=>({outcome:{choice:'SOLVED',confidence:.85,reasoning_progress:'SYNTHESIS'},keyIssued:true})})});
   x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
   await x.ask('サーバーが承認した推理');
-  assert.equal(x.state().phase,'key');
+  await wait(100);
+  assert.equal(x.state().phase,'entrance');
 });
 
-test('reward image failures never block the background cabinet route',async()=>{
-  const x=setup({imageState:'error'});
-  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
-  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  await tick();
-  await x.context.grantKey();
-  const media=x.get('conversation-log').children.at(-1);
-  media.children[0].handlers.error();
-  assert.equal(x.get('conversation-actions').children.length,1);
-  x.context.moveToCabinet(); await tick();
-  x.context.openCabinet(); await tick();
-  assert.equal(x.get('conversation-log').children.at(-1).textContent,'戸棚が開いた。棚の奥に光線銃が見える。');
-  await tick();
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る');
-});
 
-test('a never-loading reward image times out and replay cancels its callback',async()=>{
-  const x=setup({imageState:'pending'});
+
+test('a pending checkpoint action is cancelled by replay and cannot award a late item',async()=>{
+  let click;
+  const x=setup({checkpointStep:async(id,ctx)=>{
+    if(id!=='step3')return {completed:true};
+    const pending=ctx.onAction({type:'cabinet-key',stepId:id},{signal:ctx.signal});
+    click=x.get('conversation-actions').children.at(-1)?.handlers.click;
+    return pending;
+  }});
   x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
   await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  await tick();
-  x.context.grantKey();
-  await wait(15);
-  assert.equal(x.get('conversation-actions').children.length,1);
-  x.context.moveToCabinet();
+  await wait(5);
+  assert.equal(x.state().phase,'checkpoint_step');
   x.context.reset();
+  click?.();
   await wait(15);
   assert.equal(x.state().phase,'start');
+  assert.equal(x.state().cabinetKey,false);
   assert.equal(x.get('conversation-actions').children.length,0);
 });
 
-test('a pending key thumbnail does not block the gun in the cabinet',async()=>{
-  const x=setup({imageState:'pending'});
-  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
-  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  await tick();
-  x.context.grantKey();
-  await wait(15);
-  x.context.moveToCabinet();
-  await tick();
-  x.context.openCabinet();
-  await tick();
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る','cabinet opening does not wait for the key thumbnail');
-  await wait(15);
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る');
-});
+
 
 test('a persisted page returns to the start from firing and a normal scene',()=>{
   const firing=setup();
@@ -782,60 +622,32 @@ test('a persisted page returns to the start from firing and a normal scene',()=>
   assert.equal(scene.state().phase,'start');
 });
 
-for(const target of ['gun-stowed','armed']) {
-  test(`reset cancels pending ${target} and repeated clicks cannot collect twice`,async()=>{
-    let finish;const transition=new Promise(resolve=>{finish=resolve;});
-    const x=setup({scenePromises:{[target]:transition}});
-    x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
-    await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-    await tick();await x.context.grantKey();await x.context.moveToCabinet();await x.context.openCabinet();await x.context.takeRaygun();
-    await x.context.moveToEntry();
-    assert.equal(x.calls.filter(call=>call.scene==='entry').length,0,'gun alone cannot advance to the room');
-    if(target==='armed')await x.context.stowRaygun();
-    const action=target==='gun-stowed'?'stowRaygun':'takeDoorKey';
-    const pending=x.context[action]();x.context[action]();
-    assert.equal(x.calls.filter(call=>call.scene===target).length,1);
-    assert.equal(x.state().doorKey,false);
-    assert.equal(x.state().rewardBusy,true);
-    x.context.reset();finish({cancelled:true});await pending;
-    assert.equal(x.state().phase,'start');assert.equal(x.state().doorKey,false);assert.equal(x.state().ray,false);
-    assert.equal(x.get('conversation-actions').children.length,0);
-  });
-}
-
-test('deadline expiry during a reward video exposes retry and rejects its late completion',async()=>{
-  let finish;
-  const x=setup({scenePromises:{'gun-held':new Promise(resolve=>{finish=resolve;})}});
+test('death during a checkpoint action cancels it and ignores the late click',async()=>{
+  const x=setup();
   x.context.beginGame();
-  vm.runInContext("state.phase='cabinet-open';state.cabinetOpen=true;deadline.start()",x.context);
-  const pending=x.context.takeRaygun();
+  const controller=new AbortController();
+  vm.runInContext("state.phase='checkpoint_completion';state.cabinetKey=true;state.cabinetOpen=true;deadline.start()",x.context);
+  const pending=x.context.handleCheckpointAction({type:'take-gun'},{signal:controller.signal});
   assert.equal(x.state().rewardBusy,true);
   x.context.expireGame();
-  assert.equal(x.state().phase,'dead');
-  assert.equal(x.state().rewardBusy,false);
-  assert.equal(x.get('app').dataset.rewardBusy,'false');
-  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'もう一度');
-  finish({fallback:false});
-  await pending;
+  controller.abort();
+  assert.equal((await pending).cancelled,true);
   assert.equal(x.state().phase,'dead');
   assert.equal(x.state().ray,false);
-  x.get('conversation-actions').children.at(-1).handlers.click();
-  assert.equal(x.state().phase,'start');
+  assert.equal(x.state().rewardBusy,false);
 });
 
-test('a rejected reward continuation checks the wall clock before it can award an item',async()=>{
-  let reject;
-  const x=setup({scenePromises:{'gun-held':new Promise((resolve,fail)=>{reject=fail;})}});
+test('a checkpoint action is idempotent under a double click',async()=>{
+  const x=setup();
   x.context.beginGame();
-  vm.runInContext("state.phase='cabinet-open';state.cabinetOpen=true;setActions([]);deadline.check=()=>false",x.context);
-  const pending=x.context.takeRaygun();
-  vm.runInContext('deadline.check=()=>true',x.context);
-  reject(new Error('late video failure'));
-  await pending;
-  assert.equal(x.state().phase,'cabinet-open');
-  assert.equal(x.state().ray,false);
-  assert.equal(x.state().rewardBusy,false);
-  assert.equal(x.get('conversation-actions').children.length,0);
+  vm.runInContext("state.phase='checkpoint_completion';state.cabinetKey=true;state.cabinetOpen=true",x.context);
+  const pending=x.context.handleCheckpointAction({type:'take-gun'},{signal:new AbortController().signal});
+  const button=x.get('conversation-actions').children.at(-1);
+  button.handlers.click();
+  button.handlers.click();
+  assert.equal((await pending).completed,true);
+  assert.equal(x.state().ray,true);
+  assert.equal(x.get('conversation-log').children.filter(node=>node.textContent==='光線銃を手に入れた。').length,1);
 });
 
 test('pagehide stops and disposes an active shot renderer',async()=>{
@@ -849,23 +661,157 @@ test('pagehide stops and disposes an active shot renderer',async()=>{
   assert.deepEqual(x.beamCalls,['start','stop','dispose']);
 });
 
-for(const failure of ['throw','reject']) {
-  test(`a scene ${failure} falls back without locking reward controls`,async()=>{
-    const x=setup();
-    x.context.beginGame();
-    vm.runInContext("state.phase='cabinet-open';state.cabinetOpen=true",x.context);
-    x.context.window.__HON_LION_SCENE_RUNTIME__.setStage=()=>{
-      if(failure==='throw')throw Error('media unavailable');
-      return Promise.reject(Error('media unavailable'));
-    };
-    await x.context.takeRaygun();
-    assert.equal(x.state().phase,'gun-acquired');
-    assert.equal(x.state().rewardBusy,false);
-    assert.equal(x.state().ray,true);
-    assert.equal(x.get('conversation-actions').children[0].attributes['aria-label'],'次へ');
-    assert.match(x.get('system-note').textContent,/静止画/);
-    await x.context.stowRaygun();await x.context.takeDoorKey();await x.context.moveToEntry();
-    await x.context.enterBugRoom();
-    assert.equal(x.state().phase,'bug','the final room follows the same failure policy');
-  });
-}
+
+test('five independent understandings drain all five procedures but do not open the final door',async()=>{
+  const x=setup();
+  x.context.beginGame();x.context.setQuestionFlow();
+  for(const question of [
+    '音は自分の耳の中から聞こえますか？','ここは幻覚ですか？',
+    '音も幻覚ですか？','音を出しているのは自分ですか？',
+    '音を生む出来事が認知機能を低下させていますか？',
+  ]) { await x.ask(question); await wait(12); }
+  await wait(120);
+  assert.deepEqual(x.state().reachedCheckpointIds,['cp1','cp2','cp3','cp4','cp5']);
+  assert.deepEqual(x.stepCalls,['step1','step2','step3','step4','step5']);
+  assert.equal(x.state().cabinetKey,true);
+  assert.equal(x.state().ray,true);
+  assert.equal(x.state().doorKey,true);
+  assert.equal(x.state().phase,'question');
+  assert.equal(x.get('conversation-actions').children.length,0);
+});
+
+test('a first-turn solved theory drains every procedure once and enables the final door',async()=>{
+  const x=setup();
+  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await wait(120);
+  assert.deepEqual(x.stepCalls,['step1','step2','step3','step4','step5']);
+  assert.equal(x.state().phase,'entrance');
+  assert.equal(x.state().cabinetKey,true);
+  assert.equal(x.state().cabinetOpen,true);
+  assert.equal(x.state().ray,true);
+  assert.equal(x.state().doorKey,true);
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'部屋の鍵でドアを開ける');
+  await x.context.enterBugRoom();
+  assert.equal(x.state().phase,'bug');
+  x.context.reset();
+  assert.equal(x.state().phase,'start');
+});
+
+test('checkpoint action controls are serialized and reset cancels their pending reward',async()=>{
+  const x=setup();
+  x.context.beginGame();
+  vm.runInContext("state.phase='checkpoint_completion';state.cabinetKey=true;deadline.start()",x.context);
+  const pending=x.context.handleCheckpointAction({type:'unlock-cabinet'},{signal:new AbortController().signal});
+  const button=x.get('conversation-actions').children.at(-1);
+  button.handlers.click();button.handlers.click();
+  assert.equal((await pending).completed,true);
+  assert.equal(x.state().cabinetOpen,true);
+  const stale=x.context.handleCheckpointAction({type:'take-gun'},{signal:new AbortController().signal});
+  x.context.reset();
+  assert.equal((await stale).cancelled,true);
+  assert.equal(x.state().ray,false);
+});
+
+test('checkpoint responses preserve ordinary movement while final solve starts the independent drain',async()=>{
+  const x=setup({chat:async()=>({ok:true,json:async()=>({outcome:{choice:'PARTIAL',confidence:1,reasoning_progress:'PARTIAL_INSIGHT'},keyIssued:false,reachedCheckpointIds:['cp1']})})});
+  x.context.beginGame();x.context.setQuestionFlow();
+  await x.ask('ここは幻覚ですか？');
+  assert.equal(x.state().reasoningStage,1);
+  assert.equal(x.state().reachedCheckpointIds.length,1);
+  assert.equal(x.state().phase,'question');
+  x.context.reset();
+  const y=setup();
+  y.context.beginGame();y.context.setQuestionFlow();y.context.openComposer('final_theory');
+  await y.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await wait(120);
+  assert.equal(y.state().phase,'entrance');
+  assert.deepEqual(y.stepCalls,['step1','step2','step3','step4','step5']);
+});
+
+test('arrival observations coexist with the final checkpoint drain and door control',async()=>{
+  const x=setup();
+  x.context.beginGame();x.context.setQuestionFlow();
+  await x.ask('ここは幻覚ですか？');
+  x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await wait(140);
+  assert.equal(x.state().phase,'entrance');
+  assert.equal(x.get('conversation-log').children.filter(node=>node.textContent===ARRIVAL_OBSERVATION).length>=1,true);
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'部屋の鍵でドアを開ける');
+});
+
+test('the visual-novel window alternates between one message and its on-demand editor',async()=>{
+  const x=setup();
+  x.context.beginGame();
+  for(const _ of PROLOGUE)x.get('conversation-actions').children[0].handlers.click();
+  x.context.setQuestionFlow();
+  assert.deepEqual(x.get('conversation-log').children.filter(node=>!node.hidden).map(node=>node.textContent),[LION_DISCOVERY]);
+  x.context.greetLion();
+  assert.equal(x.get('question-form').hidden,true);
+  x.get('theory-toggle').handlers.click();
+  assert.equal(x.get('question-form').hidden,false);
+  x.get('question-input').value='書きかけの推理';
+  x.context.closeComposer();
+  x.context.openComposer('final_theory');
+  assert.equal(x.get('question-input').value,'書きかけの推理');
+  x.context.closeComposer();
+});
+
+test('a checkpoint media failure blocks only its procedure and never invents an item',async()=>{
+  const x=setup({checkpointStep:async()=>({completed:false,reason:'media_error'})});
+  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await wait(20);
+  assert.equal(x.state().checkpointProgress.blocked.reason,'media_error');
+  assert.equal(x.state().cabinetKey,false);
+  assert.equal(x.state().ray,false);
+});
+
+test('a blocked checkpoint exposes retry and keeps the solved drain alive',async()=>{
+  let failures=1;
+  const x=setup({checkpointStep:async id=>{
+    x.stepCalls.push(`runtime:${id}`);
+    if(id==='step1'&&failures-- > 0)return {completed:false,reason:'poster_unavailable'};
+    return {completed:true};
+  }});
+  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await wait(20);
+  assert.equal(x.state().phase,'checkpoint_completion');
+  assert.equal(x.state().checkpointProgress.blocked.reason,'poster_unavailable');
+  const retry=x.get('conversation-actions').children.at(-1);
+  assert.equal(retry.textContent,'映像を再試行');
+  retry.handlers.click();
+  await wait(40);
+  assert.equal(x.state().phase,'entrance');
+  assert.deepEqual(x.state().checkpointProgress.completedStepIds,['step1','step2','step3','step4','step5']);
+  assert.deepEqual(x.stepCalls.filter(value=>value.startsWith('runtime:')),['runtime:step1','runtime:step1','runtime:step2','runtime:step3','runtime:step4','runtime:step5']);
+});
+
+test('checkpoint action presentation does not depend on a reward thumbnail',async()=>{
+  const x=setup({imageState:'pending'});
+  x.context.beginGame();
+  vm.runInContext("state.phase='checkpoint_completion';state.cabinetKey=true;deadline.start()",x.context);
+  const pending=x.context.handleCheckpointAction({type:'unlock-cabinet'},{signal:new AbortController().signal});
+  const button=x.get('conversation-actions').children.at(-1);
+  assert.equal(button.textContent,'戸棚を開ける');
+  button.handlers.click();
+  assert.equal((await pending).completed,true);
+  assert.equal(x.state().cabinetOpen,true);
+});
+
+test('reset cancels the final checkpoint actions without duplicate rewards',async()=>{
+  const x=setup();
+  x.context.beginGame();
+  vm.runInContext("state.phase='checkpoint_completion';state.ray=true;state.cabinetOpen=true;deadline.start()",x.context);
+  const pending=x.context.handleCheckpointAction({type:'take-door-key'},{signal:new AbortController().signal});
+  const button=x.get('conversation-actions').children.at(-1);
+  button.handlers.click();button.handlers.click();
+  assert.equal((await pending).completed,true);
+  assert.equal(x.state().doorKey,true);
+  const stale=x.context.handleCheckpointAction({type:'stow-gun'},{signal:new AbortController().signal});
+  x.context.reset();
+  assert.equal((await stale).cancelled,true);
+  assert.equal(x.state().ray,false);
+});

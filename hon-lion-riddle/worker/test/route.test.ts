@@ -40,6 +40,72 @@ describe('Worker asset and API dispatch', () => {
     expect(await configured.json()).toMatchObject({ model: 'jev-1.13.0', reasoningProgress: 'PARTIAL_INSIGHT' });
     expect(provider).toHaveBeenCalled();
   });
+  it('grades independent checkpoints from bounded semantic fixtures and persists only public IDs', async () => {
+    const bindings = { ...env(), HON_LION_DEMO: '1' };
+    const localRequest = (value: unknown) => new Request('http://127.0.0.1:8796/api/hon-lion/chat?demo=1', { method: 'POST', headers: { origin: 'http://127.0.0.1:8796', 'content-type': 'application/json' }, body: JSON.stringify(value) });
+    const ask = async (question: string, reachedCheckpointIds: string[] = [], recentTurns: unknown[] = []) => (await worker.fetch(localRequest({ ...body(), question, reachedCheckpointIds, recentTurns }), bindings)).json() as Promise<{ outcome:{choice:string}; reachedCheckpointIds:string[]; newlyReachedCheckpointIds:string[] }>;
+
+    const cp2 = await ask('音も幻覚ですか');
+    expect(cp2.outcome.choice).toBe('NO');
+    expect(cp2.reachedCheckpointIds).toEqual(['cp2']);
+    expect(cp2.newlyReachedCheckpointIds).toEqual(['cp2']);
+    expect(JSON.stringify(cp2)).not.toContain('checkpointJudgments');
+    const cp2Variant = await ask('音は幻覚ですか');
+    expect(cp2Variant.reachedCheckpointIds).toEqual(['cp2']);
+    expect(cp2Variant.newlyReachedCheckpointIds).toEqual(['cp2']);
+    const duplicateState = await ask('音は幻覚ですか', ['cp2','cp2','cp2','cp2','cp2']);
+    expect(duplicateState.reachedCheckpointIds).toEqual(['cp2']);
+    expect(duplicateState.newlyReachedCheckpointIds).toEqual([]);
+
+    const cp1 = await ask('ここは幻覚ですか', cp2.reachedCheckpointIds, Array.from({ length: 6 }, (_, i) => ({ player_message: `履歴${i}`, turn_outcome: { choice: 'IRRELEVANT', confidence: .9 } })));
+    expect(cp1.reachedCheckpointIds).toEqual(['cp2','cp1']);
+    expect(cp1.newlyReachedCheckpointIds).toEqual(['cp1']);
+
+    const camera = await ask('病院で自分の耳の中を映すカメラ映像ですか', cp1.reachedCheckpointIds);
+    expect(camera.reachedCheckpointIds).toEqual(cp1.reachedCheckpointIds);
+    expect(camera.newlyReachedCheckpointIds).toEqual([]);
+
+    const compound = await ask('見ている洋館は幻覚で、聞こえる音は現実の音ですか', cp1.reachedCheckpointIds);
+    expect(compound.reachedCheckpointIds).toEqual(['cp2','cp1']);
+    expect(compound.newlyReachedCheckpointIds).toEqual([]);
+
+    const cameraCompound = await ask('この洋館は幻覚で、自分の耳のカメラ映像ですか', compound.reachedCheckpointIds);
+    expect(cameraCompound.reachedCheckpointIds).toEqual(compound.reachedCheckpointIds);
+    expect(cameraCompound.newlyReachedCheckpointIds).toEqual([]);
+
+    const soundSource = await ask('心地よい音は虫が自分の脳を食べる音ですか', cameraCompound.reachedCheckpointIds);
+    expect(soundSource.reachedCheckpointIds).toEqual(['cp2','cp1','cp3','cp4']);
+    expect(soundSource.newlyReachedCheckpointIds).toEqual(['cp3','cp4']);
+
+    const wrongCausal = await ask('音を聞くから脳が弱るのですか', soundSource.reachedCheckpointIds);
+    expect(wrongCausal.reachedCheckpointIds).toEqual(soundSource.reachedCheckpointIds);
+    expect(wrongCausal.newlyReachedCheckpointIds).toEqual([]);
+
+    const cp5 = await ask('音を生む出来事が認知機能を低下させていますか', wrongCausal.reachedCheckpointIds);
+    expect(cp5.reachedCheckpointIds).toEqual(['cp2','cp1','cp3','cp4','cp5']);
+    expect(cp5.newlyReachedCheckpointIds).toEqual(['cp5']);
+
+    const invalid = await worker.fetch(localRequest({ ...body(), question: 'x', reachedCheckpointIds: ['cp9'] }), bindings);
+    expect(invalid.status).toBe(400);
+  });
+  it('allows a first-turn final solution, while all five checkpoints alone do not solve', async () => {
+    const bindings = { ...env(), HON_LION_DEMO: '1' };
+    const localRequest = (value: unknown) => new Request('http://127.0.0.1:8796/api/hon-lion/chat?demo=1', { method: 'POST', headers: { origin: 'http://127.0.0.1:8796', 'content-type': 'application/json' }, body: JSON.stringify(value) });
+    const allCheckpoints = '洋館は幻覚で、音は幻覚ではなく耳の中から聞こえ、自分は音を出しておらず、音を出す虫が認知機能を低下させている。';
+    const partial = await (await worker.fetch(localRequest({ mode:'final_theory', question:allCheckpoints, reachedCheckpointIds:[] }), bindings)).json() as { keyIssued:boolean; outcome:{choice:string}; reachedCheckpointIds:string[]; newlyReachedCheckpointIds:string[] };
+    expect(partial.keyIssued).toBe(false);
+    expect(partial.outcome.choice).toBe('PARTIAL');
+    expect(partial.reachedCheckpointIds).toEqual(['cp1','cp2','cp3','cp4','cp5']);
+    expect(partial.newlyReachedCheckpointIds).toEqual(['cp1','cp2','cp3','cp4','cp5']);
+    const insectOnly = await (await worker.fetch(localRequest({ mode:'final_theory', question:'耳に虫がいる', reachedCheckpointIds:[] }), bindings)).json() as { keyIssued:boolean; outcome:{choice:string}; reachedCheckpointIds:string[]; newlyReachedCheckpointIds:string[] };
+    expect(insectOnly.keyIssued).toBe(false);
+    expect(insectOnly.reachedCheckpointIds).toEqual([]);
+    expect(insectOnly.newlyReachedCheckpointIds).toEqual([]);
+    const solved = await (await worker.fetch(localRequest({ mode:'final_theory', question:'洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。' }), bindings)).json() as { keyIssued:boolean; outcome:{choice:string}; reachedCheckpointIds:string[] };
+    expect(solved.keyIssued).toBe(true);
+    expect(solved.outcome.choice).toBe('SOLVED');
+    expect(solved.reachedCheckpointIds).toEqual([]);
+  });
   it('redirects the slashless mount while preserving the query string', async () => {
     const bindings = env();
     const response = await worker.fetch(new Request('https://hon-lion.example/turtle-soup/manor?utm_source=escape'), bindings);
@@ -158,6 +224,24 @@ describe('chat route boundary',()=>{
     bindings.PROVISIONAL_SOLVED_CONFIDENCE = '.8';
     const result = await chat(request(body('final_theory', '説明')), bindings);
     expect(await result.json()).toMatchObject({ keyIssued: true, reasoningProgress: 'SYNTHESIS' });
+  });
+  it('does not award low-confidence checkpoint judgments', async () => {
+    const provider = vi.fn(async (_input: unknown, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body));
+      if (payload.state.submission_mode === 'final_theory') {
+        const solved = finalPayload();
+        return reply({ ...solved, answers: { ...solved.answers, cp1: { type:'choice', choice:'CONFIRMED', confidence:.5 } } });
+      }
+      return reply({ model:'jev-1.13.0', answers: { turn_outcome:{ type:'choice', choice:'NO', confidence:.98 }, cp2:{ type:'choice', choice:'CONFIRMED_BY_NO', confidence:0 }, reasoning_progress:{ type:'choice', choice:'NONE', confidence:.98 } } });
+    });
+    vi.stubGlobal('fetch', provider);
+    const bindings = env('key');
+    const question = await (await chat(request({ ...body(), question:'音も幻覚ですか' }), bindings)).json() as { reachedCheckpointIds:string[]; newlyReachedCheckpointIds:string[] };
+    expect(question.reachedCheckpointIds).toEqual([]);
+    expect(question.newlyReachedCheckpointIds).toEqual([]);
+    const final = await (await chat(request(body('final_theory','説明')), bindings)).json() as { reachedCheckpointIds:string[]; newlyReachedCheckpointIds:string[] };
+    expect(final.reachedCheckpointIds).toEqual([]);
+    expect(final.newlyReachedCheckpointIds).toEqual([]);
   });
   it('retains known insight context after raw history rolls over and suppresses exact or paraphrased repeats', async () => {
     const provider = vi.fn(async (_input: unknown, init?: RequestInit) => {

@@ -17,6 +17,24 @@ const COMPLETE = new Set([
   normalize('館は幻覚。これは俺の耳の中のカメラ映像で、虫が脳を食ってる音がしている'),
   normalize('洋館は幻覚で、映像は自分の耳の中を映すカメラのもの。耳に入った虫が自分の脳を食べており、心地よい音はその捕食音だ。'),
 ]);
+// Exact examples only: these fixtures test transport/state, not language quality.
+const CHECKPOINT_EXAMPLES = new Map([
+  ['ここは幻覚ですか', ['cp1']],
+  ['この洋館は幻覚ですか', ['cp1']],
+  ['音も幻覚ですか', ['cp2']],
+  ['音は幻覚ですか', ['cp2']],
+  ['音は自分の耳の中から聞こえますか', ['cp3']],
+  ['音を出しているのは自分ですか', ['cp4']],
+  ['音を生む出来事が認知機能を低下させていますか', ['cp5']],
+  ['見ている洋館は幻覚で、聞こえる音は現実の音ですか', ['cp1','cp2']],
+]);
+for (const [question, choice] of [
+  ['音も幻覚ですか','NO'], ['音は幻覚ですか','NO'],
+  ['音は自分の耳の中から聞こえますか','YES'],
+  ['音を出しているのは自分ですか','NO'],
+  ['音を生む出来事が認知機能を低下させていますか','YES'],
+  ['見ている洋館は幻覚で、聞こえる音は現実の音ですか','YES'],
+]) QUESTIONS.set(question, [choice, 'NONE']);
 export function mockJudge(mode, text, recentTurns = []) {
   const value = normalize(text);
   if (mode === 'final_theory') {
@@ -40,5 +58,9 @@ export function mockWorkerResponse(_url, options) {
   if (outcome.reasoning_progress !== 'NONE' && ['YES','PARTIAL','SOLVED'].includes(outcome.choice) && knownInsights.length < 4 && !knownInsights.some(insight => normalize(insight.player_message) === normalize(body.question))) {
     knownInsights.push({ player_message: body.question, turn_outcome: { choice: outcome.choice, confidence: outcome.confidence, reasoning_progress: outcome.reasoning_progress } });
   }
-  return Promise.resolve({ ok: true, json: async () => ({ outcome, knownInsights, keyIssued: outcome.keyIssued, reply: outcome.choice === 'NO' ? 'いいえ' : outcome.choice === 'IRRELEVANT' ? '関係ない' : 'はい', model: 'test-worker' }) });
+  const prior = new Set(body.reachedCheckpointIds || []);
+  const confirmed = body.mode === 'question' ? CHECKPOINT_EXAMPLES.get(normalize(body.question)) || [] : [];
+  const newlyReachedCheckpointIds = confirmed.filter(id => !prior.has(id));
+  const reachedCheckpointIds = [...new Set([...prior, ...confirmed])];
+  return Promise.resolve({ ok: true, json: async () => ({ outcome, knownInsights, reachedCheckpointIds, newlyReachedCheckpointIds, keyIssued: outcome.keyIssued, reply: outcome.choice === 'NO' ? 'いいえ' : outcome.choice === 'IRRELEVANT' ? '関係ない' : 'はい', model: 'test-worker' }) });
 }
