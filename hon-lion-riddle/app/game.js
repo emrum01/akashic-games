@@ -4,6 +4,7 @@ import { PROLOGUE, OPENING, LION_DISCOVERY, LION_GREETING, CLUES, LION_REPLIES }
 import { createSoundDesign } from './sound.js?v=20261020crunch4';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
+import { createBeamEffects } from './beam-effects/controller.js?v=20261020beam3';
 
 const $ = (id) => document.getElementById(id);
 const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, key:false, ray:false, cleared:false, busy:false, generation:0, requestController:null };
@@ -13,6 +14,8 @@ let greetingMessage = null;
 let revealGeneration = -1;
 const beatTimers = new Map();
 const mediaCleanups = new Set();
+const beamEffectsFactory = typeof createBeamEffects === 'function' ? createBeamEffects : null;
+let beamEffects = null;
 const MEDIA_TIMEOUT_MS = 3000;
 const CONNECTION_ERROR = '本ライオンに声が届きませんでした。もう一度送ってください。';
 const API_ERROR_MESSAGES = Object.freeze({
@@ -59,8 +62,14 @@ function scrollLogToEnd(){ refs.log.scrollTo({top:refs.log.scrollHeight,left:0,b
 function hidePreviousMessages(){ for(const message of refs.log.children)message.hidden=true; }
 function appendMessage(kind,text){ const message=document.createElement('p'); message.className=`message ${kind}`; message.textContent=text; refs.log.append(message); scrollLogToEnd(); if(kind==='lion')refs.speaker.textContent='本ライオン'; else if(kind==='player')refs.speaker.textContent='あなた'; else refs.speaker.textContent=''; return message; }
 function appendMedia(kind,text,src,alt,extra='',onReady=()=>{}){ const message=document.createElement('div'); message.className=`message media ${kind}`; const image=document.createElement('img'); image.src=src; image.alt=alt; image.decoding='async'; if(extra)image.classList.add(extra); const label=document.createElement('strong'); label.textContent=text; message.append(image,label); refs.log.append(message); scrollLogToEnd(); const generation=state.generation; let settled=false; let timer=0; const cleanup=()=>{ clearTimeout(timer); mediaCleanups.delete(cleanup); }; const settle=(ok,reason='')=>{ if(settled)return; settled=true; cleanup(); if(generation!==state.generation)return; scrollLogToEnd(); onReady(ok,reason); }; mediaCleanups.add(cleanup); timer=setTimeout(()=>settle(false,'timeout'),MEDIA_TIMEOUT_MS); if(image.complete&&image.naturalWidth>0)queueMicrotask(()=>settle(true)); else { image.addEventListener('load',()=>settle(true),{once:true}); image.addEventListener('error',()=>settle(false,'error'),{once:true}); } return message; }
-function appendBeam(){ removeBeam(); const beam=document.createElement('div'); beam.className='beam'; beam.setAttribute('aria-hidden','true'); const ray=document.createElement('div'); ray.className='beam-ray'; beam.append(ray); refs.app.append(beam); aimWeapon(); }
-function removeBeam(){ refs.app.querySelector('.beam')?.remove(); }
+function appendBeam(){
+  removeBeam();
+  const target=refs.app.querySelector('.bug-mark'), weapon=refs.app.querySelector('.held-raygun'), muzzle=weapon?.querySelector('.muzzle');
+  if(!target||!weapon||!muzzle||!beamEffectsFactory)return;
+  beamEffects=beamEffectsFactory({app:refs.app,target,weapon,muzzle,getBackground:()=>refs.app.querySelector('.scene-background')?.classList.contains('video-playing')?$('scene-video'):$('scene-poster'),reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true});
+  beamEffects.start();
+}
+function removeBeam(){ beamEffects?.stop?.(); beamEffects?.dispose?.(); beamEffects=null; refs.app.querySelector('.beam')?.remove(); }
 function appendBugMark(){
   if(refs.app.querySelector('.bug-mark')) return;
   const generation=state.generation;
@@ -90,22 +99,10 @@ function appendBugMark(){
 }
 function aimWeapon(){
   const weapon=refs.app.querySelector('.held-raygun'),bug=refs.app.querySelector('.bug-mark');
-  if(!weapon?.getBoundingClientRect||!bug)return;
-  const g=weapon.getBoundingClientRect(),b=bug.getBoundingClientRect(),origin=refs.app.getBoundingClientRect();
-  const tx=b.left+b.width/2,ty=b.top+b.height/2;
-  // The handgun is rendered from behind the rear sight. Its projected barrel
-  // points up-left from the lower right, converging on the target.
-  const gap=Math.max(26,Math.min(44,origin.width*.034));
-  const lateral=Math.min(b.width*.5+gap,origin.width*.19);
-  weapon.style.left=`${tx+lateral-origin.left-g.width*.48}px`;
-  weapon.style.top=`${ty+lateral*.5-origin.top-g.height*.25}px`;
-  const beam=refs.app.querySelector('.beam');
-  if(beam){
-    const m=weapon.querySelector('.muzzle').getBoundingClientRect(),x=m.left-origin.left,y=m.top-origin.top;
-    const ray=beam.querySelector('.beam-ray');
-    ray.style.left=`${x}px`;ray.style.top=`${y}px`;ray.style.width=`${Math.hypot(tx-m.left,ty-m.top)}px`;ray.style.transform=`rotate(${Math.atan2(ty-m.top,tx-m.left)}rad)`;
-    beam.style.setProperty('--impact-x',`${tx-origin.left}px`);beam.style.setProperty('--impact-y',`${ty-origin.top}px`);
-  }
+  if(!weapon?.getBoundingClientRect||!bug||!refs.app.getBoundingClientRect)return;
+  const g=weapon.getBoundingClientRect(),origin=refs.app.getBoundingClientRect();
+  weapon.style.left=`${origin.width-g.width*.72}px`;
+  weapon.style.top=`${origin.height-g.height*.72}px`;
 }
 function updateComposer(){
   const active=state.phase==='question',open=active&&state.composerOpen;
@@ -337,10 +334,12 @@ async function burnBug(){
   if(state.phase!=='bug'||state.cleared)return;
   const generation=state.generation;
   setPhase('firing'); setActions([]); clearBeat(); sound.shoot(); appendBeam();
-  if(!await beatDelay(1400,generation))return;
+  if(!await beatDelay(4450,generation))return;
+  sound.removeInsect();
+  if(!await beatDelay((beamEffects?.shotDuration||6)*1000-4450,generation))return;
   refs.app.querySelector('.bug-mark')?.remove();
   refs.app.querySelector('.held-raygun')?.remove();
-  removeBeam(); sound.removeInsect(); setPhase('silence'); clearBeat();
+  removeBeam(); setPhase('silence'); clearBeat();
   appendMessage('system','虫を焼き払った。聞こえていた音も、止まった。');
   if(!await beatDelay(1300,generation))return;
   setPhase('escaping');
@@ -361,9 +360,9 @@ window.addEventListener('hon-lion-door-audio',(event)=>{
 });
 $('sound-toggle').addEventListener('click',()=>sound.toggle());
 document.addEventListener('visibilitychange',()=>sound.visibility(document.hidden));
-window.addEventListener('pagehide',()=>{invalidatePending();sound.stop();});
+window.addEventListener('pagehide',()=>{invalidatePending();removeBeam();sound.stop();});
 window.addEventListener('pageshow',event=>{if(event.persisted)reset();});
-window.addEventListener('resize',()=>{if(state.phase==='bug')aimWeapon();});
+window.addEventListener('resize',()=>{if(state.phase==='bug'||state.phase==='firing')aimWeapon();});
 connectVisualViewport(refs.app);
 refs.input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!state.busy)refs.form.requestSubmit();}});
 preloadLionReactions();

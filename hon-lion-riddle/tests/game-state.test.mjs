@@ -32,6 +32,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
   const get=(id)=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   const calls=[];
   const audio=[];
+  const beamCalls=[];
   const events={};
   const context=vm.createContext({
     console,URLSearchParams,AbortController,AbortSignal,DOMException,TypeError,queueMicrotask,
@@ -39,6 +40,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
     PROLOGUE,OPENING,LION_DISCOVERY,LION_GREETING,CLUES,LION_REPLIES,createLionReactions,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
     createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','reveal','door','stopDoor','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
     connectVisualViewport:()=>{},
+    createBeamEffects:()=>({shotDuration:6,start:()=>beamCalls.push('start'),stop:()=>beamCalls.push('stop'),dispose:()=>beamCalls.push('dispose')}),
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
     window:{location:{search:demo?'?demo=1':''},addEventListener:(name,handler)=>{events[name]=handler;},__HON_LION_SCENE_RUNTIME__:{reset:()=>Promise.resolve({}),setStage:(stage,scene)=>{calls.push({stage,scene});return scene==='entrance'&&arrival?arrival:scene==='bug'&&opening?opening:Promise.resolve({fallback:false});}}},
     fetch:(url,options)=>url==='/api/hon-lion/status'?(status?status():Promise.resolve({ok:true,json:async()=>({configured})})):chat(url,options),
@@ -46,7 +48,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
   vm.runInContext(source,context);
   const state=()=>vm.runInContext('state',context);
   const ask=async(question)=>{context.openComposer(state().questionMode);get('question-input').value=question;await context.submitQuestion({preventDefault(){}});};
-  return {context,get,state,ask,calls,audio,events};
+  return {context,get,state,ask,calls,audio,beamCalls,events};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -140,6 +142,7 @@ test('conversation, correct reasoning, media-gated entry, clear and replay form 
   assert.equal(x.get('app').querySelector('.held-raygun'),null);
   assert.ok(x.get('conversation-log').children.some(node=>node.textContent==='脱出成功'));
   assert.deepEqual(x.audio,['start','reward','reward','reveal','shoot','removeInsect']);
+  assert.deepEqual(x.beamCalls,['start','stop','dispose'],'the shot renderer is disposed after its six-second lifecycle');
   x.context.reset();
   assert.equal(x.state().phase,'start');
   assert.equal(x.state().key,false);
@@ -165,6 +168,7 @@ test('replay cancels a pending ending and removes its audio and visual effects',
   assert.equal(x.get('app').querySelector('.beam'),null);
   assert.equal(x.get('conversation-log').children.length,0);
   assert.equal(x.audio.at(-1),'stop');
+  assert.deepEqual(x.beamCalls,['start','stop','dispose'],'reset disposes the active renderer');
 });
 
 test('the insect appears only after the door opens, and resetting cancels that reveal',async()=>{
@@ -522,4 +526,15 @@ test('a persisted page returns to the start from firing and a normal scene',()=>
   scene.context.beginGame();scene.context.setQuestionFlow();
   scene.events.pageshow({persisted:true});
   assert.equal(scene.state().phase,'start');
+});
+
+test('pagehide stops and disposes an active shot renderer',async()=>{
+  const x=setup();
+  x.context.beginGame();
+  vm.runInContext("state.phase='entrance';state.ray=true",x.context);
+  await x.context.enterBugRoom();
+  x.context.burnBug();
+  assert.equal(x.state().phase,'firing');
+  x.events.pagehide();
+  assert.deepEqual(x.beamCalls,['start','stop','dispose']);
 });
