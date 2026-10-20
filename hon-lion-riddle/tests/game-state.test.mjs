@@ -27,7 +27,7 @@ class Element {
   querySelector(selector){return this.children.find(node=>node.className.split(' ').includes(selector.slice(1)))||null;}
 }
 const source=(await readFile(new URL('../app/game.js',import.meta.url),'utf8')).replace(/^import .*;$/gm,'');
-function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,opening,status,imageState='loaded'}={}) {
+function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,opening,scenePromises={},status,imageState='loaded'}={}) {
   const elements=new Map();
   const get=(id)=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   const calls=[];
@@ -42,7 +42,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
     connectVisualViewport:()=>{},
     createBeamEffects:()=>({shotDuration:6,start:()=>beamCalls.push('start'),stop:()=>beamCalls.push('stop'),dispose:()=>beamCalls.push('dispose')}),
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
-    window:{location:{search:demo?'?demo=1':''},addEventListener:(name,handler)=>{events[name]=handler;},__HON_LION_SCENE_RUNTIME__:{reset:()=>Promise.resolve({}),setStage:(stage,scene)=>{calls.push({stage,scene});return scene==='entrance'&&arrival?arrival:scene==='bug'&&opening?opening:Promise.resolve({fallback:false});}}},
+    window:{location:{search:demo?'?demo=1':''},addEventListener:(name,handler)=>{events[name]=handler;},__HON_LION_SCENE_RUNTIME__:{reset:()=>Promise.resolve({}),setStage:(stage,scene)=>{calls.push({stage,scene});return scenePromises[scene]??(scene==='entrance'&&arrival?arrival:scene==='bug'&&opening?opening:Promise.resolve({fallback:false}));}}},
     fetch:(url,options)=>url==='/api/hon-lion/status'?(status?status():Promise.resolve({ok:true,json:async()=>({configured})})):chat(url,options),
   });
   vm.runInContext(source,context);
@@ -84,9 +84,8 @@ test('a failed mobile submission preserves the draft without reopening the keybo
   assert.match(x.get('system-note').textContent,/設定されていません/);
 });
 
-test('conversation, correct reasoning, media-gated entry, clear and replay form one game',async()=>{
-  let arrive;
-  const x=setup({arrival:new Promise(resolve=>{arrive=resolve;})});
+test('conversation, correct reasoning, cabinet reward route, clear and replay form one game',async()=>{
+  const x=setup();
   assert.equal(x.state().phase,'start');
   x.context.beginGame();
   for(const page of PROLOGUE){
@@ -120,16 +119,38 @@ test('conversation, correct reasoning, media-gated entry, clear and replay form 
   assert.equal(x.state().reasoningStage,1,'rephrasing a known insight does not count twice');
   await x.ask('耳に入った虫が自分の脳を食べていますか？');
   assert.equal(x.state().reasoningStage,2);
-  assert.deepEqual(x.calls.filter(call=>call.stage>0).map(call=>call.stage),[1,2]);
+  assert.deepEqual(x.calls.filter(call=>call.scene==='living'||call.scene==='close').map(call=>call.scene),['living','close']);
   x.context.openComposer('final_theory');
   await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
   assert.equal(x.state().phase,'key');
-  x.context.grantKey(); await tick();
-  assert.equal(x.state().key,true);
-  x.context.grantRaygun(); await tick();
-  assert.equal(x.get('conversation-actions').children.length,0,'entry stays locked during movement');
-  arrive({fallback:false}); await tick();
-  assert.equal(x.get('conversation-actions').children.length,1);
+  await tick();
+  assert.equal(x.get('conversation-log').children.at(-1).textContent,'ランプの下で何か光っている');
+  assert.equal(x.get('conversation-log').children.filter(node=>!node.hidden).length,1);
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'調べる');
+  await x.context.grantKey(); await tick();
+  assert.equal(x.state().cabinetKey,true);
+  assert.equal(x.get('conversation-log').children.at(-1).children.at(-1).textContent,'戸棚のカギを見つけた');
+  assert.equal(x.state().phase,'cabinet');
+  x.context.moveToCabinet(); await tick();
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'鍵で戸棚を開ける');
+  x.context.openCabinet(); await tick();
+  assert.equal(x.state().phase,'cabinet-open');
+  assert.equal(x.state().ray,false,'the gun is unavailable until the take animation finishes');
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る');
+  x.context.takeRaygun(); await tick();
+  assert.equal(x.state().ray,true);
+  assert.equal(x.state().phase,'gun-acquired');
+  assert.equal(x.get('conversation-log').children.at(-1).textContent,'光線銃を手に入れた。');
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'次へ');
+  x.context.stowRaygun(); await tick();
+  assert.equal(x.state().phase,'door-key');
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'ドアの鍵を取る');
+  x.context.takeDoorKey(); await tick();
+  assert.equal(x.state().doorKey,true);
+  assert.equal(x.get('conversation-log').children.at(-1).textContent,'部屋のドアの鍵を手に入れた。');
+  x.context.moveToEntry(); await tick();
+  assert.equal(x.state().phase,'entrance');
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'部屋の鍵でドアを開ける');
   await x.context.enterBugRoom();
   const ending=x.context.burnBug();
   assert.equal(x.state().phase,'firing');
@@ -141,11 +162,12 @@ test('conversation, correct reasoning, media-gated entry, clear and replay form 
   assert.equal(x.get('app').querySelector('.beam'),null);
   assert.equal(x.get('app').querySelector('.held-raygun'),null);
   assert.ok(x.get('conversation-log').children.some(node=>node.textContent==='脱出成功'));
-  assert.deepEqual(x.audio,['start','reward','reward','reveal','shoot','removeInsect']);
+  assert.deepEqual(x.audio,['start','reward','reward','reward','reveal','shoot','removeInsect']);
   assert.deepEqual(x.beamCalls,['start','stop','dispose'],'the shot renderer is disposed after its six-second lifecycle');
   x.context.reset();
   assert.equal(x.state().phase,'start');
-  assert.equal(x.state().key,false);
+  assert.equal(x.state().cabinetKey,false);
+  assert.equal(x.state().doorKey,false);
   assert.equal(x.get('app').querySelector('.bug-mark'),null);
   x.context.beginGame();
   assert.equal(x.state().phase,'prologue');
@@ -153,10 +175,76 @@ test('conversation, correct reasoning, media-gated entry, clear and replay form 
   assert.equal(x.get('conversation-log').children[0].textContent,PROLOGUE[0]);
 });
 
+test('reward transitions wait for their background edge and reset or double clicks cannot award early',async()=>{
+  let resolveClose;
+  const close=new Promise(resolve=>{resolveClose=resolve;});
+  const x=setup({scenePromises:{close}});
+  x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+  await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  assert.equal(x.state().phase,'key');
+  assert.equal(x.state().rewardBusy,true);
+  assert.equal(x.get('conversation-actions').children.length,0);
+  x.context.reset();
+  resolveClose({cancelled:true});
+  await tick();
+  assert.equal(x.state().cabinetKey,false);
+  assert.equal(x.state().phase,'start');
+
+  let resolveKey;
+  const key=new Promise(resolve=>{resolveKey=resolve;});
+  const y=setup({scenePromises:{key}});
+  y.context.beginGame();y.context.setQuestionFlow();y.context.openComposer('final_theory');
+  await y.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await tick();
+  y.context.grantKey();y.context.grantKey();
+  assert.equal(y.state().cabinetKey,false);
+  assert.equal(y.calls.filter(call=>call.scene==='key').length,1);
+  y.context.reset();
+  resolveKey({cancelled:true});
+  await tick();
+  assert.equal(y.state().cabinetKey,false);
+
+  let resolveOpen;
+  const cabinetOpen=new Promise(resolve=>{resolveOpen=resolve;});
+  const z=setup({scenePromises:{'cabinet-open':cabinetOpen}});
+  z.context.beginGame();z.context.setQuestionFlow();z.context.openComposer('final_theory');
+  await z.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await tick();
+  await z.context.grantKey();
+  z.context.moveToCabinet();await tick();
+  z.context.openCabinet();z.context.openCabinet();
+  assert.equal(z.state().phase,'cabinet');
+  assert.equal(z.state().cabinetOpen,false);
+  assert.equal(z.state().ray,false);
+  z.context.reset();
+  resolveOpen({cancelled:true});
+  await tick();
+  assert.equal(z.state().phase,'start');
+  assert.equal(z.state().ray,false);
+
+  let resolveGunHeld;
+  const gunHeld=new Promise(resolve=>{resolveGunHeld=resolve;});
+  const w=setup({scenePromises:{'gun-held':gunHeld}});
+  w.context.beginGame();w.context.setQuestionFlow();w.context.openComposer('final_theory');
+  await w.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await tick();
+  await w.context.grantKey();
+  await w.context.moveToCabinet();
+  await w.context.openCabinet();
+  w.context.takeRaygun();w.context.takeRaygun();
+  assert.equal(w.state().ray,false);
+  assert.equal(w.state().rewardBusy,true);
+  resolveGunHeld({fallback:false});
+  await tick();
+  assert.equal(w.state().ray,true);
+  assert.equal(w.state().phase,'gun-acquired');
+  w.context.reset();
+});
+
 test('replay cancels a pending ending and removes its audio and visual effects',async()=>{
   const x=setup();
   x.context.beginGame();
-  vm.runInContext("state.phase='entrance'; state.ray=true",x.context);
+  vm.runInContext("state.phase='entrance'; state.ray=true; state.doorKey=true",x.context);
   await x.context.enterBugRoom();
   const ending=x.context.burnBug();
   assert.equal(x.state().phase,'firing');
@@ -175,7 +263,7 @@ test('the insect appears only after the door opens, and resetting cancels that r
   let opened;
   const x=setup({opening:new Promise(resolve=>{opened=resolve;})});
   x.context.beginGame();
-  vm.runInContext("state.phase='entrance';state.ray=true",x.context);
+  vm.runInContext("state.phase='entrance';state.ray=true;state.doorKey=true",x.context);
   const transition=x.context.enterBugRoom();
   assert.equal(x.state().phase,'opening');
   assert.equal(x.get('app').querySelector('.bug-mark'),null);
@@ -188,10 +276,19 @@ test('the insect appears only after the door opens, and resetting cancels that r
   assert.equal(x.get('app').querySelector('.bug-mark'),null);
 });
 
+test('the room door cannot open with the raygun and cabinet key alone',async()=>{
+  const x=setup();
+  x.context.beginGame();
+  vm.runInContext("state.phase='entrance';state.ray=true;state.cabinetKey=true;state.doorKey=false",x.context);
+  await x.context.enterBugRoom();
+  assert.equal(x.state().phase,'entrance');
+  assert.equal(x.get('app').querySelector('.bug-mark'),null);
+});
+
 test('the insect reveal waits for its image, plays once, and ignores late loads',async()=>{
   const x=setup({imageState:'pending'});
   x.context.beginGame();
-  vm.runInContext("state.phase='entrance';state.ray=true",x.context);
+  vm.runInContext("state.phase='entrance';state.ray=true;state.doorKey=true",x.context);
   await x.context.enterBugRoom();
   const bug=x.get('app').querySelector('.bug-mark');
   assert.deepEqual(x.audio,['start'],'a pending image cannot reveal early');
@@ -207,7 +304,7 @@ test('the insect reveal waits for its image, plays once, and ignores late loads'
 
   const reset=setup({imageState:'pending'});
   reset.context.beginGame();
-  vm.runInContext("state.phase='entrance';state.ray=true",reset.context);
+  vm.runInContext("state.phase='entrance';state.ray=true;state.doorKey=true",reset.context);
   await reset.context.enterBugRoom();
   const late=reset.get('app').querySelector('.bug-mark');
   reset.context.reset();
@@ -256,7 +353,8 @@ test('the movement state matches the spoken reply for partial, solved, and clari
     x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
     await x.ask('推理の説明');
     assert.equal(x.get('conversation-log').children.at(-1).textContent,LION_REPLIES[choice]);
-    assert.equal(x.get('lion-character-button').attributes['data-reaction'],expected);
+    assert.equal(x.get('lion-character-button').attributes['data-reaction'],choice==='SOLVED'?undefined:expected);
+    assert.equal(x.get('lion-character-button').hidden,choice==='SOLVED');
     x.context.reset();
   }
 });
@@ -358,7 +456,7 @@ test('repeating the same partial final theory does not accumulate discoveries',a
     assert.equal(x.state().questionMode,'final_theory','partial explanations remain editable');
     assert.equal(x.get('question-input').value,'耳に虫がいる','the player does not have to rewrite their explanation');
     assert.equal(x.state().reasoningStage,1);
-    assert.equal(x.state().key,false);
+    assert.equal(x.state().cabinetKey,false);
   }
   assert.equal(x.calls.filter(call=>call.stage>0).length,1);
   assert.equal(posts[1].knownInsights.length,1);
@@ -449,7 +547,7 @@ for (const [code, message] of [
       assert.equal(x.get('question-input').disabled, false);
       assert.equal(x.get('question-send').disabled, false);
       assert.equal(x.state().reasoningStage, 0);
-      assert.equal(x.state().key, false);
+      assert.equal(x.state().cabinetKey, false);
       assert.equal(x.state().turns.length, 0);
       assert.equal(x.get('conversation-log').children.filter(node => node.className === 'message lion').length, 0);
       assert.match(x.get('system-note').textContent, message);
@@ -462,7 +560,7 @@ test('an unconfigured live connection is retryable and does not silently use the
   x.context.beginGame();x.context.setQuestionFlow();
   await x.ask('虫ですか？');
   assert.equal(x.state().reasoningStage,0);
-  assert.equal(x.state().key,false);
+  assert.equal(x.state().cabinetKey,false);
   assert.match(x.get('system-note').textContent,/まだ設定されていません/);
   assert.equal(x.get('question-input').disabled,false);
 });
@@ -474,46 +572,51 @@ test('a server-approved solved theory is accepted below the old client confidenc
   assert.equal(x.state().phase,'key');
 });
 
-test('a reward image error still exposes text-only continuation',async()=>{
-  const x=setup({imageState:'error',arrival:Promise.resolve({fallback:false})});
+test('reward image failures never block the background cabinet route',async()=>{
+  const x=setup({imageState:'error'});
   x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
   await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
-  x.context.grantKey();
+  await tick();
+  await x.context.grantKey();
   const media=x.get('conversation-log').children.at(-1);
   media.children[0].handlers.error();
   assert.equal(x.get('conversation-actions').children.length,1);
-  x.context.grantRaygun();
-  const raygunMedia=x.get('conversation-log').children.at(-1);
-  raygunMedia.children[0].handlers.error();
+  x.context.moveToCabinet(); await tick();
+  x.context.openCabinet(); await tick();
+  assert.equal(x.get('conversation-log').children.at(-1).textContent,'戸棚が開いた。棚の奥に光線銃が見える。');
   await tick();
-  assert.equal(x.get('conversation-actions').children.length,1,'scene arrival remains the gate');
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る');
 });
 
 test('a never-loading reward image times out and replay cancels its callback',async()=>{
   const x=setup({imageState:'pending'});
   x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
   await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await tick();
   x.context.grantKey();
   await wait(15);
   assert.equal(x.get('conversation-actions').children.length,1);
-  x.context.grantRaygun();
+  x.context.moveToCabinet();
   x.context.reset();
   await wait(15);
   assert.equal(x.state().phase,'start');
   assert.equal(x.get('conversation-actions').children.length,0);
 });
 
-test('an immediate scene arrival still waits for the raygun image to settle',async()=>{
-  const x=setup({imageState:'pending',arrival:Promise.resolve({fallback:false})});
+test('a pending key thumbnail does not block the gun in the cabinet',async()=>{
+  const x=setup({imageState:'pending'});
   x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
   await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+  await tick();
   x.context.grantKey();
   await wait(15);
-  x.context.grantRaygun();
+  x.context.moveToCabinet();
   await tick();
-  assert.equal(x.get('conversation-actions').children.length,0,'visual arrival does not bypass a pending reward image');
+  x.context.openCabinet();
+  await tick();
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る','cabinet opening does not wait for the key thumbnail');
   await wait(15);
-  assert.equal(x.get('conversation-actions').children.length,1,'timeout settles the image and enables text-only continuation');
+  assert.equal(x.get('conversation-actions').children.at(-1).textContent,'光線銃を取る');
 });
 
 test('a persisted page returns to the start from firing and a normal scene',()=>{
@@ -528,13 +631,55 @@ test('a persisted page returns to the start from firing and a normal scene',()=>
   assert.equal(scene.state().phase,'start');
 });
 
+for(const target of ['gun-stowed','armed']) {
+  test(`reset cancels pending ${target} and repeated clicks cannot collect twice`,async()=>{
+    let finish;const transition=new Promise(resolve=>{finish=resolve;});
+    const x=setup({scenePromises:{[target]:transition}});
+    x.context.beginGame();x.context.setQuestionFlow();x.context.openComposer('final_theory');
+    await x.ask('洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。');
+    await tick();await x.context.grantKey();await x.context.moveToCabinet();await x.context.openCabinet();await x.context.takeRaygun();
+    await x.context.moveToEntry();
+    assert.equal(x.calls.filter(call=>call.scene==='entry').length,0,'gun alone cannot advance to the room');
+    if(target==='armed')await x.context.stowRaygun();
+    const action=target==='gun-stowed'?'stowRaygun':'takeDoorKey';
+    const pending=x.context[action]();x.context[action]();
+    assert.equal(x.calls.filter(call=>call.scene===target).length,1);
+    assert.equal(x.state().doorKey,false);
+    assert.equal(x.state().rewardBusy,true);
+    x.context.reset();finish({cancelled:true});await pending;
+    assert.equal(x.state().phase,'start');assert.equal(x.state().doorKey,false);assert.equal(x.state().ray,false);
+    assert.equal(x.get('conversation-actions').children.length,0);
+  });
+}
+
 test('pagehide stops and disposes an active shot renderer',async()=>{
   const x=setup();
   x.context.beginGame();
-  vm.runInContext("state.phase='entrance';state.ray=true",x.context);
+  vm.runInContext("state.phase='entrance';state.ray=true;state.doorKey=true",x.context);
   await x.context.enterBugRoom();
   x.context.burnBug();
   assert.equal(x.state().phase,'firing');
   x.events.pagehide();
   assert.deepEqual(x.beamCalls,['start','stop','dispose']);
 });
+
+for(const failure of ['throw','reject']) {
+  test(`a scene ${failure} falls back without locking reward controls`,async()=>{
+    const x=setup();
+    x.context.beginGame();
+    vm.runInContext("state.phase='cabinet-open';state.cabinetOpen=true",x.context);
+    x.context.window.__HON_LION_SCENE_RUNTIME__.setStage=()=>{
+      if(failure==='throw')throw Error('media unavailable');
+      return Promise.reject(Error('media unavailable'));
+    };
+    await x.context.takeRaygun();
+    assert.equal(x.state().phase,'gun-acquired');
+    assert.equal(x.state().rewardBusy,false);
+    assert.equal(x.state().ray,true);
+    assert.equal(x.get('conversation-actions').children[0].attributes['aria-label'],'次へ');
+    assert.match(x.get('system-note').textContent,/静止画/);
+    await x.context.stowRaygun();await x.context.takeDoorKey();await x.context.moveToEntry();
+    await x.context.enterBugRoom();
+    assert.equal(x.state().phase,'bug','the final room follows the same failure policy');
+  });
+}

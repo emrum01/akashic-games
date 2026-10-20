@@ -166,6 +166,13 @@ async def wait_visual_node(page, node):
     assert abs(snapshot["media"]["currentTime"] - snapshot["media"]["duration"]) < .02, snapshot
 
 
+async def wait_reward_node(page, node):
+    """Wait for a reward route node, allowing a poster fallback on asset failure."""
+    await page.wait_for_function("(expected) => { const s = window.__HON_LION_SCENE__.snapshot(); return s.currentNode === expected && !s.media.playing; }", arg=node, timeout=180000)
+    snapshot = await page.evaluate("window.__HON_LION_SCENE__.snapshot()")
+    assert snapshot["currentNode"] == node, snapshot
+
+
 async def assert_reward_visible(page, image_part, label_text):
     image = page.locator(f"img[src*='{image_part}']").last
     label = page.get_by_text(label_text, exact=True).last
@@ -210,16 +217,33 @@ async def full_demo(page, static_url):
     await page.locator("#question-send").click()
     assert await page.locator(".message.lion").last.text_content() == "はい"
     assert await page.locator("#question-form").is_hidden()
-    await page.get_by_role("button", name="次へ").click()
+    await wait_reward_node(page, "c")
+    assert await page.get_by_text("ランプの下で何か光っている", exact=True).is_visible()
+    await page.get_by_role("button", name="調べる").click()
+    await wait_reward_node(page, "key")
     assert await page.locator("img[src*='key.png']").is_visible()
-    await assert_reward_visible(page, "key.png", "鍵を入手した。")
+    await assert_reward_visible(page, "key.png", "戸棚のカギを見つけた")
     await page.screenshot(path=str(QA / "key-acquired.png"), full_page=True)
+    await page.get_by_role("button", name="奥の戸棚へ").click()
+    await wait_reward_node(page, "cabinet")
+    await page.get_by_role("button", name="鍵で戸棚を開ける").click()
+    await wait_reward_node(page, "cabinet-open")
+    assert await page.get_by_text("戸棚が開いた。棚の奥に光線銃が見える。", exact=True).is_visible()
+    assert await page.locator("img[src*='giant-raygun.png']").count() == 0
+    await wait_visual_node(page, "cabinet-open")
+    await page.get_by_role("button", name="光線銃を取る").click()
+    await wait_reward_node(page, "gun-held")
+    assert await page.locator("#app").get_attribute("data-phase") == "gun-acquired"
+    assert await page.get_by_text("光線銃を手に入れた。", exact=True).is_visible()
     await page.get_by_role("button", name="次へ").click()
-    assert await page.locator("img[src*='giant-raygun.png']").is_visible()
-    await assert_reward_visible(page, "giant-raygun.png", "鍵で戸棚を開けた。\n巨大な光線銃を入手した。")
-    await wait_visual_node(page, "entry")
+    await wait_reward_node(page, "gun-stowed")
+    await page.get_by_role("button", name="ドアの鍵を取る").click()
+    await wait_reward_node(page, "armed")
+    assert await page.get_by_text("部屋のドアの鍵を手に入れた。", exact=True).is_visible()
+    await page.get_by_role("button", name="入口へ").click()
+    await wait_reward_node(page, "entry")
     await page.screenshot(path=str(QA / "raygun-acquired.png"), full_page=True)
-    await page.get_by_role("button", name="開かずの間へ").click()
+    await page.get_by_role("button", name="部屋の鍵でドアを開ける").click()
     await page.locator(".bug-mark").wait_for(state="visible", timeout=15000)
     assert await page.locator("#app").get_attribute("data-scene") == "bug"
     await wait_scene(page, 2)
@@ -254,10 +278,21 @@ async def full_demo(page, static_url):
     await page.locator("#theory-toggle").click()
     await page.locator("#question-input").fill(THEORY)
     await page.locator("#question-send").click()
+    await page.get_by_role("button", name="調べる").click()
+    await wait_reward_node(page, "key")
+    await page.get_by_role("button", name="奥の戸棚へ").click()
+    await wait_reward_node(page, "cabinet")
+    await page.get_by_role("button", name="鍵で戸棚を開ける").click()
+    await wait_reward_node(page, "cabinet-open")
+    await page.get_by_role("button", name="光線銃を取る").click()
+    await wait_reward_node(page, "gun-held")
     await page.get_by_role("button", name="次へ").click()
-    await page.get_by_role("button", name="次へ").click()
-    await wait_visual_node(page, "entry")
-    await page.get_by_role("button", name="開かずの間へ").click()
+    await wait_reward_node(page, "gun-stowed")
+    await page.get_by_role("button", name="ドアの鍵を取る").click()
+    await wait_reward_node(page, "armed")
+    await page.get_by_role("button", name="入口へ").click()
+    await wait_reward_node(page, "entry")
+    await page.get_by_role("button", name="部屋の鍵でドアを開ける").click()
     await page.locator(".bug-mark").wait_for(state="visible", timeout=15000)
     assert await page.locator("#app").get_attribute("data-scene") == "bug"
     await wait_scene(page, 2)
@@ -274,11 +309,17 @@ async def mobile_rewards(browser, static_url):
     await page.locator("#theory-toggle").click()
     await page.locator("#question-input").fill(THEORY)
     await page.locator("#question-send").click()
-    await page.get_by_role("button", name="次へ").click()
-    await assert_reward_visible(page, "key.png", "鍵を入手した。")
+    await page.get_by_role("button", name="調べる").click()
+    await wait_reward_node(page, "key")
+    await assert_reward_visible(page, "key.png", "戸棚のカギを見つけた")
     await page.screenshot(path=str(QA / "reward-key-mobile-390x590.png"), full_page=True)
-    await page.get_by_role("button", name="次へ").click()
-    await assert_reward_visible(page, "giant-raygun.png", "鍵で戸棚を開けた。\n巨大な光線銃を入手した。")
+    await page.get_by_role("button", name="奥の戸棚へ").click()
+    await wait_reward_node(page, "cabinet")
+    await page.get_by_role("button", name="鍵で戸棚を開ける").click()
+    await wait_reward_node(page, "cabinet-open")
+    assert await page.get_by_text("戸棚が開いた。棚の奥に光線銃が見える。", exact=True).is_visible()
+    assert await page.locator("img[src*='giant-raygun.png']").count() == 0
+    await wait_visual_node(page, "cabinet-open")
     await page.screenshot(path=str(QA / "reward-raygun-mobile-390x590.png"), full_page=True)
     await page.close()
 

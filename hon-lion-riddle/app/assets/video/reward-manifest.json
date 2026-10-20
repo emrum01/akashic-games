@@ -1,0 +1,70 @@
+{
+  "schema": "hon-lion-reward-capture-v1",
+  "asset_revision": "a6c0d92c17dafe844c26d853bec2818ab91e04e7ae2bdc3989b340da7bf3bece",
+  "profiles": {
+    "wide": {
+      "width": 1280,
+      "height": 720
+    },
+    "portrait": {
+      "width": 720,
+      "height": 1280
+    }
+  },
+  "clips": {
+    "c-key": {
+      "wide": "reward-c-key-wide.mp4",
+      "portrait": "reward-c-key-portrait.mp4"
+    },
+    "key-cabinet": {
+      "wide": "reward-key-cabinet-wide.mp4",
+      "portrait": "reward-key-cabinet-portrait.mp4"
+    },
+    "cabinet-open": {
+      "wide": "reward-cabinet-open-wide.mp4",
+      "portrait": "reward-cabinet-open-portrait.mp4"
+    },
+    "cabinet-take": {
+      "wide": "reward-cabinet-take-wide.mp4",
+      "portrait": "reward-cabinet-take-portrait.mp4"
+    },
+    "cabinet-stow": {
+      "wide": "reward-cabinet-stow-wide.mp4",
+      "portrait": "reward-cabinet-stow-portrait.mp4"
+    },
+    "cabinet-door-key": {
+      "wide": "reward-cabinet-door-key-wide.mp4",
+      "portrait": "reward-cabinet-door-key-portrait.mp4"
+    },
+    "cabinet-entry": {
+      "wide": "reward-cabinet-entry-wide.mp4",
+      "portrait": "reward-cabinet-entry-portrait.mp4"
+    }
+  },
+  "posters": {
+    "key": {
+      "wide": "reward-key-wide.jpg",
+      "portrait": "reward-key-portrait.jpg"
+    },
+    "cabinet": {
+      "wide": "reward-cabinet-wide.jpg",
+      "portrait": "reward-cabinet-portrait.jpg"
+    },
+    "cabinet-open": {
+      "wide": "reward-cabinet-open-wide.jpg",
+      "portrait": "reward-cabinet-open-portrait.jpg"
+    },
+    "gun-held": {
+      "wide": "reward-gun-held-wide.jpg",
+      "portrait": "reward-gun-held-portrait.jpg"
+    },
+    "gun-stowed": {
+      "wide": "reward-gun-stowed-wide.jpg",
+      "portrait": "reward-gun-stowed-portrait.jpg"
+    },
+    "armed": {
+      "wide": "reward-armed-wide.jpg",
+      "portrait": "reward-armed-portrait.jpg"
+    }
+  }
+}

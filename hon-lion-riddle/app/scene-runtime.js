@@ -23,6 +23,7 @@ const diagnostics = {
 const state = {
   manifest: null,
   doorManifest: null,
+  rewardManifest: null,
   ready: false,
   currentNode: 'a',
   desiredNode: 'a',
@@ -40,13 +41,22 @@ const edges = {
   'b-c': ['b', 'c'],
   'c-entry': ['c', 'entry'],
   'entry-bug': ['entry', 'bug'],
+  'c-key': ['c', 'key'],
+  'key-cabinet': ['key', 'cabinet'],
+  'cabinet-open': ['cabinet', 'cabinet-open'],
+  'cabinet-take': ['cabinet-open', 'gun-held'],
+  'cabinet-stow': ['gun-held', 'gun-stowed'],
+  'cabinet-door-key': ['gun-stowed', 'armed'],
+  'cabinet-entry': ['armed', 'entry'],
 };
+const rewardEdges = new Set(['c-key', 'key-cabinet', 'cabinet-open', 'cabinet-take', 'cabinet-stow', 'cabinet-door-key', 'cabinet-entry']);
+const rewardNodes = new Set(['key', 'cabinet', 'cabinet-open', 'gun-held', 'gun-stowed', 'armed']);
 
 function currentProfile() {
   return window.innerWidth <= window.innerHeight ? 'portrait' : 'wide';
 }
 function stageForNode(node) {
-  return node === 'b' ? 1 : node === 'c' || node === 'entry' || node === 'bug' ? 2 : 0;
+  return node === 'b' ? 1 : node !== 'a' ? 2 : 0;
 }
 function clone(value) {
   return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
@@ -92,10 +102,12 @@ function assetUrl(value, fallback, revision = state.manifest?.asset_revision) {
 }
 function clipUrl(edge, profile) {
   if(edge==='entry-bug')return assetUrl(state.doorManifest?.clips?.[profile],`door-open-${profile}.mp4`,state.doorManifest?.asset_revision);
+  if(rewardEdges.has(edge))return assetUrl(state.rewardManifest?.clips?.[edge]?.[profile],`reward-${edge}-${profile}.mp4`,state.rewardManifest?.asset_revision);
   return assetUrl(manifestValue('clips', edge, profile), `walk-${edge}-${profile}.mp4`);
 }
 function posterUrl(node, profile) {
   if(node==='bug')return assetUrl(state.doorManifest?.posters?.[profile],`door-open-${profile}.jpg`,state.doorManifest?.asset_revision);
+  if(rewardNodes.has(node))return assetUrl(state.rewardManifest?.posters?.[node]?.[profile],`reward-${node}-${profile}.jpg`,state.rewardManifest?.asset_revision);
   return assetUrl(manifestValue('posters', node, profile), `pose-${node}-${profile}.jpg`);
 }
 function setPoster(node) {
@@ -170,17 +182,21 @@ function fallbackToTarget(target, message = '') {
 }
 function routeFrom(current, target) {
   if (current === target) return [];
-  if (target === 'bug') return [...routeFrom(current,'entry'),'entry-bug'];
   if (target === 'a') return [];
-  if (target === 'b' && current === 'a') return ['a-b'];
-  if (target === 'c') {
-    if (current === 'a') return ['a-b', 'b-c'];
-    if (current === 'b') return ['b-c'];
-  }
-  if (target === 'entry') {
-    if (current === 'a') return ['a-b', 'b-c', 'c-entry'];
-    if (current === 'b') return ['b-c', 'c-entry'];
-    if (current === 'c') return ['c-entry'];
+  // Keep routes explicit and finite: a desired destination can be changed
+  // while a previous clip is playing, so a small graph search is safer than
+  // concatenating scene-specific paths by hand.
+  const queue = [[current, []]];
+  const visited = new Set([current]);
+  while (queue.length) {
+    const [node, route] = queue.shift();
+    for (const [edge, [from, to]] of Object.entries(edges)) {
+      if (from !== node || visited.has(to)) continue;
+      const next = [...route, edge];
+      if (to === target) return next;
+      visited.add(to);
+      queue.push([to, next]);
+    }
   }
   return [];
 }
@@ -218,7 +234,8 @@ function finishClip(edge, generation) {
 }
 function failClip(generation, message) {
   if (generation !== state.generation) return;
-  fallbackToTarget(state.desiredNode, message || '屋敷の映像を再生できません。静止画で続けます。');
+  const fallbackMessage = rewardEdges.has(diagnostics.media.clip) ? '報酬演出の映像を再生できません。到着静止画で続けます。' : '屋敷の映像を再生できません。静止画で続けます。';
+  fallbackToTarget(state.desiredNode, message || fallbackMessage);
 }
 function startClip(edge, generation) {
   if (!video || generation !== state.generation) return;
@@ -305,7 +322,7 @@ function processTarget() {
   startNextRoute(state.generation);
 }
 function setStage(stage, sceneName = '') {
-  const target = sceneName === 'bug' || sceneName === 'clear' ? 'bug' : sceneName === 'entrance' ? 'entry' : Math.max(0, Math.min(2, Number(stage) || 0)) === 2 ? 'c' : Math.max(0, Math.min(2, Number(stage) || 0)) === 1 ? 'b' : 'a';
+  const target = sceneName === 'bug' || sceneName === 'clear' ? 'bug' : sceneName === 'entrance' || sceneName === 'entry' ? 'entry' : rewardNodes.has(sceneName) ? sceneName : Math.max(0, Math.min(2, Number(stage) || 0)) === 2 ? 'c' : Math.max(0, Math.min(2, Number(stage) || 0)) === 1 ? 'b' : 'a';
   const targetStage = stageForNode(target);
   diagnostics.requestedStage = targetStage;
   if (state.desiredNode !== target) {
@@ -372,6 +389,13 @@ async function loadManifest() {
     const doorResponse=await fetch('./assets/video/door-manifest.json',{cache:'no-store'});
     if(!doorResponse.ok)throw new Error(`door manifest HTTP ${doorResponse.status}`);
     state.doorManifest=await doorResponse.json();
+    try {
+      const rewardResponse=await fetch('./assets/video/reward-manifest.json',{cache:'no-store'});
+      if(rewardResponse.ok)state.rewardManifest=await rewardResponse.json();
+    } catch (error) {
+      state.rewardManifest=null;
+      console.warn('[HON LION] reward manifest unavailable', error);
+    }
     diagnostics.version = state.manifest.version ?? state.manifest.manifest_version ?? state.manifest.manifest?.version ?? null;
     diagnostics.sourceHash = state.manifest.source?.sha256 ?? state.manifest.source_scene_sha256 ?? state.manifest.source_scene?.sha256 ?? null;
     state.ready = true;

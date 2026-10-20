@@ -7,7 +7,7 @@ import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
 import { createBeamEffects } from './beam-effects/controller.js?v=20261020beam3';
 
 const $ = (id) => document.getElementById(id);
-const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, key:false, ray:false, cleared:false, busy:false, generation:0, requestController:null };
+const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, cabinetKey:false, doorKey:false, ray:false, cabinetOpen:false, rewardBusy:false, cleared:false, busy:false, generation:0, requestController:null };
 const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button'), lionImage:$('lion-character') };
 const LION_IDLE_SRC='./assets/characters/hon-lion-dialogue.png?v=20261020round';
 let greetingMessage = null;
@@ -43,12 +43,16 @@ const showLionReaction=(choice)=>lionReactions.show(choice);
 function setPhase(phase){
   state.phase=phase;
   refs.app.dataset.phase=phase;
-  const hidden=['start','prologue','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase);
-  refs.lion.hidden=hidden;
+  refs.app.dataset.rewardBusy=String(state.rewardBusy);
+  refs.lion.hidden=['start','prologue','key','cabinet','cabinet-open','gun-acquired','gun-stowed','door-key','armed','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase);
   refs.lion.disabled=phase!=='question';
-  if(hidden)clearLionReaction();
+  if(refs.lion.hidden)clearLionReaction();
+  const itemDialog=['key','cabinet','cabinet-open','gun-acquired','door-key','armed'].includes(phase);
+  if(itemDialog){ refs.conversation.setAttribute('role','dialog'); refs.conversation.setAttribute('aria-label','アイテム取得'); }
+  else { refs.conversation.removeAttribute('role'); refs.conversation.setAttribute('aria-label','本ライオンとの会話'); }
   $('sound-toggle').hidden=phase==='start'||phase==='clear';
 }
+function setRewardBusy(value){ state.rewardBusy=value; refs.app.dataset.rewardBusy=String(value); }
 function beatDelay(ms,generation){ return new Promise(resolve=>{ const timer=setTimeout(()=>{beatTimers.delete(timer);resolve(generation===state.generation);},ms); beatTimers.set(timer,resolve); }); }
 function clearBeat(){ refs.log.replaceChildren(); refs.speaker.textContent=''; setNote(''); }
 
@@ -181,7 +185,10 @@ function showIntro(){
   state.composerOpen=false;
   state.reasoningStage=0;
   refs.app.dataset.reasoningStage='0';
-  state.key=false;
+  state.cabinetKey=false;
+  state.doorKey=false;
+  state.cabinetOpen=false;
+  setRewardBusy(false);
   state.ray=false;
   state.cleared=false;
   setScene('hall');
@@ -253,6 +260,11 @@ async function submitQuestion(event) {
     appendMessage('lion',LION_REPLIES[result.choice]||LION_REPLIES.NEEDS_CLARIFICATION);
     // Question progress denotes a new discovery; a final theory assesses its whole explanation.
     applyReasoningProgress(safeProgress,mode==='question');
+    if(solvedGate&&state.reasoningStage<2){
+      state.reasoningStage=2;
+      refs.app.dataset.reasoningStage='2';
+      updateScene();
+    }
     state.questionCount+=1;
     if(mode==='question'||solvedGate){refs.input.value='';state.drafts[mode]='';}
     if(solvedGate) {
@@ -260,7 +272,8 @@ async function submitQuestion(event) {
       clearBeat();
       appendMessage('lion','はい');
       updateComposer();
-      setActions([{label:'次へ',primary:true,onClick:grantKey}]);
+      setActions([]);
+      prepareKeyArrival();
       track('theory_solved',{confidence:result.confidence});
     } else {
       state.questionMode=mode;
@@ -282,48 +295,105 @@ async function submitQuestion(event) {
     else refs.input.blur?.();
   }
 }
-function grantKey(){ if(state.phase!=='key'||state.key)return; state.key=true; setPhase('raygun'); clearBeat(); sound.reward(); setActions([]); appendMedia('system','鍵を入手した。','./assets/items/key.png','鍵','',(ok)=>{ if(state.phase!=='raygun')return; if(!ok)setNote('鍵の画像を読み込めませんでした。'); setActions([{label:'次へ',primary:true,onClick:grantRaygun}]); }); }
-function grantRaygun() {
-  if(state.phase!=='raygun'||state.ray)return;
-  state.ray=true;
-  setPhase('entrance');
-  clearBeat();
-  sound.reward('raygun');
-  const generation=state.generation;
-  const current=()=>state.generation===generation&&state.phase==='entrance';
-  const visualReadyPromise=Promise.resolve(setScene('entrance'));
-  setActions([]);
-  let imageSettled=false;
-  let visualReady=false;
-  const maybeEnable=()=>{
-    if(imageSettled&&visualReady&&current())setActions([{label:'開かずの間へ',primary:true,onClick:enterBugRoom}]);
-  };
-  appendMedia('system','鍵で戸棚を開けた。\n巨大な光線銃を入手した。','./assets/items/giant-raygun.png?v=20261018handgun','巨大な光線銃','raygun',ok=>{
-    if(!current())return;
-    imageSettled=true;
-    if(!ok)setNote('光線銃の画像を読み込めませんでした。');
-    maybeEnable();
-  });
-  visualReadyPromise.then(result=>{
-    if(!current())return;
-    visualReady=true;
+async function waitForScene(scene,generation,phase){
+  const current=()=>generation===state.generation&&state.phase===phase;
+  try {
+    const result=await setScene(scene);
+    if(!current()||result?.cancelled||result?.superseded)return null;
     setNote(result?.fallback?'屋敷の映像を静止画で表示しています。':'');
-    maybeEnable();
-  }).catch(()=>{
-    if(!current())return;
-    visualReady=true;
+    return result||{};
+  } catch {
+    if(!current())return null;
     setNote('屋敷の映像を静止画で表示しています。');
-    maybeEnable();
+    return {fallback:true};
+  }
+}
+// A transition owns the controls until arrival. Reset cancels its completion;
+// an old completion must never unlock a newer playthrough's transition.
+async function playRewardScene(scene,narration='',{keepMessage=false}={}){
+  const generation=state.generation,phase=state.phase;
+  setRewardBusy(true);
+  setActions([]);
+  if(!keepMessage)clearBeat();
+  if(narration)appendMessage('narration',narration);
+  try {
+    return await waitForScene(scene,generation,phase);
+  } finally {
+    if(generation===state.generation)setRewardBusy(false);
+  }
+}
+async function prepareKeyArrival(){
+  if(!await playRewardScene('close','',{keepMessage:true}))return;
+  hidePreviousMessages();
+  appendMessage('narration','ランプの下で何か光っている');
+  setActions([{label:'調べる',primary:true,onClick:grantKey}]);
+}
+async function grantKey(){
+  if(state.phase!=='key'||state.cabinetKey||state.rewardBusy)return;
+  if(!await playRewardScene('key'))return;
+  state.cabinetKey=true;
+  sound.reward();
+  appendMedia('system','戸棚のカギを見つけた','./assets/items/key.png','戸棚のカギ','',(ok)=>{
+    if(!ok&&state.phase==='cabinet')setNote('鍵の画像を読み込めませんでした。');
   });
+  setPhase('cabinet');
+  setActions([{label:'奥の戸棚へ',primary:true,onClick:moveToCabinet}]);
+}
+async function moveToCabinet(){
+  if(state.phase!=='cabinet'||!state.cabinetKey||state.rewardBusy)return;
+  if(!await playRewardScene('cabinet','奥の部屋の左側にある戸棚へ向かう。'))return;
+  hidePreviousMessages();
+  appendMessage('narration','戸棚の前に着いた。');
+  setActions([{label:'鍵で戸棚を開ける',primary:true,onClick:openCabinet}]);
+}
+async function openCabinet(){
+  if(state.phase!=='cabinet'||!state.cabinetKey||state.cabinetOpen||state.rewardBusy)return;
+  if(!await playRewardScene('cabinet-open','鍵を差し込み、戸棚の扉を開ける。'))return;
+  state.cabinetOpen=true;
+  setPhase('cabinet-open');
+  hidePreviousMessages();
+  appendMessage('system','戸棚が開いた。棚の奥に光線銃が見える。');
+  setActions([{label:'光線銃を取る',primary:true,onClick:takeRaygun}]);
+}
+async function takeRaygun(){
+  if(state.phase!=='cabinet-open'||!state.cabinetOpen||state.ray||state.rewardBusy)return;
+  if(!await playRewardScene('gun-held','戸棚の中へ手を伸ばし、光線銃を取る。'))return;
+  state.ray=true;
+  sound.reward('raygun');
+  setPhase('gun-acquired');
+  hidePreviousMessages();
+  appendMessage('system','光線銃を手に入れた。');
+  setActions([{label:'次へ',primary:true,onClick:stowRaygun}]);
+}
+async function stowRaygun(){
+  if(state.phase!=='gun-acquired'||!state.ray||state.rewardBusy)return;
+  if(!await playRewardScene('gun-stowed'))return;
+  setPhase('door-key');
+  appendMessage('narration','戸棚の奥に、部屋のドアの鍵が残っている。');
+  setActions([{label:'ドアの鍵を取る',primary:true,onClick:takeDoorKey}]);
+}
+async function takeDoorKey(){
+  if(state.phase!=='door-key'||state.doorKey||state.rewardBusy)return;
+  if(!await playRewardScene('armed'))return;
+  state.doorKey=true;
+  setPhase('armed');
+  sound.reward();
+  appendMessage('system','部屋のドアの鍵を手に入れた。');
+  setActions([{label:'入口へ',primary:true,onClick:moveToEntry}]);
+}
+async function moveToEntry(){
+  if(state.phase!=='armed'||!state.ray||!state.doorKey||state.rewardBusy)return;
+  if(!await playRewardScene('entry','光線銃を持って入口へ戻る。'))return;
+  setPhase('entrance');
+  setActions([{label:'部屋の鍵でドアを開ける',primary:true,onClick:enterBugRoom}]);
 }
 async function enterBugRoom(){
-  if (state.phase!=='entrance' || !state.ray) return;
+  if (state.phase!=='entrance' || !state.ray || !state.doorKey) return;
   const generation=state.generation;
   setPhase('opening');
   clearBeat();
   setActions([]);
-  await Promise.resolve(setScene('bug'));
-  if (generation!==state.generation || state.phase!=='opening') return;
+  if(!await waitForScene('bug',generation,'opening'))return;
   setPhase('bug');
   clearBeat();
   appendBugMark();
@@ -348,7 +418,7 @@ async function burnBug(){
   const clear=appendMessage('system','脱出成功'); clear.classList.add('clear-message');
   setActions([{label:'もう一度',primary:true,onClick:reset}]); track('game_clear');
 }
-function reset(){ invalidatePending(); clearLionReaction(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,{phase:'start',questionMode:'question',composerOpen:false,drafts:{question:'',final_theory:''},turns:[],knownInsights:[],questionCount:0,reasoningStage:0,key:false,ray:false,cleared:false,busy:false,generation:state.generation,requestController:null}); showStart(); }
+function reset(){ invalidatePending(); clearLionReaction(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,{phase:'start',questionMode:'question',composerOpen:false,drafts:{question:'',final_theory:''},turns:[],knownInsights:[],questionCount:0,reasoningStage:0,cabinetKey:false,doorKey:false,ray:false,cabinetOpen:false,rewardBusy:false,cleared:false,busy:false,generation:state.generation,requestController:null}); showStart(); }
 refs.startButton?.addEventListener('click',beginGame); refs.form.addEventListener('submit',submitQuestion); refs.lion?.addEventListener('click',greetLion);
 refs.ask.addEventListener('click',event=>openComposer('question',event));
 refs.theoryToggle.addEventListener('click',event=>openComposer('final_theory',event));
