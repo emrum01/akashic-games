@@ -1,17 +1,18 @@
 // The same quiet texture plays before and after the truth is understood.
 // It stops only when the insect is removed. This texture is the offline fallback.
-// Keep the fallback as dry, intermittent bursts so a failed recording cannot
-// turn the clue into a continuous low rumble.
+// Short pulsed bites and a quieter trailing scrape approximate the recording.
+// Silent gaps keep a failed recording from becoming a continuous low rumble.
 export function createPredationTexture(sampleRate = 24_000, seconds = 26) {
   const samples = new Float32Array(Math.round(sampleRate * seconds));
   let seed = 0x51c0ffee;
   let previous = 0;
+  let body = 0;
   const bursts = [
-    [0.38, 0.19], [0.69, 0.11],
-    [5.08, 0.21], [5.43, 0.12],
-    [10.88, 0.2], [11.22, 0.12],
-    [15.08, 0.2], [15.42, 0.11],
-    [20.78, 0.22], [21.14, 0.12],
+    [0.38, 0.29, 1], [0.69, 0.23, .45],
+    [5.08, 0.31, 1], [5.43, 0.24, .45],
+    [10.88, 0.3, 1], [11.22, 0.22, .45],
+    [15.08, 0.3, 1], [15.42, 0.23, .45],
+    [20.78, 0.32, 1], [21.14, 0.24, .45],
   ];
   let burstIndex = 0;
   for (let i = 0; i < samples.length; i++) {
@@ -22,14 +23,18 @@ export function createPredationTexture(sampleRate = 24_000, seconds = 26) {
     const burst = bursts[burstIndex];
     if (!burst || t < burst[0]) {
       previous = noise;
+      body = 0;
       continue;
     }
     const progress = (t - burst[0]) / burst[1];
     const envelope = Math.sin(Math.PI * progress);
-    // A first-difference high-pass keeps the fallback in the dry, papery range.
     const highpassed = noise - previous * .94;
     previous = noise;
-    samples[i] = Math.max(-.58, Math.min(.58, highpassed * envelope * .24));
+    body += .3 * (highpassed - body);
+    const bite = burst[2] === 1;
+    const pulse = bite ? .4 + .6 * (.5 + .5 * Math.cos(progress * Math.PI * 10)) : 1;
+    const texture = bite ? highpassed * .16 + body * .4 : highpassed * .2;
+    samples[i] = Math.max(-.58, Math.min(.58, texture * envelope * pulse * burst[2]));
   }
   return samples;
 }
@@ -58,7 +63,7 @@ export function createSoundDesign(onState = () => {}) {
   const voices = new Set();
   const buffers = new Map();
   const loading = new Map();
-  const revision = '20261020-crunch-4';
+  const revision = '20261020-gnaw-move-1';
   const masterLevel = .65;
   const publish = () => onState({ muted, active, removed, available, running: context?.state === 'running' && active && !muted && !removed });
 

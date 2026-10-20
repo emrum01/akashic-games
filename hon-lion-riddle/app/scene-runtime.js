@@ -281,7 +281,9 @@ function startClip(edge, generation) {
   video.onerror = () => failClip(generation, '屋敷の映像を読み込めません。静止画で続けます。');
   clearTimeout(state.loadTimer);
   state.loadTimer = window.setTimeout(() => {
-    if (generation !== state.generation || state.playing || Number(video.currentTime || 0) > 0) return;
+    // Route ownership starts before media is ready. Only actual playback
+    // progress can cancel this fallback when no media events arrive.
+    if (generation !== state.generation || Number(video.currentTime || 0) > 0) return;
     failClip(generation, '屋敷の映像の読み込みに時間がかかっています。静止画で続けます。');
   }, 5000);
   video.load();
@@ -308,7 +310,7 @@ function startNextRoute(generation) {
   startClip(edge, generation);
 }
 function processTarget() {
-  if (!state.ready || state.playing) return;
+  if (!state.ready || state.playing || diagnostics.context === 'stopped') return;
   if (reducedMotion.matches) {
     fallbackToTarget(state.desiredNode);
     return;
@@ -322,6 +324,7 @@ function processTarget() {
   startNextRoute(state.generation);
 }
 function setStage(stage, sceneName = '') {
+  if (diagnostics.context === 'stopped') return Promise.resolve({ cancelled: true });
   const target = sceneName === 'bug' || sceneName === 'clear' ? 'bug' : sceneName === 'entrance' || sceneName === 'entry' ? 'entry' : rewardNodes.has(sceneName) ? sceneName : Math.max(0, Math.min(2, Number(stage) || 0)) === 2 ? 'c' : Math.max(0, Math.min(2, Number(stage) || 0)) === 1 ? 'b' : 'a';
   const targetStage = stageForNode(target);
   diagnostics.requestedStage = targetStage;
@@ -347,7 +350,19 @@ function setStage(stage, sceneName = '') {
   }
   return promise;
 }
+function halt() {
+  state.generation += 1;
+  diagnostics.generation = state.generation;
+  resolveWaiters({ generation: state.generation }, true);
+  state.desiredNode = state.currentNode;
+  state.route = [];
+  stopMedia();
+  clearError();
+  diagnostics.context = 'stopped';
+  diagnostics.status = 'stopped';
+}
 function reset() {
+  diagnostics.context = 'active';
   state.generation += 1;
   diagnostics.generation = state.generation;
   const generation = state.generation;
@@ -376,9 +391,15 @@ function onVisibilityChange() {
   }
   if (!state.pausedForHidden || !video || !state.playing) return;
   state.pausedForHidden = false;
-  if (video.readyState < 3) state.loadTimer = window.setTimeout(() => failClip(state.generation, '屋敷の映像の読み込みに時間がかかっています。静止画で続けます。'), 5000);
-  armRouteTimeout(video.duration, state.generation);
-  video.play().catch(() => failClip(state.generation, '屋敷の映像を再生できません。静止画で続けます。'));
+  const generation = state.generation;
+  const mediaGeneration = state.mediaGeneration;
+  const failResume = (message) => {
+    if (mediaGeneration !== state.mediaGeneration) return;
+    failClip(generation, message);
+  };
+  if (video.readyState < 3) state.loadTimer = window.setTimeout(() => failResume('屋敷の映像の読み込みに時間がかかっています。静止画で続けます。'), 5000);
+  armRouteTimeout(video.duration, generation);
+  video.play().catch(() => failResume('屋敷の映像を再生できません。静止画で続けます。'));
 }
 async function loadManifest() {
   try {
@@ -400,6 +421,7 @@ async function loadManifest() {
     diagnostics.sourceHash = state.manifest.source?.sha256 ?? state.manifest.source_scene_sha256 ?? state.manifest.source_scene?.sha256 ?? null;
     state.ready = true;
     diagnostics.ready = true;
+    if (diagnostics.context === 'stopped') return;
     diagnostics.status = 'ready';
     clearError();
     setPoster(state.currentNode);
@@ -408,6 +430,7 @@ async function loadManifest() {
     state.manifest = null;
     state.ready = true;
     diagnostics.ready = true;
+    if (diagnostics.context === 'stopped') return;
     setError('屋敷の映像を表示できません。静止画で続けます。');
     // Resolve queued visual work so a missing local asset can never block the game.
     fallbackToTarget(state.desiredNode, '屋敷の映像を表示できません。静止画で続けます。');
@@ -415,7 +438,7 @@ async function loadManifest() {
   }
 }
 window.__HON_LION_SCENE__ = Object.freeze({ snapshot: () => clone(diagnostics) });
-window.__HON_LION_SCENE_RUNTIME__ = Object.freeze({ setStage, reset });
+window.__HON_LION_SCENE_RUNTIME__ = Object.freeze({ setStage, reset, halt });
 window.addEventListener('resize', () => { diagnostics.profile = currentProfile(); });
 document.addEventListener('visibilitychange', onVisibilityChange);
 window.addEventListener('pagehide', () => { state.generation += 1; resolveWaiters({ generation: state.generation }, true); stopMedia(true); });

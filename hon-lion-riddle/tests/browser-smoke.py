@@ -17,12 +17,16 @@ PROLOGUE_COPY = [
 OPENING_COPY = "不思議なことにさっきまで聴いていたASMRは同じように聞こえている。でもそれは耳のイヤホンからではなく、洋館の奥の廊下からだ…。"
 DISCOVERY_COPY = "目の前には奇妙な本型のライオン？がいる。\nここは一体どこなんだ！？"
 GREETING_COPY = "ぼく、ほんらいおん。なにをきかれても「はい」「いいえ」「関係ない」でこたえることができるんだ！なんでもきいてね！"
+PROBLEM_COPY = "この洋館と、聞こえ続ける音の正体は何か。\nあなたの身に何が起きているのかも含めて、状況を説明してください。"
 
 async def advance_intro(page):
     for _ in range(len(PROLOGUE_COPY) + 1):
         if await page.locator("#app").get_attribute("data-phase") == "question":
             break
         await page.get_by_role("button", name="次へ").click()
+    if await page.locator("#app").get_attribute("data-phase") == "problem":
+        assert await page.locator("#conversation-log").text_content() == PROBLEM_COPY
+        await page.get_by_role("button", name="推理をはじめる", exact=True).click()
     assert await page.locator("#app").get_attribute("data-phase") == "question"
 
 async def assert_readable(page):
@@ -103,6 +107,12 @@ async def intro_greeting(browser, static_url):
         assert await page.locator("#lion-character-button").is_disabled()
         await page.screenshot(path=str(QA / intro_path), full_page=True, animations="disabled")
         await page.get_by_role("button", name="次へ").click()
+        assert await page.locator("#app").get_attribute("data-phase") == "problem"
+        assert await page.locator("#conversation-log").text_content() == PROBLEM_COPY
+        assert await page.locator("#lion-character-button").is_disabled()
+        await assert_readable(page)
+        await page.screenshot(path=str(QA / f"problem-{viewport['width']}x{viewport['height']}.png"), animations="disabled")
+        await page.get_by_role("button", name="推理をはじめる", exact=True).click()
         assert await page.locator(".message.narration:not([hidden])").text_content() == DISCOVERY_COPY
         assert await page.locator("#conversation-tools").is_visible()
         assert await page.locator("#lion-character-button").is_enabled()

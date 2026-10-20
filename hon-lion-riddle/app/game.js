@@ -1,13 +1,16 @@
 import { API_ENDPOINT, LIVE_TIMEOUT_MS, STATUS_ENDPOINT } from './api-config.js';
 import { track } from './analytics.js';
-import { PROLOGUE, OPENING, LION_DISCOVERY, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261020asmr1';
-import { createSoundDesign } from './sound.js?v=20261020crunch4';
+import { PROLOGUE, OPENING, LION_DISCOVERY, LION_GREETING, PROBLEM, THEORY_PROMPT, ARRIVAL_OBSERVATION, NOISE_OBSERVATION, DEATH_NARRATION, CLUES, LION_REPLIES } from './dialogue.js?v=20261020deadline1';
+import { createDeadlineController } from './deadline.js?v=20261020deadline1';
+import { createObservationController } from './observation.js?v=20261020deadline3';
+import { createSoundDesign } from './sound.js?v=20261020gnaw1';
 import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
 import { createBeamEffects } from './beam-effects/controller.js?v=20261020beam3';
 
 const $ = (id) => document.getElementById(id);
-const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, cabinetKey:false, doorKey:false, ray:false, cabinetOpen:false, rewardBusy:false, cleared:false, busy:false, generation:0, requestController:null };
+const createInitialState = (generation=0) => ({ mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, cabinetKey:false, doorKey:false, ray:false, cabinetOpen:false, rewardBusy:false, cleared:false, busy:false, generation, requestController:null });
+const state = createInitialState();
 const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button'), lionImage:$('lion-character') };
 const LION_IDLE_SRC='./assets/characters/hon-lion-dialogue.png?v=20261020round';
 let greetingMessage = null;
@@ -26,6 +29,50 @@ const API_ERROR_MESSAGES = Object.freeze({
   provider_rate_limited: '質問が混み合っています。少し待って、もう一度送ってください。',
   upstream_timeout: '返事に時間がかかっています。もう一度送ってください。',
 });
+function setNoiseLevel(level){
+  observations.setNoiseLevel(level);
+}
+function clearNoise(){ observations.clearNoise(); }
+let deadline;
+function expireGame(){
+  if(state.cleared||['start','prologue','intro','problem','clear','dead'].includes(state.phase))return;
+  invalidatePending();
+  deadline.stop();
+  setRewardBusy(false);
+  window.__HON_LION_SCENE_RUNTIME__?.halt?.();
+  removeBeam();
+  refs.app.querySelector('.bug-mark')?.remove();
+  refs.app.querySelector('.held-raygun')?.remove();
+  setPhase('dead');
+  setNoiseLevel(5);
+  clearBeat();
+  appendMessage('narration',DEATH_NARRATION);
+  setActions([{label:'もう一度',primary:true,onClick:reset}]);
+  updateComposer();
+}
+const observations=createObservationController({
+  scheduleFn:setTimeout,
+  cancelFn:clearTimeout,
+  canShowArrival:()=>['question','key','cabinet','cabinet-open','gun-acquired','door-key','armed','entrance','bug'].includes(state.phase)&&!state.busy&&!state.composerOpen&&!state.rewardBusy,
+  canQueueNoise:()=>!['start','prologue','intro','problem','dead','clear','silence','escaping'].includes(state.phase),
+  canShowNoise:()=>['question','key','cabinet','cabinet-open','gun-acquired','door-key','armed','entrance','bug'].includes(state.phase)&&!state.busy&&!state.composerOpen&&!state.rewardBusy,
+  onArrival:()=>{
+    appendMessage('narration',ARRIVAL_OBSERVATION);
+    if(state.phase==='question')setActions([]);
+    updateComposer();
+  },
+  onNoise:()=>{
+    for(const message of refs.log.children){
+      if(message.className.split(' ').includes('noise-observation'))message.hidden=true;
+    }
+    appendMessage('narration',NOISE_OBSERVATION).classList.add('noise-observation');
+  },
+  onNoiseLevel:(level)=>{
+    if(level===null)delete refs.app.dataset.noiseLevel;
+    else refs.app.dataset.noiseLevel=String(level);
+  },
+});
+deadline=createDeadlineController({setTimeoutFn:window.setTimeout.bind(window),clearTimeoutFn:window.clearTimeout.bind(window),onNoise:setNoiseLevel,onExpire:expireGame});
 const sound = createSoundDesign(({muted,available,removed,running})=>{
   const toggle=$('sound-toggle');
   const label=available?(muted?'音を出す':'音を消す'):'音声なし';
@@ -44,7 +91,7 @@ function setPhase(phase){
   state.phase=phase;
   refs.app.dataset.phase=phase;
   refs.app.dataset.rewardBusy=String(state.rewardBusy);
-  refs.lion.hidden=['start','prologue','key','cabinet','cabinet-open','gun-acquired','gun-stowed','door-key','armed','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase);
+  refs.lion.hidden=['start','prologue','key','cabinet','cabinet-open','gun-acquired','gun-stowed','door-key','armed','entrance','opening','bug','firing','silence','escaping','clear','dead'].includes(phase);
   refs.lion.disabled=phase!=='question';
   if(refs.lion.hidden)clearLionReaction();
   const itemDialog=['key','cabinet','cabinet-open','gun-acquired','door-key','armed'].includes(phase);
@@ -55,10 +102,33 @@ function setPhase(phase){
 function setRewardBusy(value){ state.rewardBusy=value; refs.app.dataset.rewardBusy=String(value); }
 function beatDelay(ms,generation){ return new Promise(resolve=>{ const timer=setTimeout(()=>{beatTimers.delete(timer);resolve(generation===state.generation);},ms); beatTimers.set(timer,resolve); }); }
 function clearBeat(){ refs.log.replaceChildren(); refs.speaker.textContent=''; setNote(''); }
-
-function setScene(scene){ refs.app.dataset.scene=scene; const runtime=window.__HON_LION_SCENE_RUNTIME__; if(scene==='hall'&&(state.phase==='intro'||state.phase==='start')) return runtime?.reset?.(); return runtime?.setStage(state.reasoningStage,scene); }
-function updateScene(){ if(state.phase==='entrance'||state.phase==='bug'||state.phase==='clear')return; setScene(state.reasoningStage===0?'hall':state.reasoningStage===1?'living':'close'); }
-function applyReasoningProgress(progress,cumulative=false){ const next=progress==='SYNTHESIS'||progress==='CAUSAL_LINK'?2:progress==='PARTIAL_INSIGHT'?(cumulative?Math.min(2,state.reasoningStage+1):1):state.reasoningStage; if(next>state.reasoningStage){ state.reasoningStage=next; refs.app.dataset.reasoningStage=String(state.reasoningStage); updateScene(); } }
+function watchSceneArrival(movement,ticket){
+  if(!ticket||!movement||typeof movement.then!=='function')return movement;
+  Promise.resolve(movement).then(result=>{
+    const accepted=observations.markArrival(ticket,result);
+    if(accepted&&state.phase!=='question')observations.flush();
+  }).catch(()=>{});
+  return movement;
+}
+function setScene(scene){
+  refs.app.dataset.scene=scene;
+  const runtime=window.__HON_LION_SCENE_RUNTIME__;
+  if(scene==='hall'&&(state.phase==='intro'||state.phase==='start'))return runtime?.reset?.();
+  // Reward navigation can supersede an unfinished reasoning move. Keep watching
+  // the latest destination until the first completed arrival has been reported.
+  const ticket=state.reasoningStage>0?observations.queueArrival():null;
+  return watchSceneArrival(runtime?.setStage(state.reasoningStage,scene),ticket);
+}
+function updateScene(){ if(state.phase==='entrance'||state.phase==='bug'||state.phase==='clear'||state.phase==='dead')return Promise.resolve({cancelled:true}); return setScene(state.reasoningStage===0?'hall':state.reasoningStage===1?'living':'close'); }
+function applyReasoningProgress(progress,cumulative=false){
+  const next=progress==='SYNTHESIS'||progress==='CAUSAL_LINK'?2:progress==='PARTIAL_INSIGHT'?(cumulative?Math.min(2,state.reasoningStage+1):1):state.reasoningStage;
+  if(next>state.reasoningStage){
+    state.reasoningStage=next;
+    refs.app.dataset.reasoningStage=String(state.reasoningStage);
+    return updateScene();
+  }
+  return Promise.resolve({cancelled:false});
+}
 function setNote(text=''){ refs.note.textContent=text; }
 function setActions(actions=[]){ refs.actions.replaceChildren(); actions.forEach(({label,onClick,primary=false})=>{ const button=document.createElement('button'); button.type='button'; button.textContent=label; if(primary)button.className='primary-action'; if(label==='次へ'){ button.classList.add('advance-action'); button.setAttribute('aria-label',label); button.innerHTML='<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m4 7 6 7 6-7z" fill="currentColor"/></svg>'; } button.addEventListener('click',onClick); refs.actions.append(button); }); }
 function scrollLogToEnd(){ refs.log.scrollTo({top:refs.log.scrollHeight,left:0,behavior:'auto'}); }
@@ -122,7 +192,7 @@ function updateComposer(){
   const theory=state.questionMode==='final_theory';
   refs.label.textContent=theory?'あなたの推理':'本ライオンへの質問';
   refs.input.rows=theory?3:2;
-  refs.input.placeholder=theory?'推理を入力':'質問を入力';
+  refs.input.placeholder=theory?THEORY_PROMPT:'質問を入力';
   refs.send.textContent=state.busy?'…':'送信';
   refs.send.setAttribute('aria-label',theory?'推理を送信':'質問を送信');
   refs.theoryToggle.textContent=state.drafts.final_theory.trim()?'推理を直す':'答えを伝える';
@@ -138,7 +208,7 @@ function focusComposer(event){
   if(!touch||event?.detail===0)refs.input.focus({preventScroll:true});
 }
 function openComposer(mode,event){
-  if(state.phase!=='question'||state.busy)return;
+  if(state.phase!=='question'||state.busy||deadline.check())return;
   if(state.composerOpen)state.drafts[state.questionMode]=refs.input.value;
   state.questionMode=mode; state.composerOpen=true;
   refs.input.value=state.drafts[mode]; refs.speaker.textContent='あなた';
@@ -148,15 +218,18 @@ function closeComposer(){
   if(state.busy)return;
   state.drafts[state.questionMode]=refs.input.value; state.composerOpen=false;
   restoreSpeaker(); setNote(''); updateComposer(); refs.input.blur?.(); refs.ask.focus({preventScroll:true});
+  observations.flush();
 }
 function greetLion(){
-  if(state.busy||state.phase!=='question')return;
+  if(state.busy||state.phase!=='question'||deadline.check())return;
   if(state.composerOpen){state.drafts[state.questionMode]=refs.input.value;state.composerOpen=false;updateComposer();}
   hidePreviousMessages(); setNote('');
   if(greetingMessage?.isConnected){greetingMessage.hidden=false;refs.speaker.textContent='本ライオン';scrollLogToEnd();return;}
   greetingMessage=appendMessage('lion',LION_GREETING); greetingMessage.classList.add('greeting');
 }
 function setQuestionFlow(){
+  if(deadline.started)return;
+  deadline.start();
   setPhase('question');
   state.questionMode='question';
   state.composerOpen=false;
@@ -178,6 +251,14 @@ function showPrologue(index=0){
   const onNext=index+1<PROLOGUE.length?()=>showPrologue(index+1):showIntro;
   showNarrationPage(PROLOGUE[index],onNext);
 }
+function showProblem(){
+  setPhase('problem');
+  clearBeat();
+  appendMessage('narration',PROBLEM);
+  refs.speaker.textContent='問題';
+  setActions([{label:'推理をはじめる',primary:true,onClick:setQuestionFlow}]);
+  updateComposer();
+}
 function showIntro(){
   greetingMessage=null;
   setPhase('intro');
@@ -192,9 +273,9 @@ function showIntro(){
   state.ray=false;
   state.cleared=false;
   setScene('hall');
-  showNarrationPage(OPENING,setQuestionFlow);
+  showNarrationPage(OPENING,showProblem);
 }
-function showStart(){ greetingMessage=null; setPhase('start'); state.questionMode='question'; state.composerOpen=false; refs.input.value=''; refs.start.hidden=false; refs.conversation.hidden=true; refs.lion.hidden=true; setActions([]); setNote(''); refs.log.replaceChildren(); setScene('hall'); }
+function showStart(){ greetingMessage=null; observations.reset(); setPhase('start'); state.questionMode='question'; state.composerOpen=false; refs.input.value=''; refs.start.hidden=false; refs.conversation.hidden=true; refs.lion.hidden=true; setActions([]); setNote(''); refs.log.replaceChildren(); setScene('hall'); }
 function beginGame(){
   if(state.phase!=='start')return;
   sound.start();
@@ -220,10 +301,10 @@ async function liveJudge(mode, question, controller) {
     throw error;
   } finally { clearTimeout(timer); }
 }
-function invalidatePending(){ state.generation+=1; clearLionReaction(); if(state.requestController){state.requestController.abort();state.requestController=null;} for(const [timer,resolve] of beatTimers){clearTimeout(timer);resolve(false);} beatTimers.clear(); for(const cleanup of mediaCleanups)cleanup(); mediaCleanups.clear(); state.busy=false; refs.input.disabled=false; refs.send.disabled=false; refs.theoryToggle.disabled=false; refs.form.removeAttribute('aria-busy'); }
+function invalidatePending(){ state.generation+=1; observations.invalidate(); clearLionReaction(); if(state.requestController){state.requestController.abort();state.requestController=null;} for(const [timer,resolve] of beatTimers){clearTimeout(timer);resolve(false);} beatTimers.clear(); for(const cleanup of mediaCleanups)cleanup(); mediaCleanups.clear(); state.busy=false; refs.input.disabled=false; refs.send.disabled=false; refs.theoryToggle.disabled=false; refs.form.removeAttribute('aria-busy'); }
 async function submitQuestion(event) {
   event.preventDefault();
-  if(state.phase!=='question'||state.busy)return;
+  if(state.phase!=='question'||state.busy||deadline.check())return;
   const question=refs.input.value.trim();
   if(!question)return;
   clearLionReaction();
@@ -248,9 +329,9 @@ async function submitQuestion(event) {
   appendMessage('player',question);
   try {
     await connectionReady;
-    if(!current())return;
+    if(!current()||deadline.check())return;
     const result=await liveJudge(mode,question,controller);
-    if(!current())return;
+    if(!current()||deadline.check())return;
     showLionReaction(result.choice);
     appendTurn(question,result);
     if(result.knownInsights)state.knownInsights=result.knownInsights.slice(0,4);
@@ -291,6 +372,7 @@ async function submitQuestion(event) {
     refs.theoryToggle.disabled=false;
     refs.form.removeAttribute('aria-busy');
     updateComposer();
+    observations.flush();
     if(state.phase==='question'&&state.composerOpen)focusComposer();
     else refs.input.blur?.();
   }
@@ -299,11 +381,11 @@ async function waitForScene(scene,generation,phase){
   const current=()=>generation===state.generation&&state.phase===phase;
   try {
     const result=await setScene(scene);
-    if(!current()||result?.cancelled||result?.superseded)return null;
+    if(!current()||deadline.check()||result?.cancelled||result?.superseded)return null;
     setNote(result?.fallback?'屋敷の映像を静止画で表示しています。':'');
     return result||{};
   } catch {
-    if(!current())return null;
+    if(!current()||deadline.check())return null;
     setNote('屋敷の映像を静止画で表示しています。');
     return {fallback:true};
   }
@@ -311,6 +393,7 @@ async function waitForScene(scene,generation,phase){
 // A transition owns the controls until arrival. Reset cancels its completion;
 // an old completion must never unlock a newer playthrough's transition.
 async function playRewardScene(scene,narration='',{keepMessage=false}={}){
+  if(deadline.check())return null;
   const generation=state.generation,phase=state.phase;
   setRewardBusy(true);
   setActions([]);
@@ -327,9 +410,10 @@ async function prepareKeyArrival(){
   hidePreviousMessages();
   appendMessage('narration','ランプの下で何か光っている');
   setActions([{label:'調べる',primary:true,onClick:grantKey}]);
+  observations.flush();
 }
 async function grantKey(){
-  if(state.phase!=='key'||state.cabinetKey||state.rewardBusy)return;
+  if(state.phase!=='key'||state.cabinetKey||state.rewardBusy||deadline.check())return;
   if(!await playRewardScene('key'))return;
   state.cabinetKey=true;
   sound.reward();
@@ -338,25 +422,28 @@ async function grantKey(){
   });
   setPhase('cabinet');
   setActions([{label:'奥の戸棚へ',primary:true,onClick:moveToCabinet}]);
+  observations.flush();
 }
 async function moveToCabinet(){
-  if(state.phase!=='cabinet'||!state.cabinetKey||state.rewardBusy)return;
+  if(state.phase!=='cabinet'||!state.cabinetKey||state.rewardBusy||deadline.check())return;
   if(!await playRewardScene('cabinet','奥の部屋の左側にある戸棚へ向かう。'))return;
   hidePreviousMessages();
   appendMessage('narration','戸棚の前に着いた。');
   setActions([{label:'鍵で戸棚を開ける',primary:true,onClick:openCabinet}]);
+  observations.flush();
 }
 async function openCabinet(){
-  if(state.phase!=='cabinet'||!state.cabinetKey||state.cabinetOpen||state.rewardBusy)return;
+  if(state.phase!=='cabinet'||!state.cabinetKey||state.cabinetOpen||state.rewardBusy||deadline.check())return;
   if(!await playRewardScene('cabinet-open','鍵を差し込み、戸棚の扉を開ける。'))return;
   state.cabinetOpen=true;
   setPhase('cabinet-open');
   hidePreviousMessages();
   appendMessage('system','戸棚が開いた。棚の奥に光線銃が見える。');
   setActions([{label:'光線銃を取る',primary:true,onClick:takeRaygun}]);
+  observations.flush();
 }
 async function takeRaygun(){
-  if(state.phase!=='cabinet-open'||!state.cabinetOpen||state.ray||state.rewardBusy)return;
+  if(state.phase!=='cabinet-open'||!state.cabinetOpen||state.ray||state.rewardBusy||deadline.check())return;
   if(!await playRewardScene('gun-held','戸棚の中へ手を伸ばし、光線銃を取る。'))return;
   state.ray=true;
   sound.reward('raygun');
@@ -364,31 +451,35 @@ async function takeRaygun(){
   hidePreviousMessages();
   appendMessage('system','光線銃を手に入れた。');
   setActions([{label:'次へ',primary:true,onClick:stowRaygun}]);
+  observations.flush();
 }
 async function stowRaygun(){
-  if(state.phase!=='gun-acquired'||!state.ray||state.rewardBusy)return;
+  if(state.phase!=='gun-acquired'||!state.ray||state.rewardBusy||deadline.check())return;
   if(!await playRewardScene('gun-stowed'))return;
   setPhase('door-key');
   appendMessage('narration','戸棚の奥に、部屋のドアの鍵が残っている。');
   setActions([{label:'ドアの鍵を取る',primary:true,onClick:takeDoorKey}]);
+  observations.flush();
 }
 async function takeDoorKey(){
-  if(state.phase!=='door-key'||state.doorKey||state.rewardBusy)return;
+  if(state.phase!=='door-key'||state.doorKey||state.rewardBusy||deadline.check())return;
   if(!await playRewardScene('armed'))return;
   state.doorKey=true;
   setPhase('armed');
   sound.reward();
   appendMessage('system','部屋のドアの鍵を手に入れた。');
   setActions([{label:'入口へ',primary:true,onClick:moveToEntry}]);
+  observations.flush();
 }
 async function moveToEntry(){
-  if(state.phase!=='armed'||!state.ray||!state.doorKey||state.rewardBusy)return;
+  if(state.phase!=='armed'||!state.ray||!state.doorKey||state.rewardBusy||deadline.check())return;
   if(!await playRewardScene('entry','光線銃を持って入口へ戻る。'))return;
   setPhase('entrance');
   setActions([{label:'部屋の鍵でドアを開ける',primary:true,onClick:enterBugRoom}]);
+  observations.flush();
 }
 async function enterBugRoom(){
-  if (state.phase!=='entrance' || !state.ray || !state.doorKey) return;
+  if (state.phase!=='entrance' || !state.ray || !state.doorKey || deadline.check()) return;
   const generation=state.generation;
   setPhase('opening');
   clearBeat();
@@ -399,14 +490,19 @@ async function enterBugRoom(){
   appendBugMark();
   appendMessage('narration',CLUES.bugroom);
   setActions([{label:'光線銃を撃つ',primary:true,onClick:burnBug}]);
+  observations.flush();
 }
 async function burnBug(){
-  if(state.phase!=='bug'||state.cleared)return;
+  if(state.phase!=='bug'||state.cleared||deadline.check())return;
   const generation=state.generation;
   setPhase('firing'); setActions([]); clearBeat(); sound.shoot(); appendBeam();
   if(!await beatDelay(4450,generation))return;
+  if(generation!==state.generation||state.phase!=='firing'||deadline.check())return;
+  deadline.stop();
+  clearNoise();
   sound.removeInsect();
   if(!await beatDelay((beamEffects?.shotDuration||6)*1000-4450,generation))return;
+  if(generation!==state.generation)return;
   refs.app.querySelector('.bug-mark')?.remove();
   refs.app.querySelector('.held-raygun')?.remove();
   removeBeam(); setPhase('silence'); clearBeat();
@@ -418,20 +514,20 @@ async function burnBug(){
   const clear=appendMessage('system','脱出成功'); clear.classList.add('clear-message');
   setActions([{label:'もう一度',primary:true,onClick:reset}]); track('game_clear');
 }
-function reset(){ invalidatePending(); clearLionReaction(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,{phase:'start',questionMode:'question',composerOpen:false,drafts:{question:'',final_theory:''},turns:[],knownInsights:[],questionCount:0,reasoningStage:0,cabinetKey:false,doorKey:false,ray:false,cabinetOpen:false,rewardBusy:false,cleared:false,busy:false,generation:state.generation,requestController:null}); showStart(); }
+function reset(){ invalidatePending(); deadline.stop(); clearLionReaction(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,createInitialState(state.generation)); showStart(); }
 refs.startButton?.addEventListener('click',beginGame); refs.form.addEventListener('submit',submitQuestion); refs.lion?.addEventListener('click',greetLion);
 refs.ask.addEventListener('click',event=>openComposer('question',event));
 refs.theoryToggle.addEventListener('click',event=>openComposer('final_theory',event));
 refs.cancel.addEventListener('click',closeComposer);
-window.addEventListener('hon-lion-scene-warning',(event)=>{ if(state.phase!=='clear'&&event.detail?.message)setNote(event.detail.message); });
+window.addEventListener('hon-lion-scene-warning',(event)=>{ if(state.phase!=='clear'&&state.phase!=='dead'&&event.detail?.message)setNote(event.detail.message); });
 window.addEventListener('hon-lion-door-audio',(event)=>{
   if(event.detail?.action==='stop')sound.stopDoor();
   else if(event.detail?.action==='start'&&state.phase==='opening')sound.door({duration:event.detail.duration});
 });
 $('sound-toggle').addEventListener('click',()=>sound.toggle());
-document.addEventListener('visibilitychange',()=>sound.visibility(document.hidden));
-window.addEventListener('pagehide',()=>{invalidatePending();removeBeam();sound.stop();});
-window.addEventListener('pageshow',event=>{if(event.persisted)reset();});
+document.addEventListener('visibilitychange',()=>{ sound.visibility(document.hidden); if(!document.hidden)deadline.check(); });
+window.addEventListener('pagehide',()=>{invalidatePending();deadline.stop();removeBeam();sound.stop();});
+window.addEventListener('pageshow',event=>{if(event.persisted)reset();else deadline.check();});
 window.addEventListener('resize',()=>{if(state.phase==='bug'||state.phase==='firing')aimWeapon();});
 connectVisualViewport(refs.app);
 refs.input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!state.busy)refs.form.requestSubmit();}});
