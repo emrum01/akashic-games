@@ -1,0 +1,314 @@
+"""Playwright smoke checks for the conversation-first game and guarded live mode."""
+import argparse
+import asyncio
+import json
+import tempfile
+from pathlib import Path
+from playwright.async_api import async_playwright
+
+ROOT = Path(__file__).resolve().parents[1]
+QA = Path(tempfile.mkdtemp(prefix="hon-lion-browser-qa-"))
+THEORY = "洋館は幻覚。耳に入った虫が自分の脳を食べていて、心地よく聞こえていたのはその捕食音だ。"
+OPENING_COPY = "気がついたら見覚えのない部屋にいた。\nここはどこなのか、なんのためにいるのか、どうすれば帰れるのか。"
+GREETING_COPY = "ぼく、ほんらいおん。なにをきかれても「はい」「いいえ」「関係ない」でこたえることができるんだ！なんでもきいてね！"
+
+async def wait_scene(page, stage=None):
+    await page.wait_for_function("() => Boolean(window.__HON_LION_SCENE__?.snapshot?.().ready)", timeout=180000)
+    if stage is not None:
+        await page.wait_for_function("(expected) => { const s = window.__HON_LION_SCENE__.snapshot(); return s.appliedStage === expected && s.context === 'active'; }", arg=stage, timeout=180000)
+    snapshot = await page.evaluate("window.__HON_LION_SCENE__.snapshot()")
+    assert snapshot["media"]["kind"] == "video", snapshot
+    return snapshot
+
+async def start_demo(page, static_url, wait_for_scene=True):
+    # Keep offline UI fixtures deterministic even when a real key is configured.
+    await page.route("**/api/hon-lion/status", lambda route: route.fulfill(status=200, content_type="application/json", body='{"configured":false}'))
+    await page.goto(static_url + "?demo=1", wait_until="domcontentloaded")
+    initial_scene = await wait_scene(page, 0) if wait_for_scene else None
+    assert await page.locator("#scene-video").is_visible()
+    if wait_for_scene:
+        assert initial_scene["currentNode"] == "a"
+    await page.get_by_role("button", name="はじめる").click()
+    revision = await page.evaluate("fetch('./assets/video/video-manifest.json').then(r => r.json()).then(m => m.asset_revision || '')")
+    if revision:
+        await page.wait_for_function("(v) => document.querySelector('#scene-poster').src.includes('v=' + v)", arg=revision)
+    assert await page.locator("#demo-badge").count() == 0
+    assert await page.locator("#interaction-rail").count() == 0
+    assert await page.locator("#inventory-key").count() == 0
+    assert await page.locator("#mode-toggle").count() == 0
+    assert await page.locator("#reset-button").count() == 0
+    await page.get_by_role("button", name="次へ").click()
+    assert await page.locator("#question-form").is_hidden()
+
+async def intro_greeting(browser, static_url):
+    for viewport, keyboard, intro_path, greeting_path in ((
+        ({"width":1280,"height":720}, False, "intro-desktop.png", "lion-greeting-desktop.png"),
+        ({"width":569,"height":852}, True, "intro-mobile-569x852.png", "lion-greeting-mobile-569x852.png"),
+    )):
+        page = await browser.new_page(viewport=viewport)
+        await page.route("**/api/hon-lion/status", lambda route: route.fulfill(status=200, content_type="application/json", body='{"configured":false}'))
+        requests=[]
+        page.on("request", lambda request: requests.append(request.url))
+        await page.goto(static_url + "?demo=1", wait_until="domcontentloaded")
+        await wait_scene(page, 0)
+        await page.get_by_role("button", name="はじめる").click()
+        log = page.locator("#conversation-log")
+        text = await log.text_content()
+        assert OPENING_COPY in text and "屋敷の夜は" not in text
+        assert await page.locator("#lion-character-button").get_attribute("aria-label") == "本ライオンに話しかける"
+        await page.screenshot(path=str(QA / intro_path), full_page=True)
+        if keyboard:
+            await page.locator("#lion-character-button").focus()
+            await page.keyboard.press("Enter")
+        else:
+            await page.locator("#lion-character-button").click()
+        await page.wait_for_function("expected => document.querySelectorAll('.message.lion').length === 1 && document.querySelector('.message.lion').textContent === expected", arg=GREETING_COPY)
+        assert await page.locator(".message.lion").count() == 1
+        assert await page.locator(".message.lion").text_content() == GREETING_COPY
+        assert await page.locator("#app").get_attribute("data-reasoning-stage") == "0"
+        assert await page.locator("img[src*='key.png']").count() == 0
+        await page.screenshot(path=str(QA / greeting_path), full_page=True)
+        await page.locator("#lion-character-button").click()
+        await page.wait_for_timeout(100)
+        assert await page.locator(".message.lion").count() == 1
+        assert not any("/api/hon-lion/chat" in url for url in requests)
+        await page.close()
+
+
+async def ask(page, question, expected):
+    await page.locator("#ask-toggle").click()
+    await page.locator("#question-input").fill(question)
+    await page.locator("#question-send").click()
+    await page.locator(".message.lion:not([hidden])").wait_for(state="visible")
+    assert await page.locator(".message.lion:not([hidden])").text_content() == expected
+    assert await page.locator("#question-form").is_hidden()
+
+
+async def assert_transition_started(page, target_stage, clip):
+    handle = await page.wait_for_function("""(expected) => {
+        const s = window.__HON_LION_SCENE__.snapshot();
+        return s.requestedStage === expected.stage && s.media.clip === expected.clip ? s : false;
+    }""", arg={"stage":target_stage,"clip":clip}, timeout=5000)
+    snapshot = await handle.json_value()
+    assert snapshot["media"]["clip"] == clip, snapshot
+    revision = await page.evaluate("fetch('./assets/video/video-manifest.json').then(r => r.json()).then(m => m.asset_revision || '')")
+    if revision:
+        await page.wait_for_function("(v) => document.querySelector('#scene-video').currentSrc.includes('v=' + v)", arg=revision)
+    await page.wait_for_function("(expected) => { const s = window.__HON_LION_SCENE__.snapshot(); return s.media.clip === expected && s.media.currentTime > 0; }", arg=clip, timeout=15000)
+    return snapshot
+
+async def wait_visual_node(page, node):
+    await page.wait_for_function("(expected) => { const s = window.__HON_LION_SCENE__.snapshot(); return s.currentNode === expected && !s.media.playing; }", arg=node, timeout=180000)
+    snapshot = await page.evaluate("window.__HON_LION_SCENE__.snapshot()")
+    assert snapshot["error"] is None, snapshot
+    assert snapshot["media"]["clip"] is not None, snapshot
+    assert abs(snapshot["media"]["currentTime"] - snapshot["media"]["duration"]) < .02, snapshot
+
+
+async def assert_reward_visible(page, image_part, label_text):
+    image = page.locator(f"img[src*='{image_part}']").last
+    label = page.get_by_text(label_text, exact=True).last
+    assert await image.count() == 1
+    assert await label.count() == 1
+    await page.wait_for_function("(selector) => { const el = document.querySelector(selector); return Boolean(el && el.complete && el.naturalWidth > 0); }", arg=f"img[src*=\"{image_part}\"]")
+    info = await image.evaluate("""(el) => {
+        const r = el.getBoundingClientRect();
+        const scroller = el.closest('.conversation-log').getBoundingClientRect();
+        const text = el.parentElement.querySelector('strong').getBoundingClientRect();
+        return {naturalWidth: el.naturalWidth, imageVisible: r.top >= scroller.top && r.bottom <= scroller.bottom && r.left >= scroller.left && r.right <= scroller.right, labelVisible: text.top >= scroller.top && text.bottom <= scroller.bottom, screenVisible: r.top >= 0 && r.bottom <= innerHeight};
+    }""")
+    assert info["naturalWidth"] > 0, info
+    assert info["imageVisible"] and info["labelVisible"] and info["screenVisible"], info
+
+async def full_demo(page, static_url):
+    print("smoke: conversation demo", flush=True)
+    await start_demo(page, static_url)
+    await page.screenshot(path=str(QA / "conversation-desktop.png"), full_page=True)
+    await page.screenshot(path=str(QA / "scene-live-stage-a.png"), full_page=True)
+    (QA / "scene-live-stage-a.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
+    await ask(page, "生き物ですか？", "関係ない")
+    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "0"
+    await ask(page, "ここは幻覚ですか？", "はい")
+    await assert_transition_started(page, 1, "a-b")
+    await ask(page, "心地よい音は虫と無関係ですか？", "いいえ")
+    await ask(page, "天気は？", "関係ない")
+    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "1"
+    await ask(page, "ここは幻覚ですか？", "はい")
+    await wait_scene(page, 1)
+    await page.screenshot(path=str(QA / "scene-live-stage-b.png"), full_page=True)
+    (QA / "scene-live-stage-b.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
+    await ask(page, "この洋館は幻覚で、自分の耳のカメラ映像ですか？", "はい")
+    await assert_transition_started(page, 2, "b-c")
+    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "2"
+    await wait_scene(page, 2)
+    await page.screenshot(path=str(QA / "scene-live-stage-c.png"), full_page=True)
+    (QA / "scene-live-stage-c.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
+    await page.locator("#theory-toggle").click()
+    assert await page.locator("#question-label").text_content() == "あなたの推理"
+    await page.locator("#question-input").fill(THEORY)
+    await page.locator("#question-send").click()
+    assert await page.locator(".message.lion").last.text_content() == "はい"
+    assert await page.locator("#question-form").is_hidden()
+    await page.get_by_role("button", name="次へ").click()
+    assert await page.locator("img[src*='key.png']").is_visible()
+    await assert_reward_visible(page, "key.png", "鍵を入手した。")
+    await page.screenshot(path=str(QA / "key-acquired.png"), full_page=True)
+    await page.get_by_role("button", name="次へ").click()
+    assert await page.locator("img[src*='giant-raygun.png']").is_visible()
+    await assert_reward_visible(page, "giant-raygun.png", "鍵で戸棚を開けた。\n巨大な光線銃を入手した。")
+    await wait_visual_node(page, "entry")
+    await page.screenshot(path=str(QA / "raygun-acquired.png"), full_page=True)
+    await page.get_by_role("button", name="開かずの間へ").click()
+    await page.locator(".bug-mark").wait_for(state="visible", timeout=15000)
+    assert await page.locator("#app").get_attribute("data-scene") == "bug"
+    await wait_scene(page, 2)
+    await page.screenshot(path=str(QA / "scene-live-entry.png"), full_page=True)
+    (QA / "scene-live-entry.json").write_text(json.dumps(await page.evaluate("window.__HON_LION_SCENE__.snapshot()"), ensure_ascii=False, indent=2))
+    assert await page.locator(".bug-mark").count() == 1
+    await page.screenshot(path=str(QA / "entrance-final.png"), full_page=True)
+    await page.get_by_role("button", name="光線銃を撃つ").click()
+    await page.locator(".clear-message").wait_for(state="visible", timeout=10000)
+    assert await page.locator("#app").get_attribute("data-scene") == "clear"
+    assert await page.locator(".bug-mark").count() == 0
+    assert await page.locator(".beam").count() == 0
+    await page.wait_for_timeout(300)
+    await page.locator("#conversation-log").evaluate("el => { el.scrollTop = 0; }")
+    await page.screenshot(path=str(QA / "firing.png"), full_page=True)
+    await page.screenshot(path=str(QA / "clear.png"), full_page=True)
+    await page.get_by_role("button", name="もう一度").click()
+    await page.get_by_role("button", name="はじめる").click()
+    assert await page.locator("#app").get_attribute("data-scene") == "hall"
+    assert await page.locator(".bug-mark").count() == 0
+    await wait_scene(page, 0)
+    replay_log = await page.locator("#conversation-log").text_content()
+    assert OPENING_COPY in replay_log and "屋敷の夜は" not in replay_log
+    assert await page.locator("#conversation-log .message.narration").last.text_content() == OPENING_COPY
+    await page.wait_for_timeout(450)
+    await page.screenshot(path=str(QA / "replay-after-clear.png"), full_page=True)
+    assert await page.locator("#question-form").is_hidden()
+    # Replay the entire reward path far enough to prove the bug marker is recreated once.
+    await page.get_by_role("button", name="次へ").click()
+    for question in ("ここは幻覚ですか？", "ここは幻覚ですか？", "この洋館は幻覚で、自分の耳のカメラ映像ですか？"):
+        await ask(page, question, "はい")
+    await page.locator("#theory-toggle").click()
+    await page.locator("#question-input").fill(THEORY)
+    await page.locator("#question-send").click()
+    await page.get_by_role("button", name="次へ").click()
+    await page.get_by_role("button", name="次へ").click()
+    await wait_visual_node(page, "entry")
+    await page.get_by_role("button", name="開かずの間へ").click()
+    await page.locator(".bug-mark").wait_for(state="visible", timeout=15000)
+    assert await page.locator("#app").get_attribute("data-scene") == "bug"
+    await wait_scene(page, 2)
+    assert await page.locator(".bug-mark").count() == 1
+    await page.screenshot(path=str(QA / "replay-second-bug.png"), full_page=True)
+
+
+async def mobile_rewards(browser, static_url):
+    print("smoke: mobile reward visibility", flush=True)
+    page = await browser.new_page(viewport={"width":390,"height":590})
+    await start_demo(page, static_url, wait_for_scene=False)
+    for question in ("ここは幻覚ですか？", "ここは幻覚ですか？", "この洋館は幻覚で、自分の耳のカメラ映像ですか？"):
+        await ask(page, question, "はい")
+    await page.locator("#theory-toggle").click()
+    await page.locator("#question-input").fill(THEORY)
+    await page.locator("#question-send").click()
+    await page.get_by_role("button", name="次へ").click()
+    await assert_reward_visible(page, "key.png", "鍵を入手した。")
+    await page.screenshot(path=str(QA / "reward-key-mobile-390x590.png"), full_page=True)
+    await page.get_by_role("button", name="次へ").click()
+    await assert_reward_visible(page, "giant-raygun.png", "鍵で戸棚を開けた。\n巨大な光線銃を入手した。")
+    await page.screenshot(path=str(QA / "reward-raygun-mobile-390x590.png"), full_page=True)
+    await page.close()
+
+async def partial_and_direct(page, static_url, wait_for_scene=False):
+    print("smoke: partial and direct theory", flush=True)
+    await start_demo(page, static_url, wait_for_scene=wait_for_scene)
+    await ask(page, "虫ですか？", "はい")
+    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "0"
+    await page.locator("#theory-toggle").click()
+    await page.locator("#question-input").fill("耳に虫がいる")
+    await page.locator("#question-send").click()
+    assert await page.locator(".message.lion").last.text_content() == "はい"
+    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "1"
+    assert await page.locator("img[src*='key.png']").count() == 0
+
+async def guarded_synthesis(page, static_url):
+    print("smoke: guarded live synthesis", flush=True)
+    async def unqualified(route):
+        await route.fulfill(status=200, content_type="application/json", body='{"outcome":{"choice":"SOLVED","confidence":0.2,"reasoning_progress":"SYNTHESIS"},"reasoningProgress":"SYNTHESIS","keyIssued":false}')
+    await page.route("**/api/hon-lion/chat", unqualified)
+    await page.goto(static_url, wait_until="domcontentloaded")
+    await page.get_by_role("button", name="はじめる").click()
+    await page.get_by_role("button", name="次へ").click()
+    await page.locator("#theory-toggle").click()
+    await page.locator("#question-input").fill(THEORY)
+    await page.locator("#question-send").click()
+    assert await page.locator("#app").get_attribute("data-reasoning-stage") == "0"
+    assert await page.locator("img[src*='key.png']").count() == 0
+    assert await page.locator("#question-form").is_hidden()
+    await page.unroute("**/api/hon-lion/chat")
+
+async def missing_key(page, worker_url):
+    print("smoke: live missing key", flush=True)
+    async def unavailable(route):
+        await route.fulfill(status=503, content_type="application/json", body='{"error":"live_unavailable"}')
+    await page.route("**/api/hon-lion/chat", unavailable)
+    await page.goto(worker_url, wait_until="domcontentloaded")
+    await page.get_by_role("button", name="はじめる").click()
+    await page.get_by_role("button", name="次へ").click()
+    await page.locator("#ask-toggle").click()
+    await page.locator("#question-input").fill("ここは幻覚ですか？")
+    await page.locator("#question-send").click()
+    await page.wait_for_timeout(100)
+    assert "接続がまだ設定されていません" in await page.locator("#system-note").text_content()
+    assert await page.locator(".message.lion").count() == 0
+    await page.unroute("**/api/hon-lion/chat")
+
+async def viewports(browser, static_url):
+    for width, height in ((390,590),(390,600),(390,844),(852,600)):
+        print(f"smoke: viewport {width}x{height}", flush=True)
+        page = await browser.new_page(viewport={"width":width,"height":height})
+        await start_demo(page, static_url, wait_for_scene=(width,height)==(390,590))
+        assert await page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+        if (width,height) in ((390,590),(390,844)):
+            await page.screenshot(path=str(QA / f"conversation-mobile-{width}x{height}.png"), full_page=True)
+        await page.locator("#ask-toggle").click()
+        await page.locator("#question-input").focus()
+        assert await page.locator("#question-input").is_visible()
+        await page.close()
+
+async def main(static_url, worker_url=None, intro_only=False):
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True, executable_path="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args=[])
+        errors=[]; console_errors=[]; requests=[]
+        if intro_only:
+            await intro_greeting(browser, static_url)
+            await browser.close()
+            print("intro greeting smoke PASS: exact copy, click/keyboard, no API, no progression", flush=True)
+            return
+        page = await browser.new_page(viewport={"width":1280,"height":720})
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.on("console", lambda message: console_errors.append(message.text) if message.type == "error" else None)
+        page.on("request", lambda request: requests.append(request.url))
+        await full_demo(page, static_url)
+        assert not any("/assets/scene/" in url or "/scene.gltf" in url for url in requests), [url for url in requests if "/assets/scene/" in url or "/scene.gltf" in url]
+        await page.close()
+        page = await browser.new_page(viewport={"width":1280,"height":720})
+        await partial_and_direct(page, static_url)
+        await page.close()
+        page = await browser.new_page(viewport={"width":1280,"height":720})
+        await guarded_synthesis(page, static_url)
+        await viewports(browser, static_url)
+        await mobile_rewards(browser, static_url)
+        if worker_url: await missing_key(page, worker_url)
+        assert not errors, errors
+        expected=[message for message in console_errors if "503 (Service Unavailable)" in message]
+        unexpected=[message for message in console_errors if message not in expected]
+        if expected: print(f"smoke: expected HTTP console errors: {expected}", flush=True)
+        assert not unexpected, unexpected
+        await browser.close()
+        print("browser smoke PASS: conversation, rewards, guarded gate, clear, missing-key, 4 viewports", flush=True)
+
+if __name__ == "__main__":
+    parser=argparse.ArgumentParser(); parser.add_argument("--url",default="http://127.0.0.1:4174/"); parser.add_argument("--worker-url"); parser.add_argument("--intro-only",action="store_true"); args=parser.parse_args(); asyncio.run(main(args.url,args.worker_url,args.intro_only))

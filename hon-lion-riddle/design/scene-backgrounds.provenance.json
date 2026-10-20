@@ -1,0 +1,27 @@
+{
+  "sourceDirectory": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/ear-scope-free-scene-backgrounds",
+  "sourceManifest": "provenance.json",
+  "selection": "selection.md",
+  "capture": "1600x900 Playwright Chromium SwiftShader frames from the original ear-scope-free-scene runtime; HUD hidden only during capture",
+  "scenes": [
+    {
+      "source": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/ear-scope-free-scene-backgrounds/candidate-a-hall-arrival.png",
+      "sha256": "253428e921ffd6904b2f0555e52eae9d64d286210c434d414c077816c63478e4",
+      "destination": "app/assets/scenes/hall-arrival.png",
+      "use": "Reasoning stage 0 / initial hall arrival"
+    },
+    {
+      "source": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/ear-scope-free-scene-backgrounds/candidate-b-living-room.png",
+      "sha256": "1b3c30cb82a4654daa45fdc6ac6d468528afa201d3f935ca5b9c3da57b8cf2a9",
+      "destination": "app/assets/scenes/living-room.png",
+      "use": "Reasoning stage 1 / first core insight"
+    },
+    {
+      "source": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/ear-scope-free-scene-backgrounds/candidate-c-living-oblique.png",
+      "sha256": "67aab4b107522667e5c9c2330432b9db78e53ad844489dea4ab5f23c32d2dc46e4",
+      "destination": "app/assets/scenes/living-oblique.png",
+      "use": "Reasoning stage 2 / causal link or direct final solve"
+    }
+  ],
+  "prohibitedSources": ["gallery-v2 candidates", "scene.glb", "source 3D runtime"]
+}

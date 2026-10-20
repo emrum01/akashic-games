@@ -1,0 +1,37 @@
+{
+  "schema": "hon-lion-calm-route-safety-v1",
+  "pass": true,
+  "source_scene_sha256": "cb063efd54f177cee143abea83903ad63d439e865ca666fd8897d38e7f3814cb",
+  "manifest_sha256": "491e5bb3cba83d93f8e80824acacf9c84a0d479e4eb2818bd65f314c31daf84d",
+  "body_radius_m": 0.28,
+  "dense_spacing_m": 0.005,
+  "routes": {
+    "a-b": {
+      "pass": true,
+      "length_m": 7.133640276247602,
+      "travel_duration_s": 10.061520368330138,
+      "duration_s": 10.311520368330138,
+      "frame_count": 311,
+      "min_clearance_m": 0.5,
+      "failures": []
+    },
+    "b-c": {
+      "pass": true,
+      "length_m": 2.8000237408401687,
+      "travel_duration_s": 4.283364987786892,
+      "duration_s": 4.533364987786892,
+      "frame_count": 138,
+      "min_clearance_m": 0.32315514659881595,
+      "failures": []
+    },
+    "c-entry": {
+      "pass": true,
+      "length_m": 8.057839206156903,
+      "travel_duration_s": 11.293785608209204,
+      "duration_s": 11.543785608209204,
+      "frame_count": 348,
+      "min_clearance_m": 0.32315514659881595,
+      "failures": []
+    }
+  }
+}

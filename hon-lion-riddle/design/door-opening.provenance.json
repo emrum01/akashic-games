@@ -1,0 +1,46 @@
+{
+  "source_scene_sha256": "cb063efd54f177cee143abea83903ad63d439e865ca666fd8897d38e7f3814cb",
+  "source_changed": false,
+  "producer": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/18/hon-lion-door-capture",
+  "capture": "Original Three.js GLB + source lighting, IAB canvas.captureStream/MediaRecorder, MP4 H264 30fps conversion",
+  "camera": {
+    "position": [
+      0,
+      1.6,
+      -2.4
+    ],
+    "yaw": "pi",
+    "pitch": -0.12,
+    "fov": {
+      "wide": 75,
+      "portrait": 89
+    }
+  },
+  "door_parts": 16,
+  "hinges": [
+    [
+      -1.15,
+      0,
+      0.2
+    ],
+    [
+      1.15,
+      0,
+      0.2
+    ]
+  ],
+  "rotation": "left -82.8 degrees, right +82.8 degrees; no camera movement",
+  "exclusions": [
+    "Gameplay-Ladder",
+    "Residents",
+    "NPC-Lion",
+    "Bug"
+  ],
+  "sha256": {
+    "door-open-wide.mp4": "6ee62d2f3db4a286a76b8542b76cdb5a840cc2a53ae8e40f40bc6819b39ef71d",
+    "door-open-wide.jpg": "771b10cf2f352ffa6d37e67c1e406aba4f62810c2a5cdf995da57ba99f86b734",
+    "door-open-portrait.mp4": "2540c19590f13589a72ef414035c4d4cb5a3b97cf5100b88cb4bacce95d002f6",
+    "door-open-portrait.jpg": "2b793a6086673339ce8a43b9ba6e65a60b6e596444ae8baa37da18d1174fe069"
+  },
+  "asset_revision": "0c0a259ff4ff7a040bb3f38b20feabc1ed562f3208afdf2a9763e77e35a7a7fd"
+}

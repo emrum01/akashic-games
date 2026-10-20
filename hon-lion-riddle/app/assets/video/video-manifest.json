@@ -1,0 +1,38 @@
+{
+  "schema": "hon-lion-calm-chair-walk-v3",
+  "version": "calm-chair-walk-framing-v2",
+  "artifact_revision": "32397190e7c94f53c37540a5af432bbcf061dce9e1d1c22b618bada4f47e640f",
+  "asset_revision": "32397190e7c94f53c37540a5af432bbcf061dce9e1d1c22b618bada4f47e640f",
+  "clips": {
+    "a-b": {
+      "wide": "walk-a-b-wide.mp4",
+      "portrait": "walk-a-b-portrait.mp4"
+    },
+    "b-c": {
+      "wide": "walk-b-c-wide.mp4",
+      "portrait": "walk-b-c-portrait.mp4"
+    },
+    "c-entry": {
+      "wide": "walk-c-entry-wide.mp4",
+      "portrait": "walk-c-entry-portrait.mp4"
+    }
+  },
+  "posters": {
+    "a": {
+      "wide": "pose-a-wide.jpg",
+      "portrait": "pose-a-portrait.jpg"
+    },
+    "b": {
+      "wide": "pose-b-wide.jpg",
+      "portrait": "pose-b-portrait.jpg"
+    },
+    "c": {
+      "wide": "pose-c-wide.jpg",
+      "portrait": "pose-c-portrait.jpg"
+    },
+    "entry": {
+      "wide": "pose-entry-wide.jpg",
+      "portrait": "pose-entry-portrait.jpg"
+    }
+  }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#17100c">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <title>水平思考ゲーム</title>
+  <link rel="stylesheet" href="./styles.css?v=20261018novel">
+</head>
+<body>
+  <main id="app" class="app" data-scene="hall" data-phase="start" data-reasoning-stage="0">
+    <div class="scene-background" aria-hidden="true"><img id="scene-poster" alt="" decoding="async"><video id="scene-video" muted playsinline preload="metadata"></video><p id="scene-error" hidden>屋敷の映像を表示できません。</p></div>
+    <div class="scene-scrim" aria-hidden="true"></div>
+    <section id="start-screen" class="start-screen" aria-labelledby="game-title">
+      <h1 id="game-title" class="sr-only">水平思考ゲーム</h1>
+      <button id="start-button" class="start-button" type="button">はじめる</button>
+      <p id="connection-note" class="connection-note" role="status" hidden></p>
+    </section>
+    <button id="lion-character-button" class="character-wrap" type="button" aria-label="本ライオンに話しかける" hidden><img id="lion-character" src="./assets/characters/hon-lion-dialogue.png" alt=""></button>
+    <section id="conversation" class="conversation" aria-label="本ライオンとの会話" hidden>
+      <span id="speaker" class="speaker"></span>
+      <div id="conversation-log" class="conversation-log" aria-live="polite"></div>
+      <form id="question-form" class="composer" hidden>
+        <label id="question-label" class="sr-only" for="question-input">本ライオンへの質問</label>
+        <textarea id="question-input" rows="2" maxlength="180" autocomplete="off" placeholder="質問を入力"></textarea>
+      </form>
+      <p id="system-note" class="system-note" aria-live="polite"></p>
+      <div class="window-footer">
+        <div id="conversation-actions" class="conversation-actions"></div>
+        <div id="conversation-tools" class="conversation-tools" hidden>
+          <button id="ask-toggle" type="button">質問する</button>
+          <button id="theory-toggle" type="button">答えを伝える</button>
+        </div>
+        <div id="composer-actions" class="composer-actions" hidden>
+          <button id="composer-cancel" type="button">戻る</button>
+          <button id="question-send" type="submit" form="question-form">送信</button>
+        </div>
+        <button id="sound-toggle" class="sound-toggle" type="button" aria-label="音を消す" title="音を消す" aria-pressed="false" hidden>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3z" fill="currentColor"/><g class="sound-waves" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M16 8c2 2 2 6 0 8M19 5c4 4 4 10 0 14"/></g><path class="sound-off" d="m16 9 6 6m0-6-6 6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="./scene-runtime.js?v=20261018door"></script>
+  <script type="module" src="./game.js?v=20261018novel"></script>
+</body>
+</html>

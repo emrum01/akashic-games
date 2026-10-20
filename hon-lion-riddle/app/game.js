@@ -1,0 +1,262 @@
+import { API_ENDPOINT, LIVE_TIMEOUT_MS, STATUS_ENDPOINT } from './api-config.js';
+import { track } from './analytics.js';
+import { OPENING, AUDIBLE_CLUE, LION_GREETING, CLUES, LION_REPLIES } from './dialogue.js?v=20261018novel';
+import { createSoundDesign } from './sound.js?v=20261018direction';
+
+const $ = (id) => document.getElementById(id);
+const state = { mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], questionCount:0, reasoningStage:0, key:false, ray:false, cleared:false, busy:false, generation:0, requestController:null };
+const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button') };
+let greetingMessage = null;
+const beatTimers = new Map();
+const mediaCleanups = new Set();
+const MEDIA_TIMEOUT_MS = 3000;
+const sound = createSoundDesign(({muted,available,removed,running})=>{
+  const toggle=$('sound-toggle');
+  const label=available?(muted?'音を出す':'音を消す'):'音声なし';
+  toggle.setAttribute('aria-label',label);
+  toggle.setAttribute('title',label);
+  toggle.dataset.muted=String(muted||!available);
+  toggle.disabled=!available;
+  toggle.setAttribute('aria-pressed',String(muted));
+  refs.app.dataset.audio=removed?'silent':running?'playing':muted?'muted':'idle';
+});
+function setPhase(phase){ state.phase=phase; refs.app.dataset.phase=phase; refs.lion.hidden=['start','entrance','opening','bug','firing','silence','escaping','clear'].includes(phase); $('sound-toggle').hidden=phase==='start'||phase==='clear'; }
+function beatDelay(ms,generation){ return new Promise(resolve=>{ const timer=setTimeout(()=>{beatTimers.delete(timer);resolve(generation===state.generation);},ms); beatTimers.set(timer,resolve); }); }
+function clearBeat(){ refs.log.replaceChildren(); refs.speaker.textContent=''; setNote(''); }
+
+function setScene(scene){ refs.app.dataset.scene=scene; const runtime=window.__HON_LION_SCENE_RUNTIME__; if(scene==='hall'&&(state.phase==='intro'||state.phase==='start')) return runtime?.reset?.(); return runtime?.setStage(state.reasoningStage,scene); }
+function updateScene(){ if(state.phase==='entrance'||state.phase==='bug'||state.phase==='clear')return; setScene(state.reasoningStage===0?'hall':state.reasoningStage===1?'living':'close'); }
+function applyReasoningProgress(progress,cumulative=false){ const next=progress==='SYNTHESIS'||progress==='CAUSAL_LINK'?2:progress==='PARTIAL_INSIGHT'?(cumulative?Math.min(2,state.reasoningStage+1):1):state.reasoningStage; if(next>state.reasoningStage){ state.reasoningStage=next; refs.app.dataset.reasoningStage=String(state.reasoningStage); updateScene(); } }
+function setNote(text=''){ refs.note.textContent=text; }
+function setActions(actions=[]){ refs.actions.replaceChildren(); actions.forEach(({label,onClick,primary=false})=>{ const button=document.createElement('button'); button.type='button'; button.textContent=label; if(primary)button.className='primary-action'; if(label==='次へ'){ button.classList.add('advance-action'); button.setAttribute('aria-label',label); button.innerHTML='<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m4 7 6 7 6-7z" fill="currentColor"/></svg>'; } button.addEventListener('click',onClick); refs.actions.append(button); }); }
+function scrollLogToEnd(){ refs.log.scrollTo({top:refs.log.scrollHeight,left:0,behavior:'auto'}); }
+// Keep the conversation context while showing only the current exchange.
+function hidePreviousMessages(){ for(const message of refs.log.children)message.hidden=true; }
+function appendMessage(kind,text){ const message=document.createElement('p'); message.className=`message ${kind}`; message.textContent=text; refs.log.append(message); scrollLogToEnd(); if(kind==='lion')refs.speaker.textContent='本ライオン'; else if(kind==='player')refs.speaker.textContent='あなた'; else refs.speaker.textContent=''; return message; }
+function appendMedia(kind,text,src,alt,extra='',onReady=()=>{}){ const message=document.createElement('div'); message.className=`message media ${kind}`; const image=document.createElement('img'); image.src=src; image.alt=alt; image.decoding='async'; if(extra)image.classList.add(extra); const label=document.createElement('strong'); label.textContent=text; message.append(image,label); refs.log.append(message); scrollLogToEnd(); const generation=state.generation; let settled=false; let timer=0; const cleanup=()=>{ clearTimeout(timer); mediaCleanups.delete(cleanup); }; const settle=(ok,reason='')=>{ if(settled)return; settled=true; cleanup(); if(generation!==state.generation)return; scrollLogToEnd(); onReady(ok,reason); }; mediaCleanups.add(cleanup); timer=setTimeout(()=>settle(false,'timeout'),MEDIA_TIMEOUT_MS); if(image.complete&&image.naturalWidth>0)queueMicrotask(()=>settle(true)); else { image.addEventListener('load',()=>settle(true),{once:true}); image.addEventListener('error',()=>settle(false,'error'),{once:true}); } return message; }
+function appendBeam(){ removeBeam(); const beam=document.createElement('div'); beam.className='beam'; beam.setAttribute('aria-hidden','true'); const ray=document.createElement('div'); ray.className='beam-ray'; beam.append(ray); refs.app.append(beam); aimWeapon(); }
+function removeBeam(){ refs.app.querySelector('.beam')?.remove(); }
+function appendBugMark(){ if(refs.app.querySelector('.bug-mark'))return; const bug=document.createElement('img'); bug.className='bug-mark'; bug.width=1254; bug.height=1254; bug.addEventListener('load',aimWeapon,{once:true}); bug.src='./assets/creatures/insect.png?v=20261018hallucination'; bug.alt='開かずの間で見える、お茶目な白い人型'; refs.app.append(bug); const weapon=document.createElement('div'); weapon.className='held-raygun'; const art=document.createElement('img'); art.src='./assets/items/giant-raygun-first-person.png?v=20261018handgun'; art.alt='一人称で奥の相手に構えた巨大なハンドガン型の光線銃'; const muzzle=document.createElement('span'); muzzle.className='muzzle'; muzzle.setAttribute('aria-hidden','true'); weapon.append(art,muzzle); refs.app.append(weapon); aimWeapon(); }
+function aimWeapon(){
+  const weapon=refs.app.querySelector('.held-raygun'),bug=refs.app.querySelector('.bug-mark');
+  if(!weapon?.getBoundingClientRect||!bug)return;
+  const g=weapon.getBoundingClientRect(),b=bug.getBoundingClientRect(),origin=refs.app.getBoundingClientRect();
+  const tx=b.left+b.width/2,ty=b.top+b.height/2;
+  // The handgun is rendered from behind the rear sight. Its projected barrel
+  // points up-left from the lower right, converging on the target.
+  const gap=Math.max(26,Math.min(44,origin.width*.034));
+  const lateral=Math.min(b.width*.5+gap,origin.width*.19);
+  weapon.style.left=`${tx+lateral-origin.left-g.width*.48}px`;
+  weapon.style.top=`${ty+lateral*.5-origin.top-g.height*.25}px`;
+  const beam=refs.app.querySelector('.beam');
+  if(beam){
+    const m=weapon.querySelector('.muzzle').getBoundingClientRect(),x=m.left-origin.left,y=m.top-origin.top;
+    const ray=beam.querySelector('.beam-ray');
+    ray.style.left=`${x}px`;ray.style.top=`${y}px`;ray.style.width=`${Math.hypot(tx-m.left,ty-m.top)}px`;ray.style.transform=`rotate(${Math.atan2(ty-m.top,tx-m.left)}rad)`;
+    beam.style.setProperty('--impact-x',`${tx-origin.left}px`);beam.style.setProperty('--impact-y',`${ty-origin.top}px`);
+  }
+}
+function updateComposer(){
+  const active=state.phase==='question',open=active&&state.composerOpen;
+  refs.form.hidden=!open;
+  refs.composerActions.hidden=!open;
+  refs.tools.hidden=!active||open;
+  refs.theoryToggle.hidden=!active;
+  refs.log.hidden=open;
+  refs.ask.disabled=state.busy;
+  refs.cancel.disabled=state.busy;
+  refs.theoryToggle.disabled=state.busy;
+  if(!active)return;
+  const theory=state.questionMode==='final_theory';
+  refs.label.textContent=theory?'あなたの推理':'本ライオンへの質問';
+  refs.input.rows=theory?3:2;
+  refs.input.placeholder=theory?'推理を入力':'質問を入力';
+  refs.send.textContent=state.busy?'…':'送信';
+  refs.send.setAttribute('aria-label',theory?'推理を送信':'質問を送信');
+  refs.theoryToggle.textContent=state.drafts.final_theory.trim()?'推理を直す':'答えを伝える';
+  refs.form.dataset.mode=theory?'theory':'question';
+}
+function restoreSpeaker(){ const latest=[...refs.log.children].filter(message=>!message.hidden).at(-1); refs.speaker.textContent=latest?.className.includes('lion')?'本ライオン':latest?.className.includes('player')?'あなた':''; }
+function openComposer(mode){
+  if(state.phase!=='question'||state.busy)return;
+  if(state.composerOpen)state.drafts[state.questionMode]=refs.input.value;
+  state.questionMode=mode; state.composerOpen=true;
+  refs.input.value=state.drafts[mode]; refs.speaker.textContent='あなた';
+  setNote(''); updateComposer(); refs.input.focus();
+}
+function closeComposer(){
+  if(state.busy)return;
+  state.drafts[state.questionMode]=refs.input.value; state.composerOpen=false;
+  restoreSpeaker(); setNote(''); updateComposer(); refs.input.blur?.(); refs.ask.focus();
+}
+function greetLion(){
+  if(state.busy||(state.phase!=='intro'&&state.phase!=='question'))return;
+  if(state.composerOpen){state.drafts[state.questionMode]=refs.input.value;state.composerOpen=false;updateComposer();}
+  hidePreviousMessages(); setNote('');
+  if(greetingMessage?.isConnected){greetingMessage.hidden=false;refs.speaker.textContent='本ライオン';scrollLogToEnd();return;}
+  greetingMessage=appendMessage('lion',LION_GREETING); greetingMessage.classList.add('greeting');
+}
+function setQuestionFlow(){ setPhase('question'); state.questionMode='question'; state.composerOpen=false; hidePreviousMessages(); appendMessage('narration',AUDIBLE_CLUE); updateComposer(); setActions([]); setNote(''); }
+function showIntro(){ greetingMessage=null; setPhase('intro'); state.questionMode='question'; state.composerOpen=false; state.reasoningStage=0; refs.app.dataset.reasoningStage='0'; state.key=false; state.ray=false; state.cleared=false; setScene('hall'); refs.log.replaceChildren(); refs.speaker.textContent=''; appendMessage('narration',OPENING); setActions([{label:'次へ',primary:true,onClick:setQuestionFlow}]); updateComposer(); setNote(''); }
+function showStart(){ greetingMessage=null; setPhase('start'); state.questionMode='question'; state.composerOpen=false; refs.input.value=''; refs.start.hidden=false; refs.conversation.hidden=true; refs.lion.hidden=true; setActions([]); setNote(''); refs.log.replaceChildren(); setScene('hall'); }
+function beginGame(){ sound.start(); refs.start.hidden=true; refs.conversation.hidden=false; showIntro(); }
+function appendTurn(question,result){ state.turns.push({player_message:question,turn_outcome:{choice:result.choice,confidence:result.confidence,reasoning_progress:result.reasoning_progress}}); if(state.turns.length>6)state.turns.shift(); }
+async function liveJudge(mode, question, controller) {
+  const timer=setTimeout(()=>controller.abort(),LIVE_TIMEOUT_MS);
+  try {
+    const response=await fetch(API_ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode,question,recentTurns:state.turns.slice(-6),knownInsights:state.knownInsights.slice(0,4)}),signal:controller.signal});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) {
+      const messages={live_unavailable:'本ライオンとの接続がまだ設定されていません。',provider_auth:'本ライオンとの接続設定を確認する必要があります。',provider_rate_limited:'質問が混み合っています。少し待って、もう一度送ってください。',upstream_timeout:'返事に時間がかかっています。もう一度送ってください。'};
+      throw new Error(messages[data.error]||'本ライオンに声が届きませんでした。もう一度送ってください。');
+    }
+    if(!data.outcome||!LION_REPLIES[data.outcome.choice]||!Number.isFinite(data.outcome.confidence)||data.outcome.confidence<0||data.outcome.confidence>1)throw new Error('返事を受け取れませんでした。もう一度送ってください。');
+    return {...data.outcome,keyIssued:data.keyIssued===true,knownInsights:Array.isArray(data.knownInsights)?data.knownInsights:null};
+  } catch(error) {
+    if(error.name==='AbortError')throw new Error('返事に時間がかかっています。もう一度送ってください。');
+    if(error instanceof TypeError)throw new Error('本ライオンに声が届きませんでした。接続を確認して、もう一度送ってください。');
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+function invalidatePending(){ state.generation+=1; if(state.requestController){state.requestController.abort();state.requestController=null;} for(const [timer,resolve] of beatTimers){clearTimeout(timer);resolve(false);} beatTimers.clear(); for(const cleanup of mediaCleanups)cleanup(); mediaCleanups.clear(); state.busy=false; refs.input.disabled=false; refs.send.disabled=false; refs.theoryToggle.disabled=false; refs.form.removeAttribute('aria-busy'); }
+async function submitQuestion(event) {
+  event.preventDefault();
+  if(state.phase!=='question'||state.busy)return;
+  const question=refs.input.value.trim();
+  if(!question)return;
+  state.busy=true;
+  refs.input.disabled=true;
+  refs.send.disabled=true;
+  refs.theoryToggle.disabled=true;
+  refs.form.setAttribute('aria-busy','true');
+  state.drafts[state.questionMode]=question;
+  state.composerOpen=false;
+  updateComposer();
+  setNote('');
+  const mode=state.questionMode;
+  const generation=state.generation;
+  const controller=new AbortController();
+  state.requestController=controller;
+  // A timeout is still the current request and must restore the composer.
+  // Only reset/supersession cancels its right to update the UI.
+  const current=()=>generation===state.generation&&state.requestController===controller;
+  hidePreviousMessages();
+  appendMessage('player',question);
+  try {
+    await connectionReady;
+    if(!current())return;
+    const result=await liveJudge(mode,question,controller);
+    if(!current())return;
+    appendTurn(question,result);
+    if(result.knownInsights)state.knownInsights=result.knownInsights.slice(0,4);
+    const solvedGate=mode==='final_theory'&&result.choice==='SOLVED'&&result.keyIssued===true;
+    const safeProgress=result.reasoning_progress==='SYNTHESIS'&&!solvedGate?'NONE':result.reasoning_progress;
+    hidePreviousMessages();
+    appendMessage('lion',LION_REPLIES[result.choice]||LION_REPLIES.NEEDS_CLARIFICATION);
+    // Question progress denotes a new discovery; a final theory assesses its whole explanation.
+    applyReasoningProgress(safeProgress,mode==='question');
+    state.questionCount+=1;
+    if(mode==='question'||solvedGate){refs.input.value='';state.drafts[mode]='';}
+    if(solvedGate) {
+      setPhase('key');
+      clearBeat();
+      appendMessage('lion','はい');
+      updateComposer();
+      setActions([{label:'次へ',primary:true,onClick:grantKey}]);
+      track('theory_solved',{confidence:result.confidence});
+    } else {
+      state.questionMode=mode;
+    }
+  } catch(error) {
+    if(!current())return;
+    state.composerOpen=true;
+    setNote(error.message);
+  } finally {
+    if(!current())return;
+    state.busy=false;
+    state.requestController=null;
+    refs.input.disabled=false;
+    refs.send.disabled=false;
+    refs.theoryToggle.disabled=false;
+    refs.form.removeAttribute('aria-busy');
+    updateComposer();
+    if(state.phase==='question'&&state.composerOpen)refs.input.focus();
+    else refs.input.blur?.();
+  }
+}
+function grantKey(){ if(state.phase!=='key'||state.key)return; state.key=true; setPhase('raygun'); clearBeat(); sound.reward(); setActions([]); appendMedia('system','鍵を入手した。','./assets/items/key.png','鍵','',(ok)=>{ if(state.phase!=='raygun')return; if(!ok)setNote('鍵の画像を読み込めませんでした。'); setActions([{label:'次へ',primary:true,onClick:grantRaygun}]); }); }
+function grantRaygun() {
+  if(state.phase!=='raygun'||state.ray)return;
+  state.ray=true;
+  setPhase('entrance');
+  clearBeat();
+  sound.reward();
+  const generation=state.generation;
+  const current=()=>state.generation===generation&&state.phase==='entrance';
+  const visualReadyPromise=Promise.resolve(setScene('entrance'));
+  setActions([]);
+  let imageSettled=false;
+  let visualReady=false;
+  const maybeEnable=()=>{
+    if(imageSettled&&visualReady&&current())setActions([{label:'開かずの間へ',primary:true,onClick:enterBugRoom}]);
+  };
+  appendMedia('system','鍵で戸棚を開けた。\n巨大な光線銃を入手した。','./assets/items/giant-raygun.png?v=20261018handgun','巨大な光線銃','raygun',ok=>{
+    if(!current())return;
+    imageSettled=true;
+    if(!ok)setNote('光線銃の画像を読み込めませんでした。');
+    maybeEnable();
+  });
+  visualReadyPromise.then(result=>{
+    if(!current())return;
+    visualReady=true;
+    setNote(result?.fallback?'屋敷の映像を静止画で表示しています。':'');
+    maybeEnable();
+  }).catch(()=>{
+    if(!current())return;
+    visualReady=true;
+    setNote('屋敷の映像を静止画で表示しています。');
+    maybeEnable();
+  });
+}
+async function enterBugRoom(){ if(state.phase!=='entrance'||!state.ray)return; const generation=state.generation;setPhase('opening'); clearBeat();setActions([]);await Promise.resolve(setScene('bug'));if(generation!==state.generation||state.phase!=='opening')return;setPhase('bug');clearBeat();appendBugMark();appendMessage('narration',CLUES.bugroom);setActions([{label:'光線銃を撃つ',primary:true,onClick:burnBug}]); }
+async function burnBug(){
+  if(state.phase!=='bug'||state.cleared)return;
+  const generation=state.generation;
+  setPhase('firing'); setActions([]); clearBeat(); sound.shoot(); appendBeam();
+  if(!await beatDelay(620,generation))return;
+  refs.app.querySelector('.bug-mark')?.remove();
+  refs.app.querySelector('.held-raygun')?.remove();
+  removeBeam(); sound.removeInsect(); setPhase('silence'); clearBeat();
+  appendMessage('system','虫を焼き払った。聞こえていた音も、止まった。');
+  if(!await beatDelay(1300,generation))return;
+  setPhase('escaping');
+  if(!await beatDelay(1500,generation))return;
+  state.cleared=true; setPhase('clear'); setScene('clear'); clearBeat();
+  const clear=appendMessage('system','脱出成功'); clear.classList.add('clear-message');
+  setActions([{label:'もう一度',primary:true,onClick:reset}]); track('game_clear');
+}
+function reset(){ invalidatePending(); sound.stop(); refs.send.disabled=false; removeBeam(); refs.app.querySelector('.bug-mark')?.remove(); refs.app.querySelector('.held-raygun')?.remove(); Object.assign(state,{phase:'start',questionMode:'question',composerOpen:false,drafts:{question:'',final_theory:''},turns:[],knownInsights:[],questionCount:0,reasoningStage:0,key:false,ray:false,cleared:false,busy:false,generation:state.generation,requestController:null}); showStart(); }
+refs.startButton?.addEventListener('click',beginGame); refs.form.addEventListener('submit',submitQuestion); refs.lion?.addEventListener('click',greetLion);
+refs.ask.addEventListener('click',()=>openComposer('question'));
+refs.theoryToggle.addEventListener('click',()=>openComposer('final_theory'));
+refs.cancel.addEventListener('click',closeComposer);
+window.addEventListener('hon-lion-scene-warning',(event)=>{ if(state.phase!=='clear'&&event.detail?.message)setNote(event.detail.message); });
+$('sound-toggle').addEventListener('click',()=>sound.toggle());
+document.addEventListener('visibilitychange',()=>sound.visibility(document.hidden));
+window.addEventListener('pagehide',()=>{invalidatePending();sound.stop();});
+window.addEventListener('pageshow',event=>{if(event.persisted)reset();});
+window.addEventListener('resize',()=>{if(state.phase==='bug')aimWeapon();});
+refs.input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!state.busy)refs.form.requestSubmit();}});
+async function checkConnection() {
+  const note=$('connection-note');
+  try {
+    const response=await fetch(STATUS_ENDPOINT,{signal:AbortSignal.timeout(3000)});
+    const data=await response.json();
+    if(!response.ok||!data.configured)throw new Error('unavailable');
+    // Older preview links must not lock a configured game into example-only judging.
+    state.mode='live';
+    note.hidden=true;
+  } catch { note.textContent='本ライオンとの接続を準備中です。'; note.hidden=false; }
+}
+showStart();
+const connectionReady=checkConnection();

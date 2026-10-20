@@ -1,0 +1,16 @@
+{
+  "asset": "app/assets/scenes/sealed-room-entrance.png",
+  "source": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/entrance-door/entrance-door-front.png",
+  "sha256": "0914becacccb8e3cc28b2ae8a2c6db82f7f95f0f2ccc342a2f5aca800321c6c3",
+  "dimensions": "1600x900",
+  "use": "sealed-room entrance view opened from the investigation rail; front-on double door with both leaves, knobs, frame, header, and threshold visible",
+  "capture_provenance": {
+    "source_root": "/Users/hirokiiwakubo/Github/akashic-worktrees/ear-scope-mvp-cp1-20260921/experiments/ear-scope-free-scene",
+    "served_url": "http://127.0.0.1:8797/",
+    "runtime": "original Vite free-scene-v2-cb063efd54f1",
+    "scene_glb_sha256": "cb063efd54f177cee143abea83903ad63d439e865ca666fd8897d38e7f3814cb",
+    "architecture_entry_door_id": "A-ENTRY-DOOR-01",
+    "selection": "entrance-door-front.png; oblique candidate retained as reference only"
+  },
+  "prohibited": ["gallery-v2 candidates", "source 3D runtime files"]
+}

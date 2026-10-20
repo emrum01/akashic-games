@@ -1,0 +1,36 @@
+{
+  "generated_with": "built-in image_gen.imagegen",
+  "generated_at": "2026-10-13",
+  "reference_images": [
+    "/Users/hirokiiwakubo/Github/akashic-worktrees/hon-lion-free-rig/apps/hon-lion-ar/dist/rig/assets/front.png",
+    "/Users/hirokiiwakubo/Github/akashic-worktrees/hon-lion-free-rig/apps/hon-lion-ar/dist/rig/assets/eating.png",
+    "/Users/hirokiiwakubo/Github/akashic-worktrees/hon-lion-free-rig/apps/hon-lion-ar/dist/rig/assets/back.png"
+  ],
+  "outputs": {
+    "app/assets/characters/hon-lion-dialogue.png": {
+      "source": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/hon-lion-character-art/hon-lion-dialogue.png",
+      "sha256": "f841c2ad72757827a7e1152e688c0f4c49a291f7f28ce2fbc2dc3edcfaffadc7",
+      "dimensions": "1254x1254",
+      "format": "PNG RGBA",
+      "use": "full-body Hon Lion dialogue sprite"
+    },
+    "app/assets/items/key.png": {
+      "source": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/hon-lion-character-art/key.png",
+      "sha256": "3b94bcea03d5f10adba971e38ce4dc8b4af0e83f2b5697cd8353c9f28620af61",
+      "dimensions": "1254x1254",
+      "format": "PNG RGBA",
+      "use": "antique brass key acquisition item"
+    }
+  },
+  "inspection": "Transparent outside silhouette; copied without raster editing or compositing.",
+  "superseded_outputs": {
+    "app/assets/items/giant-raygun.png": {
+      "source": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/13/hon-lion-character-art/raygun.png",
+      "sha256": "275236749855b6155b694dc6e493e196a69d8548e015b23ec6614adfcd4892f5",
+      "dimensions": "1536x1024",
+      "format": "PNG RGBA",
+      "use": "oversized retro-SF raygun acquisition item"
+    }
+  },
+  "replacement_weapon_provenance": "design/raygun-art.provenance.json"
+}

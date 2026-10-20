@@ -1,0 +1,232 @@
+{
+  "schema": "hon-lion-calm-motion-metadata-v3",
+  "source_scene_sha256": "cb063efd54f177cee143abea83903ad63d439e865ca666fd8897d38e7f3814cb",
+  "manifest_sha256": "491e5bb3cba83d93f8e80824acacf9c84a0d479e4eb2818bd65f314c31daf84d",
+  "routespec": "calm-routespec.json",
+  "safety_proof": "route-safety.json",
+  "actual_routes": {
+    "a-b": {
+      "wide": {
+        "frame_count": 311,
+        "start_position": [
+          0.1,
+          1.6,
+          -0.5
+        ],
+        "end_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02601351125763539,
+        "max_ground_speed_m_s": 0.7500000000001048,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720,
+          "canvasWidth": 1280,
+          "canvasHeight": 720,
+          "clientWidth": 1280,
+          "clientHeight": 720,
+          "drawingBufferWidth": 1280,
+          "drawingBufferHeight": 720,
+          "viewportWidth": 1280,
+          "viewportHeight": 720
+        },
+        "profile_camera_override": false
+      },
+      "portrait": {
+        "frame_count": 311,
+        "start_position": [
+          0.1,
+          1.6,
+          -0.5
+        ],
+        "end_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02601351125763539,
+        "max_ground_speed_m_s": 0.7500000000001048,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 720,
+          "innerHeight": 1280,
+          "canvasWidth": 720,
+          "canvasHeight": 1280,
+          "clientWidth": 720,
+          "clientHeight": 1280,
+          "drawingBufferWidth": 720,
+          "drawingBufferHeight": 1280,
+          "viewportWidth": 720,
+          "viewportHeight": 1280
+        },
+        "profile_camera_override": false
+      }
+    },
+    "b-c": {
+      "wide": {
+        "frame_count": 138,
+        "start_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "end_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.025734480290995895,
+        "max_ground_speed_m_s": 0.750000000000064,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720,
+          "canvasWidth": 1280,
+          "canvasHeight": 720,
+          "clientWidth": 1280,
+          "clientHeight": 720,
+          "drawingBufferWidth": 1280,
+          "drawingBufferHeight": 720,
+          "viewportWidth": 1280,
+          "viewportHeight": 720
+        },
+        "profile_camera_override": false
+      },
+      "portrait": {
+        "frame_count": 138,
+        "start_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "end_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.025734480290995895,
+        "max_ground_speed_m_s": 0.750000000000064,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 720,
+          "innerHeight": 1280,
+          "canvasWidth": 720,
+          "canvasHeight": 1280,
+          "clientWidth": 720,
+          "clientHeight": 1280,
+          "drawingBufferWidth": 720,
+          "drawingBufferHeight": 1280,
+          "viewportWidth": 720,
+          "viewportHeight": 1280
+        },
+        "profile_camera_override": true
+      }
+    },
+    "c-entry": {
+      "wide": {
+        "frame_count": 348,
+        "start_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "end_position": [
+          0,
+          1.6,
+          -2.4
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02603455684866287,
+        "max_ground_speed_m_s": 0.7500000000000632,
+        "planned_camera_dot_min": 0.9999999999999998,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720,
+          "canvasWidth": 1280,
+          "canvasHeight": 720,
+          "clientWidth": 1280,
+          "clientHeight": 720,
+          "drawingBufferWidth": 1280,
+          "drawingBufferHeight": 720,
+          "viewportWidth": 1280,
+          "viewportHeight": 720
+        },
+        "profile_camera_override": false
+      },
+      "portrait": {
+        "frame_count": 348,
+        "start_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "end_position": [
+          0,
+          1.6,
+          -2.4
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02603455684866287,
+        "max_ground_speed_m_s": 0.7500000000000632,
+        "planned_camera_dot_min": 0.9999999999999998,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 720,
+          "innerHeight": 1280,
+          "canvasWidth": 720,
+          "canvasHeight": 1280,
+          "clientWidth": 720,
+          "clientHeight": 1280,
+          "drawingBufferWidth": 720,
+          "drawingBufferHeight": 1280,
+          "viewportWidth": 720,
+          "viewportHeight": 1280
+        },
+        "profile_camera_override": true
+      }
+    }
+  },
+  "checks": {
+    "camera_dot_threshold": 0.9999,
+    "camera_dot_min_all": 0.9999999999999998,
+    "bob_limit_m": 0.028,
+    "max_abs_bob_m": 0.02603455684866287,
+    "max_speed_m_s": 0.7500000000001048,
+    "no_internal_stops": true,
+    "roll_rad": 0,
+    "source_geometry_unchanged": true
+  },
+  "profile_pose_overrides": {
+    "portrait": {
+      "c": {
+        "position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "yaw": 0.52,
+        "pitch": -0.18,
+        "fov": 89,
+        "reason": "cross remains fully visible in portrait viewport"
+      }
+    }
+  }
+}

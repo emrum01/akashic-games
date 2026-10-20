@@ -1,0 +1,21 @@
+{
+  "name": "hon-lion-riddle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build-static.mjs",
+    "check:cloudflare": "npm run build && npm run check:static && npm run check:cloudflare:staging",
+    "check:cloudflare:staging": "wrangler deploy --cwd worker --env staging --dry-run --outdir ../dist/cloudflare-staging",
+    "check:cloudflare:production": "wrangler deploy --cwd worker --env production --dry-run --outdir ../dist/cloudflare-production",
+    "deploy:staging": "npm run check:cloudflare && wrangler deploy --cwd worker --env staging",
+    "check:static": "node scripts/check-static.mjs dist/public",
+    "check:worker": "npm --prefix worker run check",
+    "test": "node --test tests/*.test.mjs",
+    "test:worker": "npm --prefix worker test",
+    "check:live": "node scripts/check-live.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}

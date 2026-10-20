@@ -1,0 +1,246 @@
+{
+  "schema": "hon-lion-chair-framing-final-qa-v1",
+  "artifact_revision": "32397190e7c94f53c37540a5af432bbcf061dce9e1d1c22b618bada4f47e640f",
+  "asset_revision": "32397190e7c94f53c37540a5af432bbcf061dce9e1d1c22b618bada4f47e640f",
+  "manifest_sha256": "d742f163e135792618421c621a86b02e5a3c76f5ef22ec0c8699c131d63c7a20",
+  "seal_sha256": "32da6cca5e776473e07eb443e5e3a3c8efb90e702d71c95f59f9fe76bf7cecc7",
+  "frame_audit": {
+    "schema": "hon-lion-calm-frame-audit-v3",
+    "records": [
+      {
+        "frame_count": 311,
+        "start_position": [
+          0.1,
+          1.6,
+          -0.5
+        ],
+        "end_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02601351125763539,
+        "max_ground_speed_m_s": 0.7500000000001048,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720,
+          "canvasWidth": 1280,
+          "canvasHeight": 720,
+          "clientWidth": 1280,
+          "clientHeight": 720,
+          "drawingBufferWidth": 1280,
+          "drawingBufferHeight": 720,
+          "viewportWidth": 1280,
+          "viewportHeight": 720
+        },
+        "profile_camera_override": false,
+        "route": "a-b",
+        "profile": "wide",
+        "frame_proof": "actual-frames-a-b-wide.json"
+      },
+      {
+        "frame_count": 311,
+        "start_position": [
+          0.1,
+          1.6,
+          -0.5
+        ],
+        "end_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02601351125763539,
+        "max_ground_speed_m_s": 0.7500000000001048,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 720,
+          "innerHeight": 1280,
+          "canvasWidth": 720,
+          "canvasHeight": 1280,
+          "clientWidth": 720,
+          "clientHeight": 1280,
+          "drawingBufferWidth": 720,
+          "drawingBufferHeight": 1280,
+          "viewportWidth": 720,
+          "viewportHeight": 1280
+        },
+        "profile_camera_override": false,
+        "route": "a-b",
+        "profile": "portrait",
+        "frame_proof": "actual-frames-a-b-portrait.json"
+      },
+      {
+        "frame_count": 138,
+        "start_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "end_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.025734480290995895,
+        "max_ground_speed_m_s": 0.750000000000064,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720,
+          "canvasWidth": 1280,
+          "canvasHeight": 720,
+          "clientWidth": 1280,
+          "clientHeight": 720,
+          "drawingBufferWidth": 1280,
+          "drawingBufferHeight": 720,
+          "viewportWidth": 1280,
+          "viewportHeight": 720
+        },
+        "profile_camera_override": false,
+        "route": "b-c",
+        "profile": "wide",
+        "frame_proof": "actual-frames-b-c-wide.json"
+      },
+      {
+        "frame_count": 138,
+        "start_position": [
+          0.25,
+          1.6,
+          -7.5
+        ],
+        "end_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.025734480290995895,
+        "max_ground_speed_m_s": 0.750000000000064,
+        "planned_camera_dot_min": 0.9999999999999999,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 720,
+          "innerHeight": 1280,
+          "canvasWidth": 720,
+          "canvasHeight": 1280,
+          "clientWidth": 720,
+          "clientHeight": 1280,
+          "drawingBufferWidth": 720,
+          "drawingBufferHeight": 1280,
+          "viewportWidth": 720,
+          "viewportHeight": 1280
+        },
+        "profile_camera_override": true,
+        "route": "b-c",
+        "profile": "portrait",
+        "frame_proof": "actual-frames-b-c-portrait.json"
+      },
+      {
+        "frame_count": 348,
+        "start_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "end_position": [
+          0,
+          1.6,
+          -2.4
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02603455684866287,
+        "max_ground_speed_m_s": 0.7500000000000632,
+        "planned_camera_dot_min": 0.9999999999999998,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 1280,
+          "innerHeight": 720,
+          "canvasWidth": 1280,
+          "canvasHeight": 720,
+          "clientWidth": 1280,
+          "clientHeight": 720,
+          "drawingBufferWidth": 1280,
+          "drawingBufferHeight": 720,
+          "viewportWidth": 1280,
+          "viewportHeight": 720
+        },
+        "profile_camera_override": false,
+        "route": "c-entry",
+        "profile": "wide",
+        "frame_proof": "actual-frames-c-entry-wide.json"
+      },
+      {
+        "frame_count": 348,
+        "start_position": [
+          0.844,
+          1.6,
+          -9.9
+        ],
+        "end_position": [
+          0,
+          1.6,
+          -2.4
+        ],
+        "start_bob_m": 0,
+        "end_bob_m": 0,
+        "max_abs_bob_m": 0.02603455684866287,
+        "max_ground_speed_m_s": 0.7500000000000632,
+        "planned_camera_dot_min": 0.9999999999999998,
+        "all_viewports_exact": true,
+        "viewport": {
+          "innerWidth": 720,
+          "innerHeight": 1280,
+          "canvasWidth": 720,
+          "canvasHeight": 1280,
+          "clientWidth": 720,
+          "clientHeight": 1280,
+          "drawingBufferWidth": 720,
+          "drawingBufferHeight": 1280,
+          "viewportWidth": 720,
+          "viewportHeight": 1280
+        },
+        "profile_camera_override": true,
+        "route": "c-entry",
+        "profile": "portrait",
+        "frame_proof": "actual-frames-c-entry-portrait.json"
+      }
+    ],
+    "checks": {
+      "exact_viewports": true,
+      "endpoint_bob_zero": true,
+      "camera_dot_min_all": 0.9999999999999998,
+      "max_abs_bob_m": 0.02603455684866287,
+      "internal_stop_frames": 0
+    }
+  },
+  "capture_qa": {
+    "contact_sheet": "qa/calm-qa-contact.jpg",
+    "overview_plot": "qa/calm-route-overview.svg",
+    "approved_endpoint_images": [
+      "qa/c-entry-portrait-start.png",
+      "qa/c-entry-portrait-mid.png",
+      "qa/c-entry-portrait-end.png"
+    ],
+    "endpoint_guard": "page screenshots all >100KB; selected start/mid/end mean>1000,stddev>100; visually inspected as furnished room, chair/cross/lamp and final entrance door",
+    "superseded_diagnostics": [
+      "qa/c-final-portrait.png",
+      "walk-c-entry-portrait canvas/toDataURL attempt (black 216747B), not shipped"
+    ],
+    "capture_recovery": "final c-entry portrait captured by original page.screenshot in fresh owned context; temporary MP4 atomically replaced only after ffprobe and endpoint guards"
+  },
+  "delivery_root": "/Users/hirokiiwakubo/.codex/visualizations/2026/10/15/hon-lion-chair-framing-videos",
+  "preserved_media": "A/B/entry media matched sealed checksums before integration"
+}

@@ -1,0 +1,63 @@
+{
+  "schema": "hon-lion-calm-chair-walk-v3",
+  "version": "calm-chair-walk-framing-v2",
+  "asset_revision": "32397190e7c94f53c37540a5af432bbcf061dce9e1d1c22b618bada4f47e640f",
+  "manifest_sha256": "d742f163e135792618421c621a86b02e5a3c76f5ef22ec0c8699c131d63c7a20",
+  "manifest": "app/assets/video/video-manifest.json",
+  "routes": {
+    "a-b": {
+      "wide": {
+        "clip": "walk-a-b-wide.mp4",
+        "start_poster": "pose-a-wide.jpg",
+        "end_poster": "pose-b-wide.jpg",
+        "duration_encoded_s": 10.366667,
+        "frames": 311,
+        "override_camera_yaw": null
+      },
+      "portrait": {
+        "clip": "walk-a-b-portrait.mp4",
+        "start_poster": "pose-a-portrait.jpg",
+        "end_poster": "pose-b-portrait.jpg",
+        "duration_encoded_s": 10.366667,
+        "frames": 311,
+        "override_camera_yaw": null
+      }
+    },
+    "b-c": {
+      "wide": {
+        "clip": "walk-b-c-wide.mp4",
+        "start_poster": "pose-b-wide.jpg",
+        "end_poster": "pose-c-wide.jpg",
+        "duration_encoded_s": 4.6,
+        "frames": 138,
+        "override_camera_yaw": null
+      },
+      "portrait": {
+        "clip": "walk-b-c-portrait.mp4",
+        "start_poster": "pose-b-portrait.jpg",
+        "end_poster": "pose-c-portrait.jpg",
+        "duration_encoded_s": 4.6,
+        "frames": 138,
+        "override_camera_yaw": 0.52
+      }
+    },
+    "c-entry": {
+      "wide": {
+        "clip": "walk-c-entry-wide.mp4",
+        "start_poster": "pose-c-wide.jpg",
+        "end_poster": "pose-entry-wide.jpg",
+        "duration_encoded_s": 11.6,
+        "frames": 348,
+        "override_camera_yaw": null
+      },
+      "portrait": {
+        "clip": "walk-c-entry-portrait.mp4",
+        "start_poster": "pose-c-portrait.jpg",
+        "end_poster": "pose-entry-portrait.jpg",
+        "duration_encoded_s": 11.6,
+        "frames": 348,
+        "override_camera_yaw": 0.52
+      }
+    }
+  }
+}
