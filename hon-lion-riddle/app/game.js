@@ -10,6 +10,15 @@ let greetingMessage = null;
 const beatTimers = new Map();
 const mediaCleanups = new Set();
 const MEDIA_TIMEOUT_MS = 3000;
+const CONNECTION_ERROR = '本ライオンに声が届きませんでした。もう一度送ってください。';
+const API_ERROR_MESSAGES = Object.freeze({
+  rate_limited: '質問が続いています。1分ほど待って、もう一度送ってください。',
+  rate_limit_unavailable: '本ライオンとの接続を確認できません。少し待って、もう一度送ってください。',
+  live_unavailable: '本ライオンとの接続がまだ設定されていません。',
+  provider_auth: '本ライオンとの接続設定を確認する必要があります。',
+  provider_rate_limited: '質問が混み合っています。少し待って、もう一度送ってください。',
+  upstream_timeout: '返事に時間がかかっています。もう一度送ってください。',
+});
 const sound = createSoundDesign(({muted,available,removed,running})=>{
   const toggle=$('sound-toggle');
   const label=available?(muted?'音を出す':'音を消す'):'音声なし';
@@ -107,8 +116,8 @@ async function liveJudge(mode, question, controller) {
     const response=await fetch(API_ENDPOINT,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode,question,recentTurns:state.turns.slice(-6),knownInsights:state.knownInsights.slice(0,4)}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok) {
-      const messages={live_unavailable:'本ライオンとの接続がまだ設定されていません。',provider_auth:'本ライオンとの接続設定を確認する必要があります。',provider_rate_limited:'質問が混み合っています。少し待って、もう一度送ってください。',upstream_timeout:'返事に時間がかかっています。もう一度送ってください。'};
-      throw new Error(messages[data.error]||'本ライオンに声が届きませんでした。もう一度送ってください。');
+      const message = Object.hasOwn(API_ERROR_MESSAGES, data.error) ? API_ERROR_MESSAGES[data.error] : CONNECTION_ERROR;
+      throw new Error(message);
     }
     if(!data.outcome||!LION_REPLIES[data.outcome.choice]||!Number.isFinite(data.outcome.confidence)||data.outcome.confidence<0||data.outcome.confidence>1)throw new Error('返事を受け取れませんでした。もう一度送ってください。');
     return {...data.outcome,keyIssued:data.keyIssued===true,knownInsights:Array.isArray(data.knownInsights)?data.knownInsights:null};

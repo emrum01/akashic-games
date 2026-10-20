@@ -2,8 +2,9 @@ import { appendKnownInsight, isChatRequest, LION_REPLIES, normalizeInsight, sani
 import { askJev, JevError } from './jev';
 import { demoOutcome } from './demo';
 import { error, isJsonContentType, json, MAX_BODY_BYTES, readBoundedBody, sameOrigin } from './http';
+import { enforceChatRateLimit, type RateLimitEnv } from './rate-limit';
 
-export interface Env {
+export interface Env extends RateLimitEnv {
   ASSETS: Fetcher;
   TYPESAFE_API_KEY?: string;
   JEV_MODEL?: string;
@@ -48,6 +49,8 @@ export async function chat(request: Request, env: Env, originalRequest = request
     return json({ outcome: canonicalOutcome, reply: LION_REPLIES[canonicalOutcome.choice], reasoningProgress: canonicalOutcome.reasoning_progress, keyIssued: solved, knownInsights: updatedInsights, model: 'local-demo' });
   }
   if (!env.TYPESAFE_API_KEY?.trim()) return error('live_unavailable', 503);
+  const limited = await enforceChatRateLimit(originalRequest, env);
+  if (limited) return limited;
   try {
     const { outcome, model } = await askJev(
       env.TYPESAFE_API_KEY.trim(), env.JEV_MODEL || 'jev-latest', requestBody.mode,

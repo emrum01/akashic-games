@@ -19,8 +19,14 @@ preview_urls = false
 routes = []
 
 [env.staging.vars]
+HON_LION_REQUIRE_RATE_LIMIT = "1"
 JEV_MODEL = "jev-latest"
 PROVISIONAL_SOLVED_CONFIDENCE = "0.9"
+
+[[env.staging.ratelimits]]
+name = "CHAT_RATE_LIMITER"
+namespace_id = "202610201"
+simple = { limit = 30, period = 60 }
 
 # The route wildcard is required for query strings, which Cloudflare route
 # patterns cannot match separately. The Worker passes /manor-other and other
@@ -31,6 +37,12 @@ workers_dev = false
 routes = [{ pattern = "games.escape-safari.com/turtle-soup/manor*", zone_name = "escape-safari.com" }]
 
 [env.production.vars]
+HON_LION_REQUIRE_RATE_LIMIT = "1"
 JEV_MODEL = "jev-latest"
 PROVISIONAL_SOLVED_CONFIDENCE = "0.9"
 HON_LION_MOUNT_ONLY = "1"
+
+[[env.production.ratelimits]]
+name = "CHAT_RATE_LIMITER"
+namespace_id = "202610202"
+simple = { limit = 30, period = 60 }

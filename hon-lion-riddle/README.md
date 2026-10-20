@@ -54,7 +54,9 @@
 
 `npm test` はブラウザーを使わず、会話からクリア・再プレイまでの状態遷移、移動完了の待機、ライブ応答が時間切れになった後の再入力を検証します。Workerテストは公式APIのリクエスト形式、入力上限、Origin、鍵の発行条件とエラー処理を検証します。モックのテストは実モデルの精度確認の代わりにはなりません。
 
-チャットPOSTは完全一致するOriginとJSONだけを受け付けます。本文16KiB、質問180文字、履歴6件までです。公開運用向けのレート制限・認証は別途必要です。
+チャットPOSTは完全一致するOriginとJSONだけを受け付けます。本文16KiB、質問180文字、履歴6件までです。公開版はログイン不要です。Origin検査は認証ではありません。staging・productionではCloudflareのRate Limiting bindingで、同じ接続元IPからの有効な質問を1分30回に制限します。両APIパスで同じカウンターを使い、超過時は429と`Retry-After: 60`を返します。入力は残るので約1分後に再送できます。bindingやCloudflareの接続元IPが欠ける場合、制限処理が失敗する場合は503で停止し、JEVを呼びません。ローカル環境の動作は変わりません。
+
+同じネットワークの利用者は制限を共有します。カウンターはCloudflareの拠点単位で結果整合となるため、厳密な課金上限ではありません。[Cloudflare Rate Limiting公式仕様](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
 
 ## Cloudflareでの試験配信
 
@@ -64,10 +66,19 @@
 
 試験配信先は専用の `hon-lion-riddle-staging.<アカウントのサブドメイン>.workers.dev` です。実際のURLは配信後にCloudflareから返されます。配信はCloudflareにログインした環境で `npm run deploy:staging` を実行します。試験Workerでも `/turtle-soup/manor/` を確認でき、`/turtle-soup/manor` はクエリ文字列を保ったまま末尾スラッシュへ308リダイレクトします。ルートの `http://127.0.0.1:8796/` は既存のローカルプレビューとして引き続き使えます。
 
-`worker/.dev.vars` のキーはローカル専用で、配信されません。JEVを有効にする場合は同じstaging Workerに `TYPESAFE_API_KEY` をSecretとして別途登録します。未登録なら接続状態は `configured: false` になり、質問は503を返します。JEVを一般公開する前にアクセス制限と利用量制御を追加します。
+`worker/.dev.vars` のキーはローカル専用で、配信されません。JEVを有効にする場合は同じstaging Workerに `TYPESAFE_API_KEY` をSecretとして別途登録します。未登録なら接続状態は `configured: false` になり、質問は503を返します。試験配信にも本番と同じIP単位の呼び出し制限を適用します。APIキーはSecretとしてWorkerにだけ置き、静的ファイルやブラウザーへ渡しません。
 
-本番URLは `https://games.escape-safari.com/turtle-soup/manor/` です。`worker/wrangler.toml` の production 環境には `games.escape-safari.com/turtle-soup/manor*` の計画ルートを置いています。Cloudflareのルートパターンはクエリ文字列を別に判定できないため、Worker側でパスを厳密に検査し、`manor-other` などの近似パスは既存オリジンへ通過させます。`/turtle-soup/manor/` 以下の静的要求だけ、Workerがマウント接頭辞を除いてStatic Assetsへ渡します。DNS、経路の切り替え、Workerへのキー登録はこの作業では行いません。
+本番URLは `https://games.escape-safari.com/turtle-soup/manor/` です。`worker/wrangler.toml` の production 環境には `games.escape-safari.com/turtle-soup/manor*` の本番ルートを置いています。Cloudflareのルートパターンはクエリ文字列を別に判定できないため、Worker側でパスを厳密に検査し、`manor-other` などの近似パスは既存オリジンへ通過させます。`/turtle-soup/manor/` 以下の静的要求だけ、Workerがマウント接頭辞を除いてStatic Assetsへ渡します。2026-10-20にこの経路を本番Workerへ接続し、JEVのキーをWorker Secretへ登録しました。
 
-公開を別途承認する場合も、現在のCNAME先 `emrum01.github.io` と既存のGitHub Pages配信は保持します。Cloudflareのプロキシを有効にする変更は、既存ゲームを含むホスト全体のHTTPS・キャッシュ挙動にも影響するため、manor用のガード付きルート追加と同じ作業として扱います。切り戻しはmanor用ルートだけを削除してDNSをDNS-onlyへ戻し、CNAME先と既存配信は残します。
+公開時はCNAME先 `emrum01.github.io` と既存のGitHub Pages配信は保持します。Cloudflareのプロキシは2026-10-20に有効化しました。この変更は、既存ゲームを含むホスト全体のHTTPS・キャッシュ挙動にも影響するため、manor用のガード付きルート追加と同じ作業として扱います。切り戻しはmanor用ルートだけを削除してDNSをDNS-onlyへ戻し、CNAME先と既存配信は残します。
 
 ブラウザーへJEVのキーは渡しません。ゲームは本番パスではゲーム相対のAPIを使い、ルートプレビューでは従来のAPIを使います。`?demo=1` は明示的なローカルデモ用で、接続状態が設定済みならWorkerのライブ判定へ切り替わります。未設定のライブ接続をデモ判定へ自動フォールバックさせません。
+
+## 公開URL（2026-10-20）
+
+- 本番: https://games.escape-safari.com/turtle-soup/manor/
+- 確認用: https://hon-lion-riddle-staging.emrum01.workers.dev/turtle-soup/manor/
+
+本番Workerは `hon-lion-riddle`、確認用Workerは `hon-lion-riddle-staging` です。両方にJEVのSecretと1分30回のチャット制限を登録しています。本番では `workers.dev` とpreview URLを無効にし、manor専用ルートで配信します。
+
+通常の本番更新は、CloudflareのWorker編集・ルート編集・ゾーン参照権限を持つ環境で `npm run deploy:production` を実行します。初回公開は既存のCLI認証がWorker編集だけに限定されていたため、同じ本番変数・bindingでWorkerを作成してから、Cloudflareの管理画面で専用ルートとDNSプロキシを接続しました。既存CNAME先は `emrum01.github.io` です。

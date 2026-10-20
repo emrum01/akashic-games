@@ -1,5 +1,6 @@
 import { chat, isLocalDemoRequest, type Env } from './chat';
 import { error, json } from './http';
+import { rateLimitReady } from './rate-limit';
 import { canonicalMountRedirect, classifyRoute, mountedAssetRequest, type Route } from './routing';
 
 export type { Env } from './chat';
@@ -7,9 +8,14 @@ export { chat } from './chat';
 export { isJsonContentType, readBoundedBody, sameOrigin } from './http';
 
 function status(env: Env, request: Request): Response {
-  return request.method === 'GET'
-      ? json({ configured: Boolean(env.TYPESAFE_API_KEY?.trim()) || isLocalDemoRequest(request, env), model: isLocalDemoRequest(request, env) ? 'local-demo' : env.JEV_MODEL || 'jev-latest' })
-    : error('method_not_allowed', 405);
+  if (request.method !== 'GET') return error('method_not_allowed', 405);
+
+  const localDemo = isLocalDemoRequest(request, env);
+  const liveConfigured = Boolean(env.TYPESAFE_API_KEY?.trim()) && rateLimitReady(env);
+  return json({
+    configured: liveConfigured || localDemo,
+    model: localDemo ? 'local-demo' : env.JEV_MODEL || 'jev-latest',
+  });
 }
 
 function passesThroughToOrigin(request: Request, env: Env): boolean {

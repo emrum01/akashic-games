@@ -283,6 +283,33 @@ test('a live timeout restores input, preserves the theory, and never fakes a lio
   assert.equal(x.get('conversation-log').children.filter(node=>node.className==='message lion').length,0);
 });
 
+for (const [code, message] of [
+  ['rate_limited', /1分ほど待って/],
+  ['rate_limit_unavailable', /接続を確認できません/],
+  ['toString', /^本ライオンに声が届きませんでした。もう一度送ってください。$/],
+]) {
+  test(`${code} preserves both draft modes and never advances the game`, async () => {
+    const x = setup({ demo: false, chat: async () => ({ ok: false, json: async () => ({ error: code }) }) });
+    x.context.beginGame();
+    x.context.setQuestionFlow();
+    for (const mode of ['question', 'final_theory']) {
+      x.context.openComposer(mode);
+      await x.ask('入力を残して再送する');
+      assert.equal(x.get('question-input').value, '入力を残して再送する');
+      assert.equal(x.state().drafts[mode], '入力を残して再送する');
+      assert.equal(x.state().questionMode, mode);
+      assert.equal(x.state().busy, false);
+      assert.equal(x.get('question-input').disabled, false);
+      assert.equal(x.get('question-send').disabled, false);
+      assert.equal(x.state().reasoningStage, 0);
+      assert.equal(x.state().key, false);
+      assert.equal(x.state().turns.length, 0);
+      assert.equal(x.get('conversation-log').children.filter(node => node.className === 'message lion').length, 0);
+      assert.match(x.get('system-note').textContent, message);
+    }
+  });
+}
+
 test('an unconfigured live connection is retryable and does not silently use the demo',async()=>{
   const x=setup({demo:false,chat:async()=>({ok:false,json:async()=>({error:'live_unavailable'})})});
   x.context.beginGame();x.context.setQuestionFlow();
