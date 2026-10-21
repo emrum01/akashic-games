@@ -51,6 +51,10 @@ python3 -m http.server 8000
 ヒント段階開放やGA4送信ログを確認したい場合は `?debug=1` を付ける
 （`console.log("[GA4]", ...)` が出力される。`analytics.js` 参照）。
 
+## 3.1 メディアを使う新作
+
+動画・画像を追加する場合は、source 素材を保持したまま [`../scripts/optimize-media.py`](../scripts/optimize-media.py) を使う `media-optimization.json` をゲーム直下に作成する。対象形式、固定レシピ、合計予算と1ファイル予算を設定し、build script から staging 出力へ実行する。公開用 `dist/public/` に手作業で圧縮済み素材を置かず、`dist/media-report.json` と `npm run check:static` のハッシュ/寸法/予算検査を必ず通す。PNG の WebP 化では明示的な HTML/JS/JSON 参照だけを書き換え、動画は寸法・時間・フレームレート・音声ストリームを維持する。元素材は source 側に残し、ブラウザーで実素材の読み込みと品質を確認する。
+
 ## 4. デプロイ注意（本番反映は旧リポにも push が必要）
 
 `apps/akashic-games/` は akashic モノレポに **git subtree で取り込み済み**だが、

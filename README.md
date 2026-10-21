@@ -4,6 +4,12 @@
 
 ## 改修・新規実装のルール
 
+### 公開メディアの再現可能な最適化
+
+動画・JPEG・PNG を使うゲームは、元素材を source 側に保持し、公開ビルド staging でだけ変換する共有ツール [`scripts/optimize-media.py`](scripts/optimize-media.py) を採用する。導入手順の正は [`scripts/README.md`](scripts/README.md) にまとめる。ゲームごとに `media-optimization.json` を置き、対象 glob、固定レシピ、合計/1ファイル予算を明示する。`npm run build` は `dist/public/` と `dist/media-report.json` を作り、`npm run check:static` は出力 SHA-256、runtime manifest の `media_sha256`/`asset_revision`、予算、参照漏れを検査する。ビルド失敗時は古い公開成果物を残さない。
+
+動画は native の寸法・フレームレート・時間・音声ストリームを保ち、JPEG は寸法を保つ。透過が必要な PNG は lossless WebP に変換し、HTML/JS/JSON の明示的な参照だけを書き換える。FFmpeg は環境差でバイト列が変わり得るため、ツール識別子とレシピを report に保存し、品質確認は実素材のブラウザー確認まで行う。新作は [`_template/README.md`](_template/README.md) のメディア節から導入する。
+
 - 各ゲームの改修前に、そのゲームディレクトリの `ADR.md` を必ず読む。設計判断を覆す変更は
   旧ADRをSupersededにして新ADRを追記する。
 - 新規ゲームの設計着手時は、全ゲームADRを横断で一般化した集合知 `ontology/game-adr-digest.md`
