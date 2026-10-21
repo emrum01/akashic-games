@@ -8,11 +8,12 @@ import { connectVisualViewport } from './viewport.js?v=20261020keyboard';
 import { createLionReactions } from './lion-reactions.js?v=20261020reaction';
 import { createBeamEffects } from './beam-effects/controller.js?v=20261020beam3';
 import { createCheckpointProgress, normalizeCheckpointIds } from './checkpoint-progress.js?v=20261021checkpoint1';
+import { createNoiseEffects } from './noise-effects.js?v=20261021noise2';
 
 const $ = (id) => document.getElementById(id);
 const createInitialState = (generation=0) => ({ mode:'live', phase:'start', questionMode:'question', composerOpen:false, drafts:{question:'',final_theory:''}, turns:[], knownInsights:[], reachedCheckpointIds:[], checkpointProgress:null, questionCount:0, reasoningStage:0, cabinetKey:false, doorKey:false, ray:false, cabinetOpen:false, rewardBusy:false, cleared:false, busy:false, generation, requestController:null });
 const state = createInitialState();
-const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button'), lionImage:$('lion-character') };
+const refs = { app:$('app'), start:$('start-screen'), startButton:$('start-button'), conversation:$('conversation'), speaker:$('speaker'), log:$('conversation-log'), actions:$('conversation-actions'), form:$('question-form'), label:$('question-label'), input:$('question-input'), send:$('question-send'), tools:$('conversation-tools'), ask:$('ask-toggle'), theoryToggle:$('theory-toggle'), composerActions:$('composer-actions'), cancel:$('composer-cancel'), note:$('system-note'), lion:$('lion-character-button'), lionImage:$('lion-character'), noiseCanvas:$('noise-effects'), sceneBackground:$('scene-background'), scenePoster:$('scene-poster'), sceneVideo:$('scene-video') };
 const LION_IDLE_SRC='./assets/characters/hon-lion-dialogue.png?v=20261020round';
 let greetingMessage = null;
 let revealGeneration = -1;
@@ -20,6 +21,8 @@ const beatTimers = new Map();
 let checkpointActionCancel = null;
 const beamEffectsFactory = typeof createBeamEffects === 'function' ? createBeamEffects : null;
 let beamEffects = null;
+const noiseEffectsFactory = typeof createNoiseEffects === 'function' ? createNoiseEffects : null;
+const noiseEffects = noiseEffectsFactory ? noiseEffectsFactory({ canvas:refs.noiseCanvas, app:refs.app, sceneBackground:refs.sceneBackground, scenePoster:refs.scenePoster, sceneVideo:refs.sceneVideo, conversation:refs.conversation, lion:refs.lionImage, lionContainer:refs.lion, windowRef:window, documentRef:document }) : null;
 const CONNECTION_ERROR = '本ライオンに声が届きませんでした。もう一度送ってください。';
 const API_ERROR_MESSAGES = Object.freeze({
   rate_limited: '質問が続いています。1分ほど待って、もう一度送ってください。',
@@ -68,8 +71,8 @@ const observations=createObservationController({
     appendMessage('narration',NOISE_OBSERVATION).classList.add('noise-observation');
   },
   onNoiseLevel:(level)=>{
-    if(level===null)delete refs.app.dataset.noiseLevel;
-    else refs.app.dataset.noiseLevel=String(level);
+    if(level===null){ delete refs.app.dataset.noiseLevel; noiseEffects?.setLevel(0); }
+    else { refs.app.dataset.noiseLevel=String(level); noiseEffects?.setLevel(level); }
   },
 });
 deadline=createDeadlineController({setTimeoutFn:window.setTimeout.bind(window),clearTimeoutFn:window.clearTimeout.bind(window),onNoise:setNoiseLevel,onExpire:expireGame});
@@ -564,9 +567,13 @@ window.addEventListener('hon-lion-door-audio',(event)=>{
   else if(event.detail?.action==='start'&&state.phase==='opening')sound.door({duration:event.detail.duration});
 });
 $('sound-toggle').addEventListener('click',()=>sound.toggle());
-document.addEventListener('visibilitychange',()=>{ sound.visibility(document.hidden); if(!document.hidden)deadline.check(); });
-window.addEventListener('pagehide',()=>{invalidatePending();deadline.stop();removeBeam();sound.stop();});
-window.addEventListener('pageshow',event=>{if(event.persisted)reset();else deadline.check();});
+document.addEventListener('visibilitychange',()=>{ sound.visibility(document.hidden); noiseEffects?.visibility(document.hidden); if(!document.hidden)deadline.check(); });
+window.addEventListener('pagehide',()=>{invalidatePending();deadline.stop();removeBeam();sound.stop();noiseEffects?.suspend?.();});
+window.addEventListener('pageshow',event=>{
+  if(event.persisted)reset();
+  noiseEffects?.resume?.();
+  if(!event.persisted)deadline.check();
+});
 window.addEventListener('resize',()=>{if(state.phase==='bug'||state.phase==='firing')aimWeapon();});
 connectVisualViewport(refs.app);
 refs.input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!state.busy)refs.form.requestSubmit();}});

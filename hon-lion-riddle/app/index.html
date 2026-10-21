@@ -6,12 +6,13 @@
   <meta name="theme-color" content="#17100c">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <title>水平思考ゲーム</title>
-  <link rel="stylesheet" href="./styles.css?v=20261021cabinet">
+  <link rel="stylesheet" href="./styles.css?v=20261021noise1">
 </head>
 <body>
   <main id="app" class="app" data-scene="hall" data-phase="start" data-reasoning-stage="0">
-    <div class="scene-background" aria-hidden="true"><img id="scene-poster" alt="" decoding="async"><video id="scene-video" muted playsinline preload="metadata"></video><p id="scene-error" hidden>屋敷の映像を表示できません。</p></div>
+    <div id="scene-background" class="scene-background" aria-hidden="true"><img id="scene-poster" alt="" decoding="async"><video id="scene-video" muted playsinline preload="metadata"></video><p id="scene-error" hidden>屋敷の映像を表示できません。</p></div>
     <div class="scene-scrim" aria-hidden="true"></div>
+    <canvas id="noise-effects" class="noise-effects" aria-hidden="true"></canvas>
     <section id="start-screen" class="start-screen" aria-labelledby="game-title">
       <h1 id="game-title" class="sr-only">水平思考ゲーム</h1>
       <button id="start-button" class="start-button" type="button">はじめる</button>
@@ -43,6 +44,6 @@
     </section>
   </main>
   <script type="module" src="./scene-runtime.js?v=20261021checkpoint1"></script>
-  <script type="module" src="./game.js?v=20261021-sfx-approved-1"></script>
+  <script type="module" src="./game.js?v=20261021noise2"></script>
 </body>
 </html>

@@ -37,12 +37,14 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
   const stepCalls=[];
   const audio=[];
   const beamCalls=[];
+  const noiseCalls=[];
   const events={};
   const context=vm.createContext({
     console,URLSearchParams,AbortController,AbortSignal,DOMException,TypeError,queueMicrotask,
     setTimeout:(fn)=>setTimeout(fn,5),clearTimeout,
     PROLOGUE,OPENING,LION_DISCOVERY,LION_GREETING,PROBLEM,THEORY_PROMPT,ARRIVAL_OBSERVATION,NOISE_OBSERVATION,DEATH_NARRATION,CLUES,LION_REPLIES,createDeadlineController,createObservationController,createLionReactions,createCheckpointProgress,normalizeCheckpointIds,API_ENDPOINT:'/api/hon-lion/chat',STATUS_ENDPOINT:'/api/hon-lion/status',LIVE_TIMEOUT_MS:9000,track:()=>{},
     createSoundDesign:()=>Object.fromEntries(['start','stop','toggle','reward','reveal','door','stopDoor','shoot','removeInsect','visibility'].map(name=>[name,()=>audio.push(name)])),
+    createNoiseEffects:()=>({setLevel:level=>noiseCalls.push(['setLevel',level]),visibility:hidden=>noiseCalls.push(['visibility',hidden]),suspend:()=>noiseCalls.push(['suspend']),resume:()=>noiseCalls.push(['resume']),dispose:()=>noiseCalls.push(['dispose'])}),
     connectVisualViewport:()=>{},
     createBeamEffects:()=>({shotDuration:6,start:()=>beamCalls.push('start'),stop:()=>beamCalls.push('stop'),dispose:()=>beamCalls.push('dispose')}),
     document:{getElementById:get,querySelector:()=>get('question-send'),createElement:(tag)=>{const element=new Element();if(tag==='img'&&imageState!=='loaded'){element.complete=false;element.naturalWidth=0;}return element;},addEventListener:()=>{}},
@@ -67,7 +69,7 @@ function setup({demo=true,configured=true,chat=mockWorkerResponse,arrival,openin
   vm.runInContext(source,context);
   const state=()=>vm.runInContext('state',context);
   const ask=async(question)=>{context.openComposer(state().questionMode);get('question-input').value=question;await context.submitQuestion({preventDefault(){}});await new Promise(resolve=>setImmediate(resolve));};
-  return {context,get,state,ask,calls,stepCalls,audio,beamCalls,events};
+  return {context,get,state,ask,calls,stepCalls,audio,beamCalls,noiseCalls,events};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -620,6 +622,16 @@ test('a persisted page returns to the start from firing and a normal scene',()=>
   scene.context.beginGame();scene.context.setQuestionFlow();
   scene.events.pageshow({persisted:true});
   assert.equal(scene.state().phase,'start');
+});
+
+test('a persisted restore resumes noise before a new run can raise its level',()=>{
+  const x=setup();
+  x.events.pagehide();
+  const before=x.noiseCalls.length;
+  x.events.pageshow({persisted:true});
+  assert.deepEqual(x.noiseCalls.slice(before),[['setLevel',0],['resume']]);
+  x.context.setNoiseLevel(1);
+  assert.deepEqual(x.noiseCalls.at(-1),['setLevel',1]);
 });
 
 test('death during a checkpoint action cancels it and ignores the late click',async()=>{
