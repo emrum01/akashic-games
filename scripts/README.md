@@ -3,6 +3,25 @@
 `optimize-media.py` converts source media into a build staging directory and
 records a hashable report. It never writes source assets. Optimization is the
 default for new or changed game media under [`../AGENTS.md`](../AGENTS.md).
+
+Hon Lion Riddle uses a checked-in prepared-media mode: its build copies the
+already optimized bytes and verifies a versioned receipt, so normal builds do
+not need FFmpeg, ffprobe, or cwebp. The explicit `media:prepare` command is the
+exception for a fresh original in an external worktree of the current
+repository; it requires the full source commit reachable from the current app
+checkout, verifies the committed path and bytes before running the
+optimizer for that one file, and records that per-asset provenance in the
+receipt. It updates the receipt and affected runtime manifest, and refuses an
+input already tracked under the app. Keep original commits reachable. Do not
+put originals in that app's runtime tree or run the optimizer on a prepared
+output.
+If the recipe or tool configuration changes, use that app's explicit full
+adoption command with originals recovered from a verified Git commit in a
+worktree of the current repository; pass the full commit ID so the current app
+checkout can resolve each source path and hash. The
+adoption candidate starts from the current runtime app and uses the recovered
+tree only as optimizer input, preserving non-media changes. Never hand-edit the
+receipt.
 A game integrates it with `media-optimization.json` and calls the tool from its
 build script.
 
