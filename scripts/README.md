@@ -1,8 +1,10 @@
 # Shared media optimization
 
 `optimize-media.py` converts source media into a build staging directory and
-records a hashable report. It never writes source assets. A game opts in with
-`media-optimization.json` and calls the tool from its build script.
+records a hashable report. It never writes source assets. Optimization is the
+default for new or changed game media under [`../AGENTS.md`](../AGENTS.md).
+A game integrates it with `media-optimization.json` and calls the tool from its
+build script.
 
 For an adopted game, the one command is:
 

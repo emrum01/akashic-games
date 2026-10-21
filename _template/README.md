@@ -1,6 +1,7 @@
 # _template — Web謎/ミニゲーム 新作雛形
 
-`apps/akashic-games/` 配下の新作を始めるための最小雛形。ビルド無し・素のHTML/JS/CSSのみ。
+`apps/akashic-games/` 配下の新作を始めるための最小雛形。素のHTML/JS/CSSで構成する。
+画像・動画を使う場合は、[ゲーム開発指示](../AGENTS.md) に従って最適化ビルドと検証を標準で組み込む（3.1節）。メディアのないゲームはビルド無しで使える。
 参考実装: `apps/akashic-games/still-thread/`, `apps/akashic-games/notification-gale/`,
 `apps/akashic-games/broken-web/`, `apps/akashic-games/three-forward-two-back/`
 
