@@ -15,6 +15,23 @@ function replaceAudioExtension(url,extension){return url.replace(/\.ogg(?=\?|$)/
 function selectSoundUrl(name,oggSupported){var url=SOUND_FILES[name];if(!url)return null;var useOgg=oggSupported==null?audioFormat==="ogg":!!oggSupported;return replaceAudioExtension(url,useOgg?"ogg":"m4a")}
 function soundUrls(name,oggSupported){var url=SOUND_FILES[name];if(!url)return[];var useOgg=oggSupported==null?audioFormat==="ogg":!!oggSupported,preferred=replaceAudioExtension(url,useOgg?"ogg":"m4a"),alternate=replaceAudioExtension(url,useOgg?"m4a":"ogg");return preferred===alternate?[preferred]:[preferred,alternate]}
 var audio={ctx:null,master:null,compressor:null,windSource:null,windGain:null,windWanted:false,windGeneration:0,badSource:null,badBellTimer:0,badBellGeneration:0,badBellSources:new Set(),countdownBellTimer:0,countdownBellGeneration:0,countdownBellSources:new Set(),buffers:{},loads:{},oneShots:new Set(),generation:0};
+function configurePlaybackSession(){
+  try{
+    // Like hon-lion-riddle, opt into media playback only after sound is enabled.
+    // iOS otherwise treats Web Audio as ambient and obeys the Ring/Silent switch.
+    var session=window.navigator.audioSession;
+    if(session)session.type="playback";
+  }catch(e){/* The optional API must not prevent playback on other browsers. */}
+}
+function resumeAudio(){
+  // Keep the iOS session change and context resume in the user gesture.
+  configurePlaybackSession();
+  var c=ensureAudio();
+  if(c&&c.state!=="running"){
+    try{var resume=c.resume();if(resume&&resume.catch)resume.catch(function(){})}catch(e){/* Resume is best-effort on browsers without Audio Session support. */}
+  }
+  return c;
+}
 function ensureAudio(){if(audio.ctx)return audio.ctx;var C=window.AudioContext||window.webkitAudioContext;if(!C)return null;audio.ctx=new C();audio.master=audio.ctx.createGain();audio.compressor=audio.ctx.createDynamicsCompressor();audio.compressor.threshold.value=-18;audio.compressor.knee.value=18;audio.compressor.ratio.value=5;audio.compressor.attack.value=.006;audio.compressor.release.value=.22;audio.master.gain.value=S.muted?0:1;audio.master.connect(audio.compressor).connect(audio.ctx.destination);return audio.ctx}
 function decodeSound(c,url){return fetch(url).then(function(r){if(!r.ok)throw new Error("audio "+r.status);return r.arrayBuffer()}).then(function(data){return c.decodeAudioData(data)})}
 function loadSound(name){var c=ensureAudio();if(!c||!SOUND_FILES[name])return Promise.resolve(null);if(audio.buffers[name])return Promise.resolve(audio.buffers[name]);if(audio.loads[name])return audio.loads[name];var urls=soundUrls(name),attempt=function(index){if(index>=urls.length)return Promise.resolve(null);return decodeSound(c,urls[index]).catch(function(){return attempt(index+1)})};audio.loads[name]=attempt(0).then(function(buffer){if(buffer)audio.buffers[name]=buffer;delete audio.loads[name];return buffer});return audio.loads[name]}
@@ -24,7 +41,22 @@ function trackScheduledSource(set,src){set.add(src);var ended=src.onended;src.on
 function stopScheduledSources(set){set.forEach(function(src){try{src.stop()}catch(e){}});set.clear()}
 function stopCountdownBell(){audio.countdownBellGeneration++;if(audio.countdownBellTimer){clearTimeout(audio.countdownBellTimer);audio.countdownBellTimer=0}stopScheduledSources(audio.countdownBellSources)}
 function stopOneShots(){audio.generation++;stopCountdownBell();audio.oneShots.forEach(function(src){try{src.stop()}catch(e){}});audio.oneShots.clear()}
-function setMuted(value){S.muted=value;var c=ensureAudio();if(c){c.resume().catch(function(){});audio.master.gain.setTargetAtTime(value?0:1,c.currentTime,.025);if(!value)preloadSounds()}if(E.introVideo){E.introVideo.muted=value||S.phase!=="intro";E.introVideo.volume=.72;if(!E.introVideo.muted&&S.phase==="intro")E.introVideo.play().catch(function(){})}E.mute.textContent=value?"MUTED":"SOUND ON";E.mute.classList.toggle("is-on",!value);E.mute.setAttribute("aria-pressed",String(value));E.mute.setAttribute("aria-label",value?"音声をオンにする":"音声をミュートする");if(!value){if(S.wind)startWind();cue("tick")}A.track(value?"audio_muted":"audio_unmuted")}
+function setMuted(value){
+  S.muted=value;
+  var c=value?audio.ctx:resumeAudio();
+  if(c){audio.master.gain.setTargetAtTime(value?0:1,c.currentTime,.025);if(!value)preloadSounds()}
+  if(E.introVideo){
+    E.introVideo.muted=value||S.phase!=="intro";
+    E.introVideo.volume=.72;
+    if(!E.introVideo.muted&&S.phase==="intro")E.introVideo.play().catch(function(){});
+  }
+  E.mute.textContent=value?"MUTED":"SOUND ON";
+  E.mute.classList.toggle("is-on",!value);
+  E.mute.setAttribute("aria-pressed",String(value));
+  E.mute.setAttribute("aria-label",value?"音声をオンにする":"音声をミュートする");
+  if(!value){if(S.wind)startWind();cue("tick")}
+  A.track(value?"audio_muted":"audio_unmuted");
+}
 function tone(from,to,duration,volume,type,delay){var c=ensureAudio();if(!c||S.muted)return null;var t=c.currentTime+(delay||0),o=c.createOscillator(),g=c.createGain();o.type=type||"sine";o.frequency.setValueAtTime(from,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,to),t+duration);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(volume,t+Math.min(.035,duration/3));g.gain.exponentialRampToValueAtTime(.0001,t+duration);o.connect(g).connect(audio.master);audio.oneShots.add(o);o.onended=function(){audio.oneShots.delete(o)};o.start(t);o.stop(t+duration+.03);return o}
 function noiseBurst(duration,volume,lowpass,delay){var c=ensureAudio();if(!c||S.muted)return null;var t=c.currentTime+(delay||0),len=Math.ceil(c.sampleRate*duration),b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);var src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();src.buffer=b;f.type="lowpass";f.frequency.value=lowpass||1800;g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.0001,t+duration);src.connect(f).connect(g).connect(audio.master);audio.oneShots.add(src);src.onended=function(){audio.oneShots.delete(src)};src.start(t);return src}
 function sampleCue(name,gain,rate,fallback){playBuffer(name,{gain:gain,rate:rate||1},fallback)}
@@ -161,7 +193,7 @@ E.endingHit.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefa
 E.photoInstructions.onclick=function(){returnToTvPreview();A.track("instructions_viewed")};
 E.game.addEventListener("pointerdown",function(e){if(S.phase==="playing"&&S.photoMode==="full"&&!e.target.closest(".photo-viewport")&&!e.target.closest(".develop-controls")&&!e.target.closest(".outside-tv")){returnToTvPreview()}});
 E.app.addEventListener("click",advanceFromScreenTap);
-document.addEventListener("pointerdown",function(){if(!S.muted){var c=ensureAudio();if(c&&c.state==="suspended")c.resume().catch(function(){})}},{passive:true});
+document.addEventListener("pointerdown",function(){if(!S.muted)resumeAudio()},{passive:true});
 E.restart.onclick=function(){cue("restart");setTimeout(function(){location.reload()},140)};
 E.introMessage&&E.introMessage.parentElement.addEventListener("click",advanceIntro);
 E.introMessage&&E.introMessage.parentElement.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();advanceIntro()}});
