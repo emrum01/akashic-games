@@ -44,3 +44,8 @@ GA4イベント: `game_start`, `controls_revealed`, `entity_revealed`, `bad_end`
 `audio/CREDITS.md` に記載する。取得・デコード失敗時は生成音へフォールバックし、
 全音声はコンプレッサーを経由する。非同期ロード中に画面が変わった場合は古い
 ワンショットを無効化する。
+
+音声ボタンでオンにしたときは、対応ブラウザで `navigator.audioSession.type = "playback"`
+を指定し、iPhoneの消音モード中でも環境音・効果音を再生する。初期ミュートは維持し、
+オフにすれば動画も含めて消音する。Audio Session APIがない、または設定が拒否される
+ブラウザでは、従来の再生処理を継続する。
