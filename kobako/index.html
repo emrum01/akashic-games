@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>小箱の約束｜SAFARI</title>
+<style>
+:root{--paper:#f4f0e7;--ink:#203a38;--panel:#fffdf8;--muted:#52635f;--line:#a9b8ad}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans CJK JP","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;line-height:1.65}
+main{max-width:620px;margin:auto;padding:24px 12px 40px}header{border-bottom:1px solid var(--line);padding-bottom:16px}header p{margin:0}h1{font-size:30px;letter-spacing:.08em;margin:10px 0}h2{font-size:17px;margin:24px 0 10px}.brand{font-size:12px;letter-spacing:.15em;color:var(--muted)}.guide{font-size:14px;color:var(--muted);margin:12px 0}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:8px 5px 10px}.box-head{display:flex;justify-content:space-between;align-items:center;padding:0 9px 6px;font-size:15px}.given{font-size:22px}.letters{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+button,input,summary{font:inherit}button{cursor:pointer;color:var(--ink);touch-action:manipulation}button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #326eaa;outline-offset:3px}.tile{position:relative;min-width:0;min-height:50px;padding:3px 0;border:1px solid var(--line);border-radius:7px;background:var(--paper);font-size:24px;font-weight:600}.tile[aria-pressed="true"]{background:transparent;border-style:dashed}.tile[aria-pressed="true"] span{visibility:hidden}.tile[aria-pressed="true"]::after{content:"・";position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:18px}
+.toolbar{display:flex;gap:8px;margin-top:18px}.action{min-height:46px;padding:8px 12px;border:1px solid var(--line);background:var(--panel);border-radius:8px}.action:disabled{opacity:.45;cursor:default}.answer{margin-top:28px}.answer label{display:block;margin-bottom:8px}.answer-line{display:flex;gap:8px}.answer input{width:0;min-width:0;flex:1;min-height:48px;font-size:20px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px}.primary{background:var(--ink);color:var(--panel)}#feedback{min-height:1.7em;margin:8px 0;color:var(--muted)}details{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}summary{min-height:44px;cursor:pointer;padding:6px 0}details p{font-size:15px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}footer{margin-top:26px;font-size:12px;color:var(--muted)}
+@media(min-width:600px){main{padding:36px 24px}.tile{min-height:60px;font-size:28px}.box{padding:10px}.letters{gap:6px}}
+/* Motion is transient; the hit targets and layout never animate. */
+.tile span{display:inline-block;transform-origin:50% 70%}.tile,.action{-webkit-tap-highlight-color:transparent}
+#effects{position:fixed;inset:0;z-index:20;pointer-events:none;overflow:hidden;contain:strict}
+.fx{position:absolute;pointer-events:none}.fx-ghost{font-size:24px;font-weight:600;line-height:1;white-space:nowrap;color:var(--ink)}.fx-ring{width:46px;height:46px;border:2px solid #b39a62;border-radius:50%}.fx-bit{width:5px;height:9px;border-radius:2px;background:#b39a62}.fx-stamp{padding:12px 22px;border:2px solid #b39a62;border-radius:50%;background:var(--panel);color:var(--ink);font-size:24px;font-weight:700;white-space:nowrap;box-shadow:0 5px 18px #203a3818}
+.answer[data-correct="true"] input{border:2px solid #8f793f;background:#fffaf0}
+@media(prefers-reduced-motion:reduce){#effects{display:none}}
+.tile:disabled{cursor:default;opacity:1;color:var(--ink);-webkit-text-fill-color:var(--ink)}
+body:not(.ready) .interactive,body:not(.ready) .toolbar,body:not(.ready) .answer{display:none}
+body.ready #static-note{display:none}
+</style>
+</head>
+<body>
+<main>
+<header><p class="brand">SAFARI / 一枚の謎</p><h1>小箱の約束</h1><p>上の例と同じきまりで、①②③を読もう。</p></header>
+<p class="guide interactive">文字はタップで消せます。消した場所をタップすると戻ります。</p>
+<p id="static-note" class="guide">文字盤はそのまま読めます。タップ操作と答え合わせには、JavaScriptが動くブラウザでこのページを開いてください。</p>
+<section aria-labelledby="examples-title"><h2 id="examples-title">例</h2><div id="examples"><div class="box" role="group" aria-label="例1"><div class="box-head"><span>例1</span><span class="given">→ ほ</span></div><div class="letters"><button type="button" class="tile" disabled aria-pressed="false" aria-label="例1 1文字目 ほ：消す"><span>ほ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例1 2文字目 し：消す"><span>し</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例1 3文字目 ほ：消す"><span>ほ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例1 4文字目 ね：消す"><span>ね</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例1 5文字目 し：消す"><span>し</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例1 6文字目 ね：消す"><span>ね</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例1 7文字目 ほ：消す"><span>ほ</span></button></div></div><div class="box" role="group" aria-label="例2"><div class="box-head"><span>例2</span><span class="given">→ し</span></div><div class="letters"><button type="button" class="tile" disabled aria-pressed="false" aria-label="例2 1文字目 な：消す"><span>な</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例2 2文字目 し：消す"><span>し</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例2 3文字目 そ：消す"><span>そ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例2 4文字目 ね：消す"><span>ね</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例2 5文字目 な：消す"><span>な</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例2 6文字目 そ：消す"><span>そ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="例2 7文字目 ね：消す"><span>ね</span></button></div></div></div></section>
+<section aria-labelledby="questions-title"><h2 id="questions-title">①②③の順に読むと？</h2><div id="questions"><div class="box" role="group" aria-label="①"><div class="box-head"><span>①</span></div><div class="letters"><button type="button" class="tile" disabled aria-pressed="false" aria-label="① 1文字目 こ：消す"><span>こ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="① 2文字目 ね：消す"><span>ね</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="① 3文字目 ら：消す"><span>ら</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="① 4文字目 こ：消す"><span>こ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="① 5文字目 ね：消す"><span>ね</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="① 6文字目 こ：消す"><span>こ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="① 7文字目 ら：消す"><span>ら</span></button></div></div><div class="box" role="group" aria-label="②"><div class="box-head"><span>②</span></div><div class="letters"><button type="button" class="tile" disabled aria-pressed="false" aria-label="② 1文字目 ゆ：消す"><span>ゆ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="② 2文字目 と：消す"><span>と</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="② 3文字目 や：消す"><span>や</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="② 4文字目 ゆ：消す"><span>ゆ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="② 5文字目 や：消す"><span>や</span></button></div></div><div class="box" role="group" aria-label="③"><div class="box-head"><span>③</span></div><div class="letters"><button type="button" class="tile" disabled aria-pressed="false" aria-label="③ 1文字目 ば：消す"><span>ば</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="③ 2文字目 み：消す"><span>み</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="③ 3文字目 そ：消す"><span>そ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="③ 4文字目 み：消す"><span>み</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="③ 5文字目 ば：消す"><span>ば</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="③ 6文字目 そ：消す"><span>そ</span></button><button type="button" class="tile" disabled aria-pressed="false" aria-label="③ 7文字目 ば：消す"><span>ば</span></button></div></div></div></section>
+<div class="toolbar"><button class="action" id="undo" type="button" disabled>ひとつ戻す</button><button class="action" id="reset" type="button" disabled>文字をリセット</button></div>
+<p id="notice" class="sr-only" role="status" aria-live="polite"></p>
+<form class="answer" id="answer-form"><label for="answer">答えは、ひらがな3文字。</label><div class="answer-line"><input id="answer" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="feedback"><button class="action primary" type="submit">答え合わせ</button></div><p id="feedback" role="status" aria-live="polite"></p></form>
+<details><summary>ヒントを見る</summary><p>同じ行の中に、同じ文字がいくつあるか見てください。</p><details><summary>もう少しヒント</summary><p>同じ文字を2個ずつ組にすると、1個だけ余ります。3個ある文字も、2個を組にすると1個残ります。</p></details><details><summary>答えと解説を見る</summary><p>答えは「ことば」。例は「ほ」「し」が余ります。同じきまりで①「こ」、②「と」、③「ば」。①②③の順に読んで「ことば」です。</p></details></details>
+<footer>文字の操作や入力は、この画面の中だけで行われます。</footer>
+</main>
+<div id="effects" aria-hidden="true"></div>
+<script>
+'use strict';
+// 静的な文字盤を唯一の問題データとし、操作だけを追加する。
+const boxes=Array.from(document.querySelectorAll('.box'));
+const rows=boxes.map(box=>({label:box.getAttribute('aria-label'),word:Array.from(box.querySelectorAll('.tile span'),span=>span.textContent).join('')}));
+let erased=rows.map(r=>Array.from(r.word,()=>false));
+const history=[];
+const undo=document.getElementById('undo'),reset=document.getElementById('reset');
+const notice=document.getElementById('notice');
+const tiles=[];
+const effects=document.getElementById('effects');
+const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+const activeAnimations=new Set();
+let effectOrigin=null;
+function stopEffects(){
+ for(const animation of activeAnimations)animation.cancel();
+ activeAnimations.clear();effects.replaceChildren();effectOrigin=null;
+}
+function animate(element,frames,duration,temporary=false){
+ if(reduced.matches||!element.animate){if(temporary)element.remove();return;}
+ const animation=element.animate(frames,{duration,easing:'cubic-bezier(.2,.7,.3,1)',fill:'none'});
+ activeAnimations.add(animation);
+ const finish=()=>{activeAnimations.delete(animation);if(temporary)element.remove();};
+ animation.finished.then(finish,finish);
+}
+function effect(kind,x,y){
+ if(!effects.childElementCount)effectOrigin=[scrollX,scrollY,window.visualViewport?.offsetLeft||0,window.visualViewport?.offsetTop||0];
+ const node=document.createElement('span');node.className='fx fx-'+kind;
+ node.style.left=x+'px';node.style.top=y+'px';effects.append(node);return node;
+}
+function tileMotion(button,removed,rich=false){
+ if(reduced.matches)return;
+ if(!removed)animate(button.firstElementChild,[{transform:'translateY(7px) scale(.65)',opacity:0},{transform:'translateY(-2px) scale(1.12)',opacity:1,offset:.65},{transform:'none',opacity:1}],280);
+ else if(rich){
+  const rect=button.getBoundingClientRect(),x=rect.x+rect.width/2,y=rect.y+rect.height/2;
+  const ghost=effect('ghost',x,y);ghost.textContent=button.firstElementChild.textContent;
+  animate(ghost,[{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:'translate(-50%,-65%) scale(1.17)',opacity:.85,offset:.3},{transform:'translate(-50%,-105%) scale(.35)',opacity:0}],210,true);
+ }
+ if(rich){
+  const rect=button.getBoundingClientRect(),x=rect.x+rect.width/2,y=rect.y+rect.height/2;
+  const ring=effect('ring',x,y);
+  animate(ring,[{transform:'translate(-50%,-50%) scale(.6)',opacity:.65},{transform:'translate(-50%,-50%) scale(1.45)',opacity:0}],340,true);
+  for(let i=0;i<6;i++){
+   const angle=(i/6)*Math.PI*2,dx=Math.cos(angle)*31,dy=Math.sin(angle)*28;
+   const bit=effect('bit',x,y);bit.style.background=i%2?'#9cae9b':'#b39a62';
+   animate(bit,[{transform:'translate(-50%,-50%) scale(.4)',opacity:.9},{transform:`translate(${dx}px,${dy}px) rotate(${i*65}deg) scale(.2)`,opacity:0}],380,true);
+  }
+ }
+}
+function changedMotion(previous){
+ rows.forEach((row,r)=>Array.from(row.word).forEach((ch,c)=>{
+  if(previous[r][c]===erased[r][c])return;
+  if(!erased[r][c])tileMotion(tiles[r][c],false);
+  else animate(tiles[r][c],[{backgroundColor:'#e7ddc6'},{backgroundColor:'transparent'}],200);
+ }));
+}
+function celebrate(){
+ if(reduced.matches)return;
+ const rect=document.querySelector('#answer-form button').getBoundingClientRect();
+ const x=innerWidth/2,y=Math.max(90,Math.min(innerHeight-90,rect.y));
+ const stamp=effect('stamp',x,y-32);stamp.textContent='見つけた！';
+ animate(stamp,[{transform:'translate(-50%,-50%) scale(.55) rotate(-9deg)',opacity:0},{transform:'translate(-50%,-50%) scale(1.08) rotate(3deg)',opacity:1,offset:.2},{transform:'translate(-50%,-50%) scale(1)',opacity:1,offset:.72},{transform:'translate(-50%,-65%) scale(1)',opacity:0}],1100,true);
+ const colors=['#b39a62','#789383','#d6bf86','#203a38'];
+ for(let i=0;i<32;i++){
+  const dx=(Math.random()-.5)*Math.min(innerWidth*.85,500),rise=65+Math.random()*115;
+  const bit=effect('bit',x,y);bit.style.background=colors[i%4];
+  bit.style.width=(4+i%3)+'px';bit.style.height=(7+i%5)+'px';
+  animate(bit,[{transform:'translate(0,0) rotate(0deg)',opacity:0},{transform:`translate(${dx*.55}px,${-rise}px) rotate(${i*17}deg)`,opacity:1,offset:.35},{transform:`translate(${dx}px,45px) rotate(${i*37}deg)`,opacity:0}],700+(i%5)*70,true);
+ }
+}
+reduced.addEventListener('change',stopEffects);
+addEventListener('resize',stopEffects);
+function stopForScroll(){
+ if(!effectOrigin||!effects.childElementCount)return;
+ const now=[scrollX,scrollY,window.visualViewport?.offsetLeft||0,window.visualViewport?.offsetTop||0];
+ if(now.some((value,i)=>value!==effectOrigin[i]))stopEffects();
+}
+addEventListener('scroll',stopForScroll,{passive:true});
+if(window.visualViewport){visualViewport.addEventListener('resize',stopEffects);visualViewport.addEventListener('scroll',stopForScroll);}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopEffects();});
+rows.forEach((row,r)=>{
+ tiles[r]=Array.from(boxes[r].querySelectorAll('.tile'));
+ tiles[r].forEach((button,c)=>{
+  button.addEventListener('click',()=>{stopEffects();remember();erased[r][c]=!erased[r][c];sync();tileMotion(button,erased[r][c],true);notice.textContent=`${row.label}の${c+1}文字目を${erased[r][c]?'消しました':'戻しました'}。`;});
+ });
+});
+function remember(){history.push(erased.map(row=>row.slice()));}
+function sync(){
+ rows.forEach((row,r)=>Array.from(row.word).forEach((ch,c)=>{
+  tiles[r][c].setAttribute('aria-pressed',String(erased[r][c]));
+  tiles[r][c].setAttribute('aria-label',`${row.label} ${c+1}文字目 ${ch}：${erased[r][c]?'戻す':'消す'}`);
+ }));
+ undo.disabled=history.length===0;reset.disabled=!erased.some(row=>row.some(Boolean));
+}
+undo.addEventListener('click',()=>{if(!history.length)return;stopEffects();const previous=erased;erased=history.pop();sync();changedMotion(previous);notice.textContent='ひとつ前の文字の状態に戻しました。';});
+reset.addEventListener('click',()=>{if(!erased.some(row=>row.some(Boolean)))return;stopEffects();const previous=erased;remember();erased=rows.map(r=>Array.from(r.word,()=>false));sync();changedMotion(previous);notice.textContent='すべての文字を戻しました。';});
+const answer=document.getElementById('answer'),feedback=document.getElementById('feedback');
+document.getElementById('answer-form').addEventListener('submit',event=>{
+ event.preventDefault();stopEffects();
+ const value=answer.value.normalize('NFKC').trim();
+ document.getElementById('answer-form').dataset.correct=String(value==='ことば');
+ feedback.textContent=value===''?'答えを入力してください。':value==='ことば'?'正解です。「ことば」が見つかりました。':'まだ違うようです。上の例と見比べてみよう。';
+ if(value==='ことば')celebrate();
+ else animate(feedback,[{transform:'translateY(4px)',opacity:.4},{transform:'none',opacity:1}],200);
+});
+answer.addEventListener('input',()=>{stopEffects();feedback.textContent='';document.getElementById('answer-form').removeAttribute('data-correct');});
+sync();
+tiles.flat().forEach(button=>{button.disabled=false;});
+document.body.classList.add("ready");
+</script>
+</body>
+</html>
