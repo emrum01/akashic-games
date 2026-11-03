@@ -3,3 +3,40 @@ Allow: /
 
 User-agent: Linespider
 Allow: /
+
+
+User-agent: OAI-SearchBot
+User-agent: GPTBot
+User-agent: Claude-SearchBot
+User-agent: ClaudeBot
+User-agent: PerplexityBot
+Disallow: /last-bridge/
+Disallow: /one-heavy/
+Disallow: /long-way/
+Disallow: /two-exits/
+Disallow: /three-cuts/
+Disallow: /kobako/
+Disallow: /three-pictures/
+Disallow: /symbol-rule/
+Disallow: /assets/web-games.js
+Disallow: /assets/web-games.css
+Disallow: /assets/og-nazo-20261102-last-bridge.jpg
+Disallow: /assets/og-nazo-20261102-one-heavy.jpg
+Disallow: /assets/og-nazo-20261102-long-way.jpg
+Disallow: /assets/og-nazo-20261102-two-exits.jpg
+Disallow: /assets/og-nazo-20261102-nine-points.jpg
+Disallow: /assets/og-kobako.jpg
+Disallow: /assets/og-nazo-20261031-turn-letter.jpg
+Disallow: /assets/og-nazo-20261031-shiritori-prototype-3.jpg
+
+User-agent: Googlebot-Image
+Disallow: /assets/og-nazo-20261102-last-bridge.jpg
+Disallow: /assets/og-nazo-20261102-one-heavy.jpg
+Disallow: /assets/og-nazo-20261102-long-way.jpg
+Disallow: /assets/og-nazo-20261102-two-exits.jpg
+Disallow: /assets/og-nazo-20261102-nine-points.jpg
+Disallow: /assets/og-kobako.jpg
+Disallow: /assets/og-nazo-20261031-turn-letter.jpg
+Disallow: /assets/og-nazo-20261031-shiritori-prototype-3.jpg
+Disallow: /three-pictures/assets/
+Disallow: /symbol-rule/assets/
