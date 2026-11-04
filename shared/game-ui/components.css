@@ -1,0 +1,250 @@
+.game-ui,
+.game-ui * {
+  box-sizing: border-box;
+}
+.game-ui.app {
+  /* The viewport adapter owns pan once for the entire scene and its controls. */
+  --conversation-viewport-offset: 0px;
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  height: var(--scene-height);
+  overflow: hidden;
+  background: var(--game-ui-background);
+  transform: translate(var(--scene-pan-x, 0px), var(--scene-pan-y, 0px));
+}
+.game-ui .backdrop {
+  position: absolute;
+  inset: 0;
+  background: 30% 45% / cover no-repeat var(--game-ui-scene-base);
+  transition: background-image var(--game-ui-motion-scene);
+}
+.game-ui .backdrop:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--game-ui-scene-side-shade), transparent 55%, var(--game-ui-scene-side-shade-soft)),
+    linear-gradient(0deg, var(--game-ui-scene-bottom-shade) 0%, transparent 65%);
+}
+.game-ui .shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 43%, transparent 20%, var(--game-ui-scene-vignette) 100%);
+}
+.game-ui .topbar {
+  position: absolute;
+  z-index: 5;
+  top: max(12px, env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--game-ui-space-5);
+}
+.game-ui .connection {
+  font-size: var(--game-ui-font-size-connection);
+  color: var(--game-ui-text-connection);
+}
+.game-ui .topbar select {
+  max-width: min(42vw, 280px);
+  min-width: 90px;
+  min-height: var(--game-ui-touch-target);
+  border: 1px solid var(--game-ui-toolbar-border);
+  border-radius: var(--game-ui-radius-md);
+  background: var(--game-ui-toolbar-surface);
+  color: var(--game-ui-text-control);
+  padding: 9px 28px 9px 10px;
+  font: inherit;
+}
+.game-ui .problem-button {
+  min-height: var(--game-ui-touch-target);
+  padding: 0 13px;
+  border: 1px solid var(--game-ui-toolbar-border);
+  border-radius: var(--game-ui-radius-md);
+  background: var(--game-ui-toolbar-surface);
+  color: var(--game-ui-text-control);
+  font: inherit;
+  white-space: nowrap;
+}
+.game-ui .connection { margin-left: auto; color: var(--game-ui-text-status); }
+.game-ui .connection[data-state="offline"] { color: var(--game-ui-danger); }
+.game-ui .timer-label {
+  padding: 6px 9px;
+  border: 1px solid var(--game-ui-accent-border);
+  border-radius: var(--game-ui-radius-label);
+  color: var(--game-ui-text-timer);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.game-ui .menu-toggle {
+  margin-left: auto;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--game-ui-menu-toggle-border);
+  border-radius: var(--game-ui-radius-round);
+  color: var(--game-ui-text-menu-icon);
+  background: var(--game-ui-menu-toggle-surface);
+  font-size: var(--game-ui-font-size-menu-icon);
+}
+.game-ui .menu {
+  position: absolute;
+  z-index: 8;
+  right: 16px;
+  top: 70px;
+  display: grid;
+  gap: var(--game-ui-space-2);
+  width: min(240px, calc(100vw - 32px));
+  padding: 9px;
+  background: var(--game-ui-menu-surface);
+  border: 1px solid var(--game-ui-accent-border);
+  border-radius: var(--game-ui-radius-lg);
+  box-shadow: var(--game-ui-elevation-menu);
+}
+.game-ui .menu[hidden] { display: none; }
+.game-ui .menu button,
+.game-ui .actions button {
+  font: inherit;
+  text-align: left;
+  color: var(--game-ui-text-control);
+  border: 0;
+  background: transparent;
+  padding: 12px;
+  border-radius: var(--game-ui-radius-md);
+  min-height: var(--game-ui-touch-target);
+}
+.game-ui .menu button:hover,
+.game-ui .menu button:focus-visible { background: var(--game-ui-overlay-hover); }
+.game-ui .stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.game-ui .guide {
+  position: absolute;
+  right: clamp(24px, 7vw, 110px);
+  bottom: 22vh;
+  height: min(46vh, 480px);
+  width: auto;
+  max-width: 62vw;
+  object-fit: contain;
+  object-position: bottom;
+  filter: drop-shadow(var(--game-ui-elevation-character));
+  transition: none;
+}
+.game-ui dialog {
+  width: min(640px, calc(100vw - 28px));
+  max-height: min(82dvh, 700px);
+  overflow: auto;
+  padding: var(--game-ui-space-10);
+  color: var(--game-ui-ink);
+  background: var(--game-ui-surface);
+  border: 1px solid var(--game-ui-dialog-border);
+  border-radius: var(--game-ui-radius-lg);
+  box-shadow: var(--game-ui-elevation-dialog);
+  font: inherit;
+  line-height: var(--game-ui-line-height);
+}
+.game-ui dialog::backdrop { background: var(--game-ui-dialog-scrim); backdrop-filter: blur(5px); }
+.game-ui dialog h2 {
+  margin: 0.2rem 40px 1rem 0;
+  font-size: var(--game-ui-font-size-heading);
+  font-weight: 500;
+  color: var(--game-ui-accent);
+}
+.game-ui dialog p { white-space: pre-wrap; }
+.game-ui .dialog-close {
+  position: sticky;
+  float: right;
+  top: 0;
+  width: var(--game-ui-touch-target);
+  height: var(--game-ui-touch-target);
+  border: 1px solid var(--game-ui-overlay-outline);
+  border-radius: var(--game-ui-radius-round);
+  background: var(--game-ui-close-surface);
+  color: var(--game-ui-text-bright);
+  font-size: var(--game-ui-font-size-close);
+}
+.game-ui .game-ui-button {
+  min-height: var(--game-ui-touch-target);
+  padding: 8px 12px;
+  border: 1px solid var(--game-ui-line);
+  border-radius: var(--game-ui-radius-md);
+  color: var(--game-ui-ink);
+  background: var(--game-ui-surface-raised);
+  font: inherit;
+}
+.game-ui dialog button:not(.dialog-close),
+.game-ui .hint-option {
+  min-height: var(--game-ui-touch-target);
+  font: inherit;
+  padding: 10px 14px;
+  border: 1px solid var(--game-ui-control-border);
+  border-radius: var(--game-ui-radius-md);
+  color: var(--game-ui-text-control);
+  background: var(--game-ui-surface-raised);
+}
+.game-ui .dialog-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.game-ui .dialog-row button,
+.game-ui .dialog-action {
+  border: 1px solid var(--game-ui-control-border);
+  border-radius: var(--game-ui-radius-md);
+  padding: 10px 14px;
+  color: var(--game-ui-text-control);
+  background: var(--game-ui-surface-raised);
+}
+.game-ui .hint-option { display: block; width: 100%; margin: 8px 0; text-align: left; }
+.game-ui .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.game-ui :focus-visible { outline: 2px solid var(--game-ui-focus); outline-offset: 2px; }
+.game-ui button,
+.game-ui select { cursor: pointer; }
+.game-ui button:disabled { cursor: wait; opacity: 0.6; }
+@media (max-width: 650px) {
+  .game-ui .topbar { left: 12px; right: 12px; gap: 6px; }
+  .game-ui .topbar select { min-width: 0; max-width: 34vw; padding-inline: 8px 22px; }
+  .game-ui .problem-button { padding-inline: 9px; font-size: var(--game-ui-font-size-problem-mobile); }
+  .game-ui .stage { place-items: center; }
+  .game-ui .guide { right: clamp(8px, 3vw, 24px); bottom: 37vh; height: min(38vh, 300px); max-width: 70vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-ui, .game-ui:before, .game-ui:after,
+  .game-ui *, .game-ui *:before, .game-ui *:after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@supports (-webkit-touch-callout: none) {
+  @media (any-pointer: coarse) {
+    .game-ui #question-input:focus[data-focus-reveal-guard]:not([data-focus-reveal-ready]) {
+      /* Hold only the glyph reveal while native WebKit finishes focus panning. */
+      opacity: 0;
+    }
+  }
+}
+
+/* Keep modal reading content scrollable while title and navigation stay visible. */
+.game-ui dialog { padding: 0; overflow: hidden; }
+.game-ui dialog[open] { display: flex; flex-direction: column; }
+.game-ui .dialog-header { display: flex; justify-content: flex-end; flex: none; padding: 16px 20px 8px; }
+.game-ui #dialog-content h2 { margin: 0 0 1rem; font-size: max(1.1rem, 18px); }
+.game-ui .dialog-header .dialog-close { position: static; float: none; flex: none; font-size: 28px; }
+.game-ui #dialog-content { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 20px 20px; }
+.game-ui #dialog-content p:first-child { margin-top: 0; }
+.game-ui #dialog-content p:last-child { margin-bottom: 0; }
+.game-ui #dialog-content:focus-visible { outline: 2px solid var(--game-ui-focus); outline-offset: -3px; }
+.game-ui .dialog-footer { flex: none; padding: 12px 20px 20px; border-top: 1px solid var(--game-ui-line-soft); }
+.game-ui .rules-navigation { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }

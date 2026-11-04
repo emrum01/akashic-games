@@ -1,0 +1,20 @@
+{
+  "name": "@akashic-games/game-ui",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./GameUI.tsx",
+    "./components": "./components.tsx",
+    "./theme": "./theme.ts",
+    "./composer-dock": "./useComposerDock.ts",
+    "./viewport": "./viewport.js",
+    "./styles.css": "./index.css",
+    "./fullscreen.css": "./fullscreen.css",
+    "./document.css": "./document.css",
+    "./tokens.css": "./tokens.css"
+  },
+  "peerDependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

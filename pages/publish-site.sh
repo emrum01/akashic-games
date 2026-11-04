@@ -6,6 +6,7 @@ readonly expected_routes=(
   blessing-alert
   bookcafe-3d
   broken-web
+  kobako
   last-stitch
   notification-gale
   sic

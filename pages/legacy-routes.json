@@ -82,5 +82,18 @@
       "copyMode": "rsync",
       "exclude": []
     }
+  ],
+  "pagesOnlyRoutes": [
+    {
+      "id": "kobako",
+      "sourceDirectory": "kobako",
+      "sourceEntry": "index.html",
+      "copyMode": "rsync",
+      "exclude": [
+        "README.md",
+        "ADR.md",
+        "tests/"
+      ]
+    }
   ]
 }

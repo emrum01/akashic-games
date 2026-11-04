@@ -1,0 +1,100 @@
+@import "../../../../packages/book-ui/tokens.css";
+@import "../../../../packages/book-ui/game-completion.css";
+@source inline("bg-paper text-ink font-display");
+@tailwind utilities;
+:root { color-scheme: light; }
+.cafe-page { margin:0; min-height:100svh; color:var(--color-ink); background:var(--color-paper); font-family:var(--font-body); font-size:1rem; line-height:1.65; }
+.cafe-page > main { max-width:660px; margin:0 auto; padding:clamp(76px,13vw,108px) clamp(20px,5vw,36px) 32px; background:transparent; box-shadow:none; border:0; border-radius:0; }
+.cafe-brand { display:block; font-family:var(--font-display); text-align:center; color:var(--color-cafe-green); font-size:clamp(1.05rem,4.7vw,1.4rem); line-height:1.5; letter-spacing:.07em; padding:0 0 14px; margin:0 0 24px; border-bottom:1px solid var(--color-cafe-line); }
+.cafe-page h1 { font-family:var(--font-display); font-size:clamp(1.65rem,7vw,2.5rem); line-height:1.45; font-weight:600; color:var(--color-ink); letter-spacing:.025em; margin:0 0 16px; }
+.cafe-page .rule, .cafe-page #rule { line-height:1.8; margin:0 0 18px; }
+.cafe-page button, .cafe-page input, .cafe-page select { font-family:inherit; font-size:1rem; }
+:where(.cafe-page) button { color:var(--color-ink); background:var(--color-paper-raised); border-color:var(--color-cafe-line); border-radius:var(--radius-control); box-shadow:none; }
+:where(.cafe-page) button:where(:hover) { background:var(--color-cafe-wash); }
+.cafe-page :focus-visible { outline:3px solid var(--color-cafe-focus); outline-offset:3px; }
+.cafe-page #feedback, .cafe-page #status:not(:empty) { background:var(--color-cafe-wash); border-color:var(--color-cafe-green); color:var(--color-ink); border-radius:var(--radius-control); }
+.cafe-page #result, .cafe-page #solution { border-color:var(--color-cafe-green); }
+.cafe-page #check, .cafe-page .submit, .cafe-page #weigh, .cafe-page #submit-answer { color:var(--color-paper-raised); background:var(--color-cafe-green); border-color:var(--color-cafe-green); }
+.cafe-page #check:hover, .cafe-page .submit:hover, .cafe-page #weigh:hover, .cafe-page #submit-answer:hover { background:var(--color-cafe-green-hover); }
+.cafe-page .utilities { border-color:var(--color-cafe-line-soft); gap:8px; padding-top:16px; margin-top:12px; }
+.cafe-page .utilities button { background:transparent; }
+.cafe-page dialog { color:var(--color-ink); background:var(--color-paper-raised); border-color:var(--color-cafe-line); box-shadow:var(--shadow-panel); border-radius:var(--radius-panel); }
+.cafe-page dialog::backdrop { background:var(--color-cafe-scrim); }
+.cafe-page dialog header, .cafe-page dialog footer, .cafe-page .modal-head, .cafe-page .modal-foot { border-color:var(--color-cafe-line-soft); }
+.cafe-page #modal-text { font-size:1rem; line-height:1.7; }
+.cafe-page .bridge-board { width:min(100%,390px); aspect-ratio:1; margin:12px auto 20px; }
+.cafe-page .bridge-board line { stroke:var(--color-cafe-line); stroke-width:5; }
+.cafe-page .bridge-board line.used { stroke:var(--color-cafe-green); stroke-width:4; }
+.cafe-page .island { width:44px; height:44px; min-height:44px; min-width:44px; border-radius:50%; border-color:var(--color-cafe-green); background:var(--color-paper-raised); font-family:var(--font-display); font-size:1rem; }
+.cafe-page .island.current { background:var(--color-cafe-green); color:var(--color-paper-raised); box-shadow:0 0 0 4px var(--color-cafe-wash); }
+.cafe-page .island.current:after { background:var(--color-cafe-green); border-color:var(--color-paper-raised); }
+.cafe-page .island.goal { background:var(--color-cafe-orange); color:var(--color-paper-raised); border-color:var(--color-cafe-orange); }
+.cafe-page .progress { color:var(--color-muted); }
+.cafe-page[data-game="nazo-20261102-last-bridge"] #progress { border-top:1px solid var(--color-cafe-line-soft); border-bottom:1px solid var(--color-cafe-line-soft); padding:12px 0; text-align:center; font-size:1rem; }
+.cafe-page[data-game="nazo-20261102-last-bridge"] main { display:block; }
+.cafe-page .coin { background:var(--color-paper-raised); border-color:var(--color-cafe-line); color:var(--color-ink); }
+.cafe-page .coin[data-selected="true"] { outline-color:var(--color-cafe-orange); }
+.cafe-page .coin-links polyline { stroke:var(--color-cafe-line); }
+.cafe-page .pans button, .cafe-page #weigh-records p { background:var(--color-cafe-wash); border-color:var(--color-cafe-line); }
+.cafe-page .pan-content { background:var(--color-paper-raised); border-color:var(--color-cafe-line); }
+.cafe-page .pans { gap:16px; }
+.cafe-page #weigh-records { gap:12px; }
+.cafe-page .answer-mode .coin { background:var(--color-cafe-wash); border-color:var(--color-cafe-green); }
+.cafe-page #submit-answer[aria-disabled="true"] { background:var(--color-cafe-wash); color:var(--color-muted); }
+.cafe-page .action-label, .cafe-page .remaining { font-family:var(--font-body); }
+.cafe-page #rotate, .cafe-page #toggle { background:var(--color-cafe-green); color:var(--color-paper-raised); border-color:var(--color-cafe-green); }
+.cafe-page .dial { background:var(--color-paper-raised); border-color:var(--color-cafe-line); }
+.cafe-page .lamp.on { background:var(--color-cafe-orange); border-color:var(--color-cafe-orange); color:var(--color-paper-raised); }
+.cafe-page #board-title, .cafe-page .board-stage { color:var(--color-ink); }
+.cafe-page input { background:var(--color-paper-raised); color:var(--color-ink); border-color:var(--color-cafe-line); }
+.cafe-page .answer-area, .cafe-page .extras, .cafe-page .help { background:transparent; border-color:var(--color-cafe-line-soft); }
+/* Lateral scenes retain their own theme, scene art and shading. */
+@media(max-width:380px) { .cafe-page > main { padding-inline:20px; } .cafe-brand { margin-bottom:18px; } .cafe-page h1 { margin-bottom:12px; } }
+@media(prefers-reduced-motion:reduce) { .cafe-page *, .game-ui * { scroll-behavior:auto!important; } }
+
+.cafe-page .coin { border-radius:50%; background:var(--color-coin); border-color:var(--color-coin-edge); }
+.cafe-page .coin[data-place="1"] { border-color:var(--color-coin-left); }
+.cafe-page .coin[data-place="2"] { border-color:var(--color-coin-right); }
+.cafe-page .controls .remaining { color:var(--color-paper-raised); font-size:1rem; }
+.cafe-page .target, .cafe-page .target button, .cafe-page .dial { background:transparent; }
+.cafe-page .rim { fill:var(--color-cafe-wash); stroke:var(--color-cafe-line); }
+.cafe-page .lamp-ring { fill:var(--color-paper-raised); stroke:var(--color-cafe-green); }
+.cafe-page .lamp[data-on=true] .lamp-fill { fill:var(--color-lamp-on); stroke:var(--color-coffee); }
+.cafe-page .lamp[data-on=false] .lamp-fill { fill:var(--color-paper-raised); stroke:var(--color-cafe-green); }
+.cafe-page .lamp-mark { stroke:var(--color-cafe-green); }
+
+/* Compact active games reserve height for the board and actions, not ornament. */
+.cafe-page[data-game="nazo-20261101-unchanged-label-lights"] > main { padding-top:50px; }
+.cafe-page[data-game="nazo-20261101-unchanged-label-lights"] .cafe-brand { padding-bottom:8px; margin-bottom:12px; font-size:1rem; }
+.cafe-page[data-game="nazo-20261101-unchanged-label-lights"] .rule { line-height:1.6; }
+.cafe-page .controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.cafe-page #player-dial { width:min(100%,max(112px,calc(100svh - 430px))); }
+
+.cafe-page[data-game="nazo-20261101-unchanged-label"] > main { padding-top:46px; }
+.cafe-page[data-game="nazo-20261101-unchanged-label"] .cafe-brand { font-size:1rem; line-height:24px; padding-bottom:6px; margin-bottom:6px; }
+.cafe-page[data-game="nazo-20261101-unchanged-label"] #answer-workspace { height:calc(100dvh - 96px); }
+.cafe-page .problem-prompt { font-size:1rem; font-family:var(--font-body); line-height:1.5; margin:0; letter-spacing:normal; }
+
+.cafe-page .target { grid-template-columns:56px minmax(0,1fr); }
+.cafe-page .target #example-dial { width:56px; }
+.cafe-page #player-dial { width:min(100%,max(144px,calc(100svh - 398px))); }
+.cafe-page .editor-toolbar { container-type:inline-size; }
+@container (width < 12rem) {
+ .cafe-page .move-controls { grid-template-columns:repeat(4,minmax(44px,1fr)); }
+ .cafe-page .move-controls #undo { grid-column:1/-1; }
+ .cafe-page .action-controls { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+.cafe-page > main { padding-top:clamp(32px,7vw,60px); }
+.cafe-page[data-game="nazo-20261102-last-bridge"] h1 { text-align:center; font-size:clamp(2rem,10vw,4rem); margin-block:6px 24px; }
+.cafe-page[data-game="nazo-20261102-last-bridge"] #rule { text-align:center; }
+.cafe-page[data-game="nazo-20261102-last-bridge"] #progress:empty { display:none; }
+/* Preserve the height budget of the two direct-manipulation screens. */
+.cafe-page[data-game="nazo-20261101-unchanged-label-lights"] > main { padding-top:50px; }
+.cafe-page[data-game="nazo-20261101-unchanged-label"] > main { padding-top:46px; }
+
+.cafe-page .movement { grid-template-columns:repeat(3, minmax(48px,72px)); justify-content:center; gap:8px; }
+.cafe-page .movement #up { grid-column:2; grid-row:1; }
+.cafe-page .movement #left { grid-column:1; grid-row:2; }
+.cafe-page .movement #down { grid-column:2; grid-row:2; }
+.cafe-page .movement #right { grid-column:3; grid-row:2; }

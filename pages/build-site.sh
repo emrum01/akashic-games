@@ -86,7 +86,7 @@ if ! jq -e '
     and (split("/") | all(.[]; . != "" and . != "." and . != ".."));
 
   type == "object"
-  and ((keys | sort) == ["root", "routes", "schemaVersion"])
+  and ((keys | sort) == ["pagesOnlyRoutes", "root", "routes", "schemaVersion"])
   and (.schemaVersion == 1)
   and (.root | type == "object")
   and ((.root | keys | sort) == ["destination", "source"])
@@ -95,12 +95,15 @@ if ! jq -e '
   and (.root.source | safe_relative_path)
   and (.root.destination | safe_relative_path)
   and (.routes | type == "array" and length == 9)
-  and (([.routes[].id] | unique | length) == (.routes | length))
-  and (([.routes[].sourceDirectory] | unique | length) == (.routes | length))
-  and (([.routes[].id] | sort) == [
+  and (.pagesOnlyRoutes | type == "array" and length == 1)
+  and (.pagesOnlyRoutes[0].id == "kobako")
+  and (([ (.routes + .pagesOnlyRoutes)[].id ] | unique | length) == 10)
+  and (([ (.routes + .pagesOnlyRoutes)[].sourceDirectory ] | unique | length) == 10)
+  and (([ (.routes + .pagesOnlyRoutes)[].id ] | sort) == [
     "blessing-alert",
     "bookcafe-3d",
     "broken-web",
+    "kobako",
     "last-stitch",
     "notification-gale",
     "sic",
@@ -108,7 +111,7 @@ if ! jq -e '
     "three-forward-two-back",
     "zoo-escape"
   ])
-  and all(.routes[];
+  and all((.routes + .pagesOnlyRoutes)[];
     type == "object"
     and ((keys | sort) == ["copyMode", "exclude", "id", "sourceDirectory", "sourceEntry"])
     and (.id | type == "string" and test("^[a-z0-9]+(?:-[a-z0-9]+)*$"))
@@ -173,8 +176,8 @@ cmp -s <(printf '%s' "$expected_cname") "$source_root/pages/CNAME" ||
   die "pages/CNAME must be exactly $expected_cname"
 [[ ! -s "$source_root/pages/.nojekyll" ]] || die "pages/.nojekyll must be empty"
 
-route_count="$(jq -er '.routes | length' "$manifest_path")"
-[[ "$route_count" == "9" ]] || die "legacy route registry must contain exactly nine routes"
+route_count="$(jq -er '.routes + .pagesOnlyRoutes | length' "$manifest_path")"
+[[ "$route_count" == "10" ]] || die "legacy route registry must contain exactly ten routes"
 
 while IFS= read -r route_json; do
   route_id="$(jq -er '.id' <<<"$route_json")"
@@ -193,7 +196,7 @@ while IFS= read -r route_json; do
   if [[ "$output_arg" == "$route_source" || "$output_arg" == "$route_source/"* ]]; then
     die "$route_id: output directory would overwrite the source directory"
   fi
-done < <(jq -c '.routes[]' "$manifest_path")
+done < <(jq -c '(.routes + .pagesOnlyRoutes)[]' "$manifest_path")
 
 if [[ -L "$output_arg" || (-e "$output_arg" && ! -d "$output_arg") ]]; then
   die "output path must be a directory: $output_arg"
@@ -237,7 +240,7 @@ while IFS= read -r route_json; do
   if [[ "$route_source_entry" != "index.html" ]]; then
     cp -- "$route_destination/$route_source_entry" "$route_destination/index.html"
   fi
-done < <(jq -c '.routes[]' "$manifest_path")
+done < <(jq -c '(.routes + .pagesOnlyRoutes)[]' "$manifest_path")
 
 [[ -f "$output_arg/index.html" ]] || die "generated root index.html is missing"
 cmp -s "$root_source_path" "$output_arg/index.html" || die "generated root index.html differs from pages/index.html"
@@ -254,6 +257,6 @@ while IFS= read -r route_json; do
     cmp -s "$route_destination/$route_source_entry" "$route_destination/index.html" ||
       die "$route_id: generated index.html is not the declared source entry"
   fi
-done < <(jq -c '.routes[]' "$manifest_path")
+done < <(jq -c '(.routes + .pagesOnlyRoutes)[]' "$manifest_path")
 
 printf 'build-pages: generated and verified %s legacy routes at %s\n' "$route_count" "$output_arg"
