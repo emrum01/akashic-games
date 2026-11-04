@@ -1,0 +1,486 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "emrum01/akashic-games",
+  "sourceCommitSha": "1fc3702e126ec1a7b4ea14f7e38d8199a847a5c4",
+  "sourceTreeSha": "6d82fe4232b53ebc6a023d51108bfb0f49b79e2e",
+  "baselineFileCount": 377,
+  "files": [
+    {
+      "path": "assets/og-kobako.jpg",
+      "sha256": "78e210a16e00e8b78d8980b623ff961560adebe1f0d14ed6abf48b9a022df76a",
+      "bytes": 24571
+    },
+    {
+      "path": "assets/og-nazo-20261031-shiritori-prototype-3.jpg",
+      "sha256": "96677c875eee03d9e9cc51bf8e3da43b8015697f9757580c5cf558dee26317b5",
+      "bytes": 26499
+    },
+    {
+      "path": "assets/og-nazo-20261031-turn-letter.jpg",
+      "sha256": "0855be45dc7e167f6de4e18f6c2770704d13c85fed33187fe4adaf8d185fecb4",
+      "bytes": 24908
+    },
+    {
+      "path": "assets/og-nazo-20261102-last-bridge.jpg",
+      "sha256": "4959d565b57fa621c0ddf9fed9c5561e2a6cbc9d7a56ea8c4357cf40bf4cfee2",
+      "bytes": 24553
+    },
+    {
+      "path": "assets/og-nazo-20261102-long-way.jpg",
+      "sha256": "9e34d6ba4aba91b88e5f479c7fb505571b6b8a14a3335b83109ae5469ff6e2ee",
+      "bytes": 20767
+    },
+    {
+      "path": "assets/og-nazo-20261102-nine-points.jpg",
+      "sha256": "f83c6d3d596d6d3a52ce843001008543f7b2c16bd6004d798fab5399fd2c49ba",
+      "bytes": 16098
+    },
+    {
+      "path": "assets/og-nazo-20261102-one-heavy.jpg",
+      "sha256": "4ec5533e76f22bc7d2a3241e1174c1c374fe337a5aeb029de45ce9ff706fc30e",
+      "bytes": 17759
+    },
+    {
+      "path": "assets/og-nazo-20261102-two-exits.jpg",
+      "sha256": "72d1ad70d510a7689730a6b57c126bd9adc1923481054d80205cdba4173e079e",
+      "bytes": 17807
+    },
+    {
+      "path": "assets/web-games-LICENSE.txt",
+      "sha256": "4166d6c3f31c138970860bb268f9b63422f73e4948aca6482dd77beecde7aa18",
+      "bytes": 6638
+    },
+    {
+      "path": "assets/web-games.css",
+      "sha256": "7e1b8eede94c948ecaa3014fa2333c74b1df9074e80a9e6f1bfd355c30ea712a",
+      "bytes": 2245
+    },
+    {
+      "path": "assets/web-games.js",
+      "sha256": "d4df49ddb1517da96bb6b2b3044625cb16bcd7e640699b1901f1e8667bc8508b",
+      "bytes": 323260
+    },
+    {
+      "path": "cafe.css",
+      "sha256": "1b795af1ab8c0cbf458dd10b9d5777acc4a76294e05af3f55eb0bb44d6538ff0",
+      "bytes": 16958
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/app.js",
+      "sha256": "7a58ccb0a0216fe4ad9db4c320698c5da64aaa7155a3465b8ac846aa14afe472",
+      "bytes": 60686
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/battle-system-v2.mjs",
+      "sha256": "1d2abc82c524f2191b4eab466782def856d54c1eaad0194de2e255b80cca4f93",
+      "bytes": 30859
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/battle-v2-store.mjs",
+      "sha256": "d5c8c9a3a361a4c2c83317061968312e6eff1b68bf4b0a3062ce68b8803e12ba",
+      "bytes": 1477
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/grandma-earwax-v1/earwax-tweezers.png",
+      "sha256": "b9b452daf10129c1298cab25a897f08373c9997d50992e898bc45e77f553d454",
+      "bytes": 284148
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/grandma-earwax-v1/grandma-seated.png",
+      "sha256": "25a13f493f18a81dd32a866a206a920da59bc3f584a0bdf4bdf4769a72dc2055",
+      "bytes": 1017897
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/characters/begging-man.png",
+      "sha256": "4b709165fe54268bfe271fb7eb08f5a95418665cf01597fff78125508fc74e4f",
+      "bytes": 306192
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/characters/construction-worker.png",
+      "sha256": "c3fa0c6e0fb93ab212d14ec1a3aea8bd87036c2853233b7502b480ed40e5d772",
+      "bytes": 338196
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/characters/flower-seller.png",
+      "sha256": "9dd5c7c517d22bad05357c8f169bd41e88e1af40086716e44ea77b7eab4dbc3b",
+      "bytes": 385825
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/characters/hon-lion.png",
+      "sha256": "fa55141d0e7e9c9b842822b10a560935dd7cd19e3012a564dfe63a25083c5de8",
+      "bytes": 405430
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/characters/ninja.png",
+      "sha256": "f76c754fd7ebc656a55798fd37b69d0836067a246bd50b483a0535059c862fba",
+      "bytes": 226464
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/characters/priest.png",
+      "sha256": "d0b3e5f0547abdc31da570b54257a463c5494ea5bbcc7e3732d9c6786626c9bb",
+      "bytes": 202302
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/videos/clown-scythe-loop-v2.webm",
+      "sha256": "6982ae5809f77e22d665de7eee17204fbaea3ce25bc787389548d239e1b6486b",
+      "bytes": 266208
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/videos/clown-scythe-poster-v2.png",
+      "sha256": "79e8f8c662e65ed1d7c73979458573c1ca2173f7321a30133682e0487721dcb0",
+      "bytes": 145151
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/videos/sun-laser-loop.webm",
+      "sha256": "e224750a9284905bd16b0a5f6a39b2188f52d134ad09bbe9301332c96d8b1a5c",
+      "bytes": 869047
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/characters/space-window-cast-v1/videos/sun-laser-poster.png",
+      "sha256": "4778f08cbfe59c1a33e49ae6dad7a30055518a756a3b210e339e436b770fb7f7",
+      "bytes": 178248
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/corridor-1m-runtime-scene-only-v5/keyframes/c008-pc.png",
+      "sha256": "a7e39a772206fdebdb9125370b2d58ea35a2c21664db7731bfb999cabad005ba",
+      "bytes": 1914570
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/boss-chamber/final.png",
+      "sha256": "099d9f37b84a7fc12eab2631ed2945d68218a9fd815a670d4fcb14db469dff3e",
+      "bytes": 2524764
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/portal-threshold/final.png",
+      "sha256": "c59445037c509072bc78fd93585d464f54d3c2a70d321dd29c38da75139ce07b",
+      "bytes": 2578432
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z001.png",
+      "sha256": "1820a6df7ae0f5d63798fdbab23b4e34a2647db7753c25169920c70a26b1f323",
+      "bytes": 2485419
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z002.png",
+      "sha256": "0e4ee9c29454a0656663fc3d92fd589db05423907f6a7ea8f2daf16886036ccc",
+      "bytes": 2441090
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z003.png",
+      "sha256": "0be41bc391f4dd0ff6f2d129ff863e6387332d620f31d86eb2730308c662eaf7",
+      "bytes": 2341917
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z004.png",
+      "sha256": "0fc83b9f3358ba968cef110550c81c688b32c419443c684da6f4f47d19b4265f",
+      "bytes": 2217153
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z005.png",
+      "sha256": "10a426297b16f747d7f4e319c79e866879040f18dfd30fa73c38bc33252391b5",
+      "bytes": 2085027
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z006.png",
+      "sha256": "4ce26179f4368fc689fb5335d33a1b49ff0c987e1e541ef8391f9567527ec87f",
+      "bytes": 2729554
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z007.png",
+      "sha256": "e49c597425d0b9a92359f344caa820e3d4bcf0ba898ee622df09d63c9b5597c0",
+      "bytes": 2677323
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z008.png",
+      "sha256": "0f4f1055dd49980e564403ab94195e678008cc2353555ae063680a7f885b0fd6",
+      "bytes": 2584365
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z009.png",
+      "sha256": "5feb10c9f30323c80244226217379a6b888b7fc811de1fd70fc0fd4ba4d4122a",
+      "bytes": 2463269
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/space-window-arc-v1/stages-pc/ship-z010.png",
+      "sha256": "118f882a358656579f06d0affed22ae3c7ce01996dae09c254738e08b0cb0123",
+      "bytes": 2277936
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/zoom-extension-v2/zoom-anchor-detail-transfer-v1.png",
+      "sha256": "c29b6a1e4cf30c147693ecc31b44518d21b3e66e92e4aaa27d3500bbbd146767",
+      "bytes": 1973706
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/zoom-refinement-z006-z011-v1/z006/anchor-refined.png",
+      "sha256": "0598b5bb41b0eae146fbeba089ce03a3d9763d191f09332b310e5b69bcc57fec",
+      "bytes": 1753985
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/zoom-refinement-z006-z011-v1/z007/anchor-refined.png",
+      "sha256": "705a15ac1808cc19dae6c1f01b9f9c0be4b5790f66aa7b996a0d9c667e8b8acb",
+      "bytes": 2011561
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/zoom-refinement-z006-z011-v1/z008/anchor-refined.png",
+      "sha256": "b47e6bcb3128dd097f29e222ef8bb5cb8f4a03dda96027d1da71b802d05e80ee",
+      "bytes": 1789574
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/view-cells/zoom-refinement-z006-z011-v1/z009/anchor-refined.png",
+      "sha256": "dcdf491007f4259264267884602761231814ccd71356253417d95c1f534fe74f",
+      "bytes": 1745321
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/amber_bottle.png",
+      "sha256": "bc693317ff16baa4af5aa58a675ffae8a9b8641ef0f67b438ca0caa8200de244",
+      "bytes": 903834
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/brass_clasp.png",
+      "sha256": "4cc1e4ad565a699c860e22555d5232372f24953843d5f637296da6d49d449f29",
+      "bytes": 1406910
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/glass_jar.png",
+      "sha256": "50bf61ebf298b88449ef298024184ad2aed9f124fe35dfa1ebc89392a7df2e49",
+      "bytes": 1293050
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/lidded_bowl.png",
+      "sha256": "76b16c037f8d46efebb303c25816ac5cb21677a301ee8eb85acda09c2907842f",
+      "bytes": 1728952
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/loose_page.png",
+      "sha256": "b5cdd3579984e5ade692800a473f27a5c04ab3d6c794b81a94fd019b9505ce48",
+      "bytes": 2026297
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/mirror_light_conduit.png",
+      "sha256": "fabc05f110705107821abd71a908ea27079a6939089b56db1f457dc284c393f5",
+      "bytes": 1061768
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/sun_filament.png",
+      "sha256": "7d63d6eaed8114856fde69f1bf9dd09ce979b458ea683214614114708b46e9e0",
+      "bytes": 694716
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/assets/wax_thread.png",
+      "sha256": "76be5efa4d284aeaaacc4ef0a330fffd3299b4af4d4e30e2192a69dca4e2554a",
+      "bytes": 1216275
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/manifest.json",
+      "sha256": "c0c02172d9d956c9f42fd6aceeb3cff501d525919ce6253d0e43cb05a32d8a14",
+      "bytes": 3907
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/amber_bottle.png",
+      "sha256": "a7b08ee93ea1c2494601e918ad42c8af0e0f5c82a3ab048fd1a639e25ff22323",
+      "bytes": 10926
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/brass_clasp.png",
+      "sha256": "815582c6fdbb3689a4ee072f8a230bac64733377da14a851760e4603274081ef",
+      "bytes": 19386
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/glass_jar.png",
+      "sha256": "1123cfbfdc42043091ac16c7ec3fa4062582b0ab11dcb6cd476ee2357f16b3ee",
+      "bytes": 14728
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/lidded_bowl.png",
+      "sha256": "f010684508082b050d57fb103bb84966910a9126d2a24a5848e60a5e4f7d39ef",
+      "bytes": 20568
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/loose_page.png",
+      "sha256": "6b4d86090515a8ce4ae733b06290eed4437ef0c334df52baa927f6b3f1d5bcd1",
+      "bytes": 20855
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/mirror_light_conduit.png",
+      "sha256": "0fe646d90dc746da4cb3358f316d993079cf6c37c3d8a8686ac06db7e6fad01d",
+      "bytes": 12871
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/sun_filament.png",
+      "sha256": "377e7d7a30f6496e0535014de77821c61c115310a7b1ac8334742eb253cc37d9",
+      "bytes": 9927
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/generated/world-content/micro-cell-narrative-v1/thumbnails/wax_thread.png",
+      "sha256": "64d4a76ea5c1301c5fb990fdaa94f25501f300022fd194a828604cb8c912b7d0",
+      "bytes": 15335
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/grandma-encounter-state.mjs",
+      "sha256": "db5c092eccc2da77c0af9170bb2f07bbb6ef9ef51478285e7cd08560b194c459",
+      "bytes": 7223
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/grandma-room-flow-plan.mjs",
+      "sha256": "086e58da9797e1cf4d98ee512fbcb46d325c13cc1be7484514d512e89cabcccf",
+      "bytes": 1304
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/hotspot-manifest.mjs",
+      "sha256": "8e4876b8fc13afc7c586d82ebc56f6cfb273e2274f1fdfb8770fd8183efba9c1",
+      "bytes": 33825
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/hotspot-runtime.mjs",
+      "sha256": "e0fac1eb2a546f699fbb3f9bed09c0bcb38477c40e0ad965e8968952172f9d84",
+      "bytes": 15300
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/index.html",
+      "sha256": "db76d1d6e288eb3c25587cc114d8cba325d3b6fed962af6305706945328c1bf4",
+      "bytes": 3990
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/narrative-content.mjs",
+      "sha256": "792a717c5d7fefb782a6953b0a8fb2e24a784ff0e3164991eb0be8e7f5eaa931",
+      "bytes": 19427
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/space-arc-runtime.mjs",
+      "sha256": "15aab2313b2b2347b2c13af2ab236ef521375b6ef8fc62cf756ac3878ddcb78d",
+      "bytes": 21095
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/space-arc-state.mjs",
+      "sha256": "f865897256b9f590506b0d6589112496d135de3d26496d96cba549cc1dff9a1d",
+      "bytes": 26657
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/space-arc-v2-adapter.mjs",
+      "sha256": "800ee3a77b4520c40e52b70f8b9efc2f9ef0b3fe54aec65e4beaf9feb7edd7a3",
+      "bytes": 9586
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/styles.css",
+      "sha256": "b91be018754780b91d6780084c828079dd14bc490abba05f18e8f1007689e760",
+      "bytes": 16560
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/view-cell-graph.json",
+      "sha256": "71c936847bc9b31009100ceed5b6e388915a7e83f7c61cfd391f7ba821a3bf0a",
+      "bytes": 17740
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/methods/micro-cell/world-item-runtime.mjs",
+      "sha256": "6e32eba9d86edd9cce1578a3180087e18275b7a5507d76e9411ea6e6755e669b",
+      "bytes": 4725
+    },
+    {
+      "path": "ear-scope-reconstruction-lab/reference/target-pc-1536x1024.png",
+      "sha256": "974969b6ab13b78100249560db79e687b33c5b2e3193f190cec5306e8ca18b24",
+      "bytes": 2593683
+    },
+    {
+      "path": "kobako/completion.css",
+      "sha256": "fac46481d9f090b784a72aca409ed82d91936869d96effd19f66acd9705ed7b2",
+      "bytes": 117
+    },
+    {
+      "path": "kobako/index.html",
+      "sha256": "44ff5a3b984c1267a443ea4e22d5a328023f3fd3289a2893376166e352dd7e0e",
+      "bytes": 5356,
+      "replacesSourceSha256": "14313ef9f86059c7406ffca4eeef489d61acfa2560342343687473940d28866c"
+    },
+    {
+      "path": "last-bridge/index.html",
+      "sha256": "e015ccedbee1d4c1d15ea0e801f2f9465ca0187644d0efc038eba579b7954a41",
+      "bytes": 1424
+    },
+    {
+      "path": "last-bridge/style.css",
+      "sha256": "9956a52355c3782954791528c8f964a3ea01f1f88329f497541a9fcd0fb56153",
+      "bytes": 8536
+    },
+    {
+      "path": "long-way/index.html",
+      "sha256": "493044c697324b95b91582a7368397947726aa8a53564a56a9b3f31c807f3122",
+      "bytes": 1424
+    },
+    {
+      "path": "long-way/style.css",
+      "sha256": "de73fadbf5ee0891772e87e7461506ade7d266caed8cba402b9d7a3fb95bf8f0",
+      "bytes": 9930
+    },
+    {
+      "path": "one-heavy/index.html",
+      "sha256": "cd932536f048853f6fd9692f61a50596496e46cd7837552eb5dcbd0daa178252",
+      "bytes": 1444
+    },
+    {
+      "path": "one-heavy/style.css",
+      "sha256": "91972e549255edd4c260b0e4ae0693407757a7098bc1f56fcddfcb3538868b9a",
+      "bytes": 5257
+    },
+    {
+      "path": "robots.txt",
+      "sha256": "ee6f555ee74cb5822882910d536ab42cb24251131bcab51f86496cf7e7d1d05b",
+      "bytes": 1303,
+      "replacesSourceSha256": "a97638863f5632fa969daed53323c64203ddffda083ef9b41c944c8f19202021"
+    },
+    {
+      "path": "symbol-rule/assets/problem.webp",
+      "sha256": "147fed6dd7fd1ad2c5a36562cd3a0ede109425ba4d7413edf5734d9a7b0eafd5",
+      "bytes": 15536
+    },
+    {
+      "path": "symbol-rule/index.html",
+      "sha256": "3a1d01b8ac91f7a353151460fe2b0c35f8a7ba5fed4932315e8d65aefe7f6297",
+      "bytes": 1294
+    },
+    {
+      "path": "symbol-rule/style.css",
+      "sha256": "4262d79026346b6b0be200df730ec527e48dcf752348401055cd64b96320dd52",
+      "bytes": 1547
+    },
+    {
+      "path": "three-cuts/index.html",
+      "sha256": "9e70a53f3ccc97db19af5bf7b61c02a06ee3cee926bbff1cbf04f9cd5ea1340b",
+      "bytes": 1437
+    },
+    {
+      "path": "three-cuts/style.css",
+      "sha256": "9956a52355c3782954791528c8f964a3ea01f1f88329f497541a9fcd0fb56153",
+      "bytes": 8536
+    },
+    {
+      "path": "three-pictures/assets/nazo-20261031-turn-letter.webp",
+      "sha256": "aea72caac2578b24d2484ba577e1c48251c3cb8f2dc6d0f24b2ed55b0392f4a1",
+      "bytes": 19942
+    },
+    {
+      "path": "three-pictures/completion.css",
+      "sha256": "132cc013be0c9590d38cf034c053399ab5c0025122e10332a0249be7cb3b61f0",
+      "bytes": 547
+    },
+    {
+      "path": "three-pictures/index.html",
+      "sha256": "e9e850d2e8bc557a0b75a2445f527f65145a75d6ad1bbe001f01767fcf570a1a",
+      "bytes": 1406
+    },
+    {
+      "path": "three-pictures/style.css",
+      "sha256": "fa89a4bab4db376f893bb5d1d0af61f02e4070098132bd45ff4422d0eb660382",
+      "bytes": 1571
+    },
+    {
+      "path": "two-exits/index.html",
+      "sha256": "2b9b87e51987d133cc10de62f028251f7ac941dbf6ae09aebeaa1d8b7bf53586",
+      "bytes": 1429
+    },
+    {
+      "path": "two-exits/style.css",
+      "sha256": "9956a52355c3782954791528c8f964a3ea01f1f88329f497541a9fcd0fb56153",
+      "bytes": 8536
+    }
+  ]
+}
