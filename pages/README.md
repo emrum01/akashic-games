@@ -59,3 +59,12 @@ source collisions, missing/changed baseline files, receipts, path traversal and
 symlinks. `test-mirror-legacy.sh` also retains the independent additive-only
 publisher and shared nine-route platform ownership tests. Platform CI runs these
 checks on PRs without deployment credentials.
+
+## Bounded compiler update preparation
+
+[compiler-update.md](compiler-update.md) specifies a separate offline preparation
+contract for exactly two software-file replacements. It preserves every other
+published byte, including the OGP whose encoder comment differs in CI, and
+produces a complete candidate plus independently verifiable rollback data.
+The additive-only publisher, retained baseline and live workflow stay unchanged;
+the preparer cannot upload, commit, push or grant publication approval.
