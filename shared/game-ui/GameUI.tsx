@@ -159,11 +159,12 @@ export function ConversationShell({
   const activePage = pages[pageIndex] || null;
   const hasMore = pageIndex + 1 < pages.length;
   const pageAction = composerVisible || chatPending ? null : hasMore ? "次へ" : actionLabel;
+  const hasTranscript = Boolean(transcript);
 
   const resizeComposerInput = useCallback(() => {
     const input = inputRef.current;
     const panel = input?.closest<HTMLElement>("#conversation");
-    if (!transcript || !composerVisible || !input || !panel || panel.hasAttribute("data-short-press")) return;
+    if (!hasTranscript || !composerVisible || !input || !panel || panel.hasAttribute("data-short-press")) return;
     if (input.closest<HTMLElement>("#composer")?.hidden) return;
     const footer = panel.querySelector<HTMLElement>(".composer-footer");
     const header = panel.closest(".game-ui")?.querySelector<HTMLElement>(".topbar");
@@ -187,7 +188,7 @@ export function ConversationShell({
     input.style.height = `${Math.ceil(Math.min(limit, Math.max(44, natural)))}px`;
     input.style.overflowY = natural > limit ? "auto" : "hidden";
     input.scrollTop = caretAtEnd ? input.scrollHeight : previousScroll;
-  }, [Boolean(transcript), composerVisible, inputRef]);
+  }, [hasTranscript, composerVisible, inputRef]);
 
   useLayoutEffect(() => {
     resizeComposerInput();
