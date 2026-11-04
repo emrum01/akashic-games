@@ -1,56 +1,21 @@
-name: Deploy to GitHub Pages
+name: Legacy Pages deployment (retired)
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_dispatch: {}
 
-permissions:
-  contents: write
-
-concurrency:
-  group: deploy-gh-pages
-  cancel-in-progress: true
+# Keep an explicit refusal at the old workflow path so a manual run on the
+# updated main branch explains why this partial publisher must not be used.
+# Deployment ownership and remaining historical-ref risks are documented in
+# .github/PAGES-DEPLOYMENT.md. No checkout, credentials, build, or publish step.
+permissions: {}
 
 jobs:
-  deploy:
+  refuse-legacy-deployment:
     runs-on: ubuntu-latest
+    timeout-minutes: 1
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build site
+      - name: Refuse the retired partial deployment
         run: |
-          mkdir -p _site
-          rsync -a \
-            --exclude='DESIGN-*.md' \
-            --exclude='HANDOFF.md' \
-            --exclude='ASSETS-catalog.md' \
-            bookcafe-3d/ _site/bookcafe-3d/
-          cp -rL broken-web _site/broken-web
-          cp -r zoo-escape _site/zoo-escape
-          rsync -a \
-            --exclude='DESIGN.md' \
-            --exclude='verify/' \
-            still-thread/ _site/still-thread/
-          rsync -a \
-            --exclude='README.md' \
-            notification-gale/ _site/notification-gale/
-          rsync -a \
-            --exclude='README.md' \
-            --exclude='DESIGN.md' \
-            --exclude='ADR.md' \
-            --exclude='game-flow.fsl' \
-            blessing-alert/ _site/blessing-alert/
-          cp pages/index.html pages/robots.txt pages/CNAME _site/
-          cp pages/.nojekyll _site/.nojekyll
-
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./_site
-          publish_branch: gh-pages
-          cname: games.escape-safari.com
-          commit_message: "deploy: ${{ github.event.head_commit.message }}"
+          echo '::error::Legacy Pages deployment is retired: its six-route build can delete published games and replace robots.txt.'
+          echo 'Use the reviewed Mirror legacy repos publication in emrum01/akashic; see .github/PAGES-DEPLOYMENT.md. This workflow publishes nothing.'
+          exit 1
