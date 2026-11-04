@@ -13,6 +13,8 @@ import re
 import subprocess
 import sys
 
+import reviewed_update
+
 
 def require(condition, message):
     if not condition:
@@ -51,7 +53,9 @@ def load_json(path):
     return json.loads(path.read_text(), object_pairs_hook=unique_keys)
 
 
-def retain(artifact, baseline_repo, manifest_path):
+def retain(artifact, baseline_repo, manifest_path, reviewed_update_path=None, source_repo=None):
+    require((reviewed_update_path is None) == (source_repo is None),
+            "--reviewed-update and --source-repo must be supplied together")
     require(artifact.is_dir() and not artifact.is_symlink(), "artifact must be a real directory")
     artifact = artifact.resolve()
     baseline_repo = baseline_repo.resolve()
@@ -60,6 +64,8 @@ def retain(artifact, baseline_repo, manifest_path):
     for path in artifact.rglob("*"):
         require(not path.is_symlink(), f"artifact contains symlink: {path}")
         require(path.is_dir() or path.is_file(), f"artifact contains non-file: {path}")
+        if path.is_file():
+            require(path.stat().st_nlink == 1, f"artifact contains hard-linked file: {path}")
         safe_path(path.relative_to(artifact).as_posix())
 
     manifest = load_json(manifest_path)
@@ -86,6 +92,48 @@ def retain(artifact, baseline_repo, manifest_path):
     require(type(manifest["baselineFileCount"]) is int
             and len(baseline) == manifest["baselineFileCount"], "baseline file count differs")
 
+    reviewed_updates = []
+    update_mode = None
+    update_by_path = {}
+    if reviewed_update_path is not None:
+        reviewed_updates = reviewed_update.validate_reviewed_update(
+            reviewed_update_path, baseline_repo, source_repo
+        )
+        require(commit == reviewed_update.PUBLIC_COMMIT
+                and tree == reviewed_update.PUBLIC_TREE
+                and len(baseline) == reviewed_update.PUBLIC_FILE_COUNT,
+                "baseline manifest differs from the reviewed update snapshot")
+        source_repo = Path(source_repo).resolve()
+        require(artifact != source_repo and source_repo not in artifact.parents
+                and artifact not in source_repo.parents,
+                "artifact and source repository overlap")
+        update_by_path = {entry["path"]: entry for entry in reviewed_updates}
+        states = set()
+        for entry in reviewed_updates:
+            path = entry["path"]
+            require(path in baseline, f"reviewed update path is not in pinned baseline: {path}")
+            destination = artifact / path
+            require(destination.is_file() and not destination.is_symlink(),
+                    f"reviewed artifact path is missing or not a file: {path}")
+            candidate_data = destination.read_bytes()
+            if (hashlib.sha256(candidate_data).hexdigest() == entry["oldSha256"]
+                    and len(candidate_data) == entry["oldBytes"]):
+                require(candidate_data == git(baseline_repo, "cat-file", "blob",
+                                              f"{commit}:{path}"),
+                        f"reviewed old bytes differ from pinned public Git object: {path}")
+                states.add("old")
+            elif (hashlib.sha256(candidate_data).hexdigest() == entry["newSha256"]
+                    and len(candidate_data) == entry["newBytes"]):
+                source_path = f"{reviewed_update.SOURCE_TREE_PATH}/{path}"
+                require(candidate_data == git(source_repo, "cat-file", "blob",
+                                              f"{reviewed_update.SOURCE_COMMIT}:{source_path}"),
+                        f"reviewed new bytes differ from preserved source Git object: {path}")
+                states.add("new")
+            else:
+                raise ValueError(f"reviewed artifact bytes are neither old nor new: {path}")
+        require(len(states) == 1, "reviewed artifact contains a mixed old/new source state")
+        update_mode = states.pop()
+
     entries = manifest["files"]
     require(isinstance(entries, list) and entries, "retained file list must not be empty")
     planned = {}
@@ -95,6 +143,8 @@ def retain(artifact, baseline_repo, manifest_path):
             {"path", "sha256", "bytes", "replacesSourceSha256"}), "invalid retained file schema")
         path = safe_path(entry["path"])
         require(path not in planned, f"duplicate retained path: {path}")
+        require(path not in update_by_path,
+                f"path cannot be both retained and reviewed for update: {path}")
         require(path in baseline, f"retained file is not in pinned baseline: {path}")
         expected = digest(entry["sha256"], 64, "retained SHA-256")
         require(type(entry["bytes"]) is int and entry["bytes"] >= 0, "invalid retained byte count")
@@ -126,6 +176,16 @@ def retain(artifact, baseline_repo, manifest_path):
             candidate = artifact / path
             require(candidate.is_file(), f"public baseline file is missing: {path}")
             data = candidate.read_bytes()
+        if path in update_by_path and update_mode == "new":
+            entry = update_by_path[path]
+            source_path = f"{reviewed_update.SOURCE_TREE_PATH}/{path}"
+            source_bytes = git(source_repo, "cat-file", "blob",
+                               f"{reviewed_update.SOURCE_COMMIT}:{source_path}")
+            require(data == source_bytes
+                    and hashlib.sha256(data).hexdigest() == entry["newSha256"]
+                    and len(data) == entry["newBytes"],
+                    f"reviewed public update differs from preserved source bytes: {path}")
+            continue
         require(git_blob_hash(data) == blob, f"public baseline file changed: {path}")
 
     for path, data in planned.items():
@@ -133,7 +193,8 @@ def retain(artifact, baseline_repo, manifest_path):
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(data)
     print(f"retain-published: verified {len(baseline)} public files at {commit}; "
-          f"retained {len(planned)} exact files")
+          f"retained {len(planned)} exact files"
+          + (f"; reviewed update state {update_mode}" if reviewed_update_path is not None else ""))
 
 
 def main():
@@ -142,9 +203,14 @@ def main():
     parser.add_argument("--baseline-repo", type=Path, required=True)
     parser.add_argument("--manifest", type=Path,
                         default=Path(__file__).with_name("published-baseline.json"))
+    parser.add_argument("--reviewed-update", type=Path,
+                        help="explicit receipt authorizing its exact two public file replacements")
+    parser.add_argument("--source-repo", type=Path,
+                        help="local Git clone containing the receipt's preserved source commit")
     args = parser.parse_args()
     try:
-        retain(args.artifact, args.baseline_repo, args.manifest)
+        retain(args.artifact, args.baseline_repo, args.manifest,
+               args.reviewed_update, args.source_repo)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         # Do not echo subprocess stderr (which may include transport details).
         print(f"retain-published: error: {error}", file=sys.stderr)

@@ -16,12 +16,47 @@ game and current search-exclusion policy.
 The retained files cover the eight adopted Web games, shared JS/CSS/OGP/legal
 notices, `cafe.css`, and all 63 published micro-cell files. They come from the
 immutable Git commit, never a guessed asset or mutable working-tree file.
-The other 282 files still come from the monorepo source. After completion all
-377 baseline paths must match the pinned Git blobs. New additive files are
-permitted; the independent publisher then checks the *current* gh-pages checkout
-and rejects any deletion or modification, including newer public files missing
-from this pinned snapshot. Updating this baseline requires a separately reviewed
-public snapshot and receipts.
+The other 282 files still come from the monorepo source. By default, after
+completion all 377 baseline paths must match the pinned Git blobs. New additive
+files are permitted; the independent publisher then checks the *current*
+gh-pages checkout and rejects any deletion or modification, including newer
+public files missing from this pinned snapshot. Updating this baseline requires
+a separately reviewed public snapshot and receipts.
+
+## Reviewed two-file update receipt
+
+Additive-only remains the default. The explicit
+`reviewed-public-updates.json` receipt authorizes only these replacements in the
+pinned 377-file snapshot:
+
+| Path | Public bytes | Reviewed source bytes |
+| --- | --- | --- |
+| `last-stitch/game.js` | SHA-256 `8bb7607f931c320ffa8fbd5150477589fd4c501f134f2b9b8291cb5605e2fdc2`, 41,054 bytes | SHA-256 `e71aec9380c9ab7f3aa2bb6b406ac10a404f2a75aa77f2741e46b0f66581ae06`, 37,641 bytes |
+| `last-stitch/index.html` | SHA-256 `3513b449d1702fea3c45a12af81cc31917f469b3b885269ecd7ac20b54db6299`, 18,013 bytes | SHA-256 `66ac2e90ea631137577273613389fe33ce85c076ccf36d2b551ad3426401f157`, 20,312 bytes |
+
+The receipt binds the public repository, exact public commit/tree/count, and the
+preserved `emrum01/akashic` source commit plus its root commit tree and
+`apps/akashic-games` subtree. `reviewed_update.py` rejects unknown or duplicate
+JSON fields, extra/missing/duplicate paths, unsafe paths, non-regular Git
+objects, and receipt hashes or sizes that do not match those actual Git blobs.
+It has no network or provider writes. The workflow fetches the full history of
+the fixed PR 192 head so the preserved source commit remains available if this
+policy lands before that source change.
+
+Both retention and publishing independently validate the receipt and source
+Git objects. Retention accepts the two artifact files only when both are still
+the exact old public bytes or both are the exact reviewed source bytes. The
+publisher additionally checks every current `gh-pages` file. It permits the
+old/old state before the source merge, old-live to new-artifact replacement,
+and new/new reruns; it rejects mixed states, unknown bytes, a live downgrade,
+deletions, and unrelated replacements. All inventory checks finish before any
+copy. Every other pinned file and any newer public files retain the existing
+byte-for-byte checks. The receipt is passed explicitly; without it the existing
+additive-only behavior remains unchanged.
+
+This policy does not itself publish a release. It only provides a reviewed
+path for the later two-file Last Stitch artifact change; public deployment
+remains controlled by the existing main-branch workflow and its non-force push.
 
 ```sh
 git clone --depth 1 --single-branch --branch gh-pages \
@@ -34,6 +69,15 @@ python3 apps/akashic-games/pages/retain-published.py \
   --artifact /tmp/akashic-pages --baseline-repo /tmp/akashic-public
 bash apps/akashic-games/pages/publish-site.sh --check-only \
   --artifact /tmp/akashic-pages --pages-root /tmp/akashic-public
+# Opt into the reviewed two-file scope explicitly when the source object is available.
+python3 apps/akashic-games/pages/retain-published.py \
+  --artifact /tmp/akashic-pages --baseline-repo /tmp/akashic-public \
+  --reviewed-update apps/akashic-games/pages/reviewed-public-updates.json \
+  --source-repo /path/to/akashic-source-clone
+bash apps/akashic-games/pages/publish-site.sh --check-only \
+  --artifact /tmp/akashic-pages --pages-root /tmp/akashic-public \
+  --reviewed-update apps/akashic-games/pages/reviewed-public-updates.json \
+  --source-repo /path/to/akashic-source-clone
 bash scripts/test-mirror-legacy.sh
 ```
 
@@ -56,9 +100,11 @@ the shared media pipeline and their own reviewed publication scope.
 
 `test-retain-published.py` uses offline Git fixtures to check exact completion,
 source collisions, missing/changed baseline files, receipts, path traversal and
-symlinks. `test-mirror-legacy.sh` also retains the independent additive-only
-publisher and shared nine-route platform ownership tests. Platform CI runs these
-checks on PRs without deployment credentials.
+symlinks. `test-reviewed-update.py` adds offline fixtures for the opt-in
+two-file state machine and publisher preflight. `test-mirror-legacy.sh` also
+retains the independent additive-only publisher and shared nine-route platform
+ownership tests. Platform CI runs these checks on PRs without deployment
+credentials.
 
 ## Bounded compiler update preparation
 
@@ -66,5 +112,7 @@ checks on PRs without deployment credentials.
 contract for exactly two software-file replacements. It preserves every other
 published byte, including the OGP whose encoder comment differs in CI, and
 produces a complete candidate plus independently verifiable rollback data.
-The additive-only publisher, retained baseline and live workflow stay unchanged;
-the preparer cannot upload, commit, push or grant publication approval.
+Compiler preparation does not authorize publication. The default additive-only
+publisher and the separate Last Stitch two-file mode above grant no compiler
+replacement scope. The preparer cannot upload, commit, push or grant publication
+approval.

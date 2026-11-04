@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile, rm, cp, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm, cp, symlink, realpath } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -60,7 +60,7 @@ function jpeg(comment, tail = "same encoded scan") {
 
 let fixture;
 beforeEach(async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "compiler-pages-offline-"));
+  const root = await mkdtemp(path.join(await realpath(os.tmpdir()), "compiler-pages-offline-"));
   const source = path.join(root, "source"),
     pages = path.join(root, "pages"),
     release = path.join(root, "release");

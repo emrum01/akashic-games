@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "publicRepository": "emrum01/akashic-games",
+  "publicCommitSha": "1fc3702e126ec1a7b4ea14f7e38d8199a847a5c4",
+  "publicTreeSha": "6d82fe4232b53ebc6a023d51108bfb0f49b79e2e",
+  "publicFileCount": 377,
+  "sourceRepository": "emrum01/akashic",
+  "sourceCommitSha": "cd05b5a67b5950e9399a67ffaae2e9211bdc7b6b",
+  "sourceCommitTreeSha": "20a9c59447a5b511ebd02416b947d189d521280b",
+  "sourceTreePath": "apps/akashic-games",
+  "sourceTreeSha": "25e75e0a9c0d976ed67853008347fdcdbcfad885",
+  "sourceFetchRef": "refs/pull/192/head",
+  "updates": [
+    {
+      "path": "last-stitch/game.js",
+      "oldSha256": "8bb7607f931c320ffa8fbd5150477589fd4c501f134f2b9b8291cb5605e2fdc2",
+      "oldBytes": 41054,
+      "newSha256": "e71aec9380c9ab7f3aa2bb6b406ac10a404f2a75aa77f2741e46b0f66581ae06",
+      "newBytes": 37641
+    },
+    {
+      "path": "last-stitch/index.html",
+      "oldSha256": "3513b449d1702fea3c45a12af81cc31917f469b3b885269ecd7ac20b54db6299",
+      "oldBytes": 18013,
+      "newSha256": "66ac2e90ea631137577273613389fe33ce85c076ccf36d2b551ad3426401f157",
+      "newBytes": 20312
+    }
+  ]
+}
