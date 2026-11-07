@@ -19,7 +19,10 @@ Disallow: /kobako/
 Disallow: /three-pictures/
 Disallow: /symbol-rule/
 Disallow: /assets/web-games.js
+Disallow: /assets/web-route-
+Disallow: /assets/web-shared-
 Disallow: /assets/web-games.css
+Disallow: /assets/web-game-start.js
 Disallow: /assets/og-nazo-20261102-last-bridge.jpg
 Disallow: /assets/og-nazo-20261102-one-heavy.jpg
 Disallow: /assets/og-nazo-20261102-long-way.jpg
