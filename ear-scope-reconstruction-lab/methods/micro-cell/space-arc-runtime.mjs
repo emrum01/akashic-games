@@ -3,6 +3,8 @@ import { BATTLE_V2_ACTIONS, BATTLE_V2_BOSS, BATTLE_V2_ENCOUNTERS, BATTLE_V2_ITEM
 import { createSpaceArcV2Adapter } from "./space-arc-v2-adapter.mjs";
 import { NARRATIVE_AMBIENT_EVENTS } from "./narrative-content.mjs";
 
+import { createMicroCellCompletion } from "./completion.mjs";
+
 const CHARACTER_PLACEMENTS = Object.freeze({
   clown: Object.freeze({ x: 768, y: 910, width: 520, height: 520 }),
   flower_seller: Object.freeze({ x: 768, y: 945, width: 330, height: 640 }),
@@ -33,6 +35,7 @@ export function createSpaceArcRuntime({
   brainHud, brainProgress, brainValue, inventoryHud, itemToast, ambientToast,
   onNavigate, onResetRequested, onDiagnostics = () => {}
 }) {
+  const completion = createMicroCellCompletion();
   let api = null;
   let currentNodeId = "z011";
   let settled = true;
@@ -49,10 +52,14 @@ export function createSpaceArcRuntime({
   const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, { detail }));
 
   function createState(grandmaRecruited) {
+    completion.start();
     api = createSpaceArcV2Adapter({
       grandmaRecruited,
       onChange: () => { render(); onDiagnostics(); },
-      onEvent: (event, state) => emit(event.type, { ...event, state }),
+      onEvent: (event, state) => {
+        completion.record(event.type);
+        emit(event.type, { ...event, state });
+      },
       runEffect: (effect, state) => {
         if (effect.type === "announce") emit("micro-cell:battle-v2-announcement", { effect, state });
       }
@@ -309,7 +316,7 @@ export function createSpaceArcRuntime({
     ];
     if (active.phase === "reaction") return [];
     if (active.phase === "game-over") return [button("チェックポイントから再開", () => { api.retry(); render(); }, { primary: true }), button("最初から", onResetRequested)];
-    if (active.phase === "victory") return [button("周囲を調べる", beginBossInspection, { primary: true }), button("最初から", onResetRequested)];
+    if (active.phase === "victory") return [button("周囲を調べる", beginBossInspection, { primary: true }), button("Xで共有する", () => completion.share()), button("最初から", onResetRequested)];
     const ids = selectBattleV2.availableActions(battle);
     const controls = ids.map((actionId) => button(BATTLE_V2_ACTIONS[actionId]?.label || actionId, () => act(actionId), { value: actionId }));
     if (active.phase === "choice") controls.push(button("話す", () => { api.talk(); render(); }));
