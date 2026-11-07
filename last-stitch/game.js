@@ -1,3 +1,4 @@
+const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("last-stitch");
 /*
  * さいごのひとめ (last-stitch) — 描画・入力・演出層
  *
@@ -683,6 +684,9 @@
 
   /* ---------------- ヒント段階の描画（後出し・先出し禁止 — ADR-003 / G-002） ---------------- */
   function applyHints(level) {
+    if (level >= 1) {
+      completionAttempt.hint();
+    }
     clearHintSway();
     if (level >= 1) {
       const nextId = L.nextExpectedId(state.objects, state.unraveled);
@@ -733,16 +737,19 @@
     idleTimers = [
       window.setTimeout(function () {
         if (state.phase === "room") {
+          completionAttempt.hint();
           showHint("家具の説明だけでなく、露出した糸口を観察して。");
         }
       }, 12000),
       window.setTimeout(function () {
         if (state.phase === "room") {
+          completionAttempt.hint();
           showHint("糸口が向く方向と、隣の家具の糸口を比べて。");
         }
       }, 24000),
       window.setTimeout(function () {
         if (state.phase === "room") {
+          completionAttempt.hint();
           showHint("古い記憶から順に、一本の線が途切れない組を探して。");
         }
       }, 40000),
@@ -783,6 +790,7 @@
   }
 
   function goGoodEnd() {
+    completionAttempt.complete();
     const elapsedSec = Math.round((performance.now() - startedAt) / 1000);
     document.getElementById("clear-detail").textContent = elapsedSec + " 秒でほどいた";
     el.app.classList.add("to-white");
@@ -955,7 +963,9 @@
   });
 
   function shareResult() {
-    const text = "「さいごのひとめ」をほどいた。";
+    const text =
+      "「さいごのひとめ」をほどいた。" +
+      (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "");
     const url = "https://games.escape-safari.com/last-stitch/";
     if (navigator.share) {
       navigator.share({ title: "さいごのひとめ", text: text, url: url }).catch(function () {});

@@ -1,209 +1,2235 @@
-(function(){"use strict";
-var q=new URLSearchParams(location.search), cfg={sat:+q.get("sat")||10,bri:+q.get("bri")||90,revealHold:+q.get("revealHold")||1500,h1:+q.get("hint1")||22000,h2:+q.get("hint2")||45000,wind:+q.get("wind")||30000,badLog:+q.get("badLog")||2600,badRed:+q.get("badRed")||1800,badBlack:+q.get("badBlack")||1200,goodOff:+q.get("goodOff")||900};
-var $=function(s){return document.querySelector(s)}, $$=function(s){return Array.from(document.querySelectorAll(s))};
-var E={app:$("#app"),intro:$("#intro-screen"),introVideo:$("#intro-video"),introWarning:$("#intro-warning"),introTvHit:$("#intro-tv-hit"),introMessage:$("#intro-message p"),alert:$("#alert-screen"),invite:$("#invite-screen"),inviteHit:$("#invite-hitarea"),inviteCopy:$(".invite-copy"),instructions:$("#instruction-screen"),instructions2:$("#instruction-two-screen"),instructionFamily:$("#instruction-family"),instructionTitle:$("#instruction-title"),instructionTitle2:$("#instruction-title-2"),approachLog:$("#approach-log"),game:$("#game-screen"),ending:$("#ending-tv-screen"),endingHit:$("#ending-tv-hit"),endingImage:$("#ending-tv-image"),endingMask:$("#ending-sacrifice-mask"),endingLog:$("#ending-log p"),endingBroadcast:$("#ending-broadcast"),red:$("#bad-red-filter"),blackout:$("#ending-blackout"),mute:$("#mute-button"),result:$("#result-screen"),resultMask:$("#result-sacrifice-mask"),crt:$("#crt-hitarea"),instructionPanel:$("#instruction-panel"),instructionPanel2:$("#instruction-panel-2"),instructionBack:$("#instruction-back"),instructionNext:$("#instruction-next"),photoInstructions:$("#photo-instructions"),tvPreview:$("#tv-photo-preview"),tvPhotoHit:$("#tv-photo-hit"),restart:$("#restart-button"),vp:$("#photo-viewport"),stage:$("#photo-stage"),controls:$("#develop-controls"),sat:$("#saturation"),bri:$("#brightness"),satO:$("#sat-output"),briO:$("#bri-output"),fill:$("#exposure-fill"),zoom:$("#zoom-value"),hint:$("#hint"),modal:$("#confirm"),ctitle:$("#confirm-title"),ccopy:$("#confirm-copy"),confirm:$("#confirm-button"),cancel:$("#cancel-button")};
-var S={phase:"intro",photoMode:"preview",scale:1.4,tx:0,ty:0,touches:new Map(),gesture:null,ignorePersonClicksUntil:0,controls:false,revealStarted:0,revealed:false,selected:null,started:0,hints:0,muted:true,wind:false,goodLog:0,timeoutFired:false,timeoutLog:0,approachLog:null,endingTimers:[]};
-var restoringHistory=false;
-var introTimer=0,introStep=0;
-function viewKey(){if(S.phase==="intro")return "intro";if(S.phase==="alert")return "alert";if(S.phase==="invite")return "invite";if(S.phase==="instructions")return "instructions";if(S.phase==="instructions2")return "instructions2";if(S.phase==="playing"&&S.photoMode==="full")return "photo";if(S.phase==="playing")return "tv";return S.phase}
-function pushView(){if(restoringHistory)return;var key=viewKey();if(history.state&&history.state.blessingView===key)return;history.pushState({blessingView:key},"",location.pathname+location.search+"#"+key)}
-function historyBack(fallback){if(history.length>1){history.back()}else fallback()}
-var A=window.AkashicAnalytics||{track:function(){}};
-var SOUND_FILES={creak:"./audio/structural-creak.ogg",bad:"./audio/bad-approach.ogg?v=drone20260715",bellStrike:"./audio/bell-strike.ogg?v=badbell20260715",message:"./audio/message-click.ogg?v=gdc2026a",relay:"./audio/relay-click.ogg?v=gdc2026a",metal:"./audio/metal-impact.ogg?v=gdc2026a",lowImpact:"./audio/low-impact.ogg?v=gdc2026a",instruction:"./audio/instruction-signal.ogg?v=hallbell1",alarm:"./audio/broadcast-alarm.ogg?v=sfx20260715",reveal:"./audio/reveal-stinger.ogg?v=sfx20260715",badCelebration:"./audio/bad-celebration.ogg?v=sfx20260715",ambientBed:"./audio/ambient-bed.ogg?v=ambient20260715",bellDistant:"./audio/bell-distant.ogg?v=bell20260715",bellRecede:"./audio/bell-recede.ogg?v=bell20260715",revealSubtle:"./audio/reveal-subtle.ogg?v=reveal20260715",revealPartial:"./audio/reveal-partial.ogg?v=reveal20260715",photoAppear:"./audio/photo-appear.ogg?v=photo20260715",tvOff:"./audio/tv-off.ogg?v=tv20260715",burn:"./audio/burn.ogg?v=burnloop20260715",confirmLatch:"./audio/confirm-latch.ogg?v=latch20260715"};
-var audioFormat=(function(){var probe=document.createElement("audio"),canPlay=probe.canPlayType&&probe.canPlayType('audio/ogg; codecs="vorbis"');return canPlay?"ogg":"m4a"})();
-function replaceAudioExtension(url,extension){return url.replace(/\.ogg(?=\?|$)/i,"."+extension)}
-function selectSoundUrl(name,oggSupported){var url=SOUND_FILES[name];if(!url)return null;var useOgg=oggSupported==null?audioFormat==="ogg":!!oggSupported;return replaceAudioExtension(url,useOgg?"ogg":"m4a")}
-function soundUrls(name,oggSupported){var url=SOUND_FILES[name];if(!url)return[];var useOgg=oggSupported==null?audioFormat==="ogg":!!oggSupported,preferred=replaceAudioExtension(url,useOgg?"ogg":"m4a"),alternate=replaceAudioExtension(url,useOgg?"m4a":"ogg");return preferred===alternate?[preferred]:[preferred,alternate]}
-var audio={ctx:null,master:null,compressor:null,windSource:null,windGain:null,windWanted:false,windGeneration:0,badSource:null,badBellTimer:0,badBellGeneration:0,badBellSources:new Set(),countdownBellTimer:0,countdownBellGeneration:0,countdownBellSources:new Set(),buffers:{},loads:{},oneShots:new Set(),generation:0};
-function configurePlaybackSession(){
-  try{
-    // Like hon-lion-riddle, opt into media playback only after sound is enabled.
-    // iOS otherwise treats Web Audio as ambient and obeys the Ring/Silent switch.
-    var session=window.navigator.audioSession;
-    if(session)session.type="playback";
-  }catch(e){/* The optional API must not prevent playback on other browsers. */}
-}
-function resumeAudio(){
-  // Keep the iOS session change and context resume in the user gesture.
-  configurePlaybackSession();
-  var c=ensureAudio();
-  if(c&&c.state!=="running"){
-    try{var resume=c.resume();if(resume&&resume.catch)resume.catch(function(){})}catch(e){/* Resume is best-effort on browsers without Audio Session support. */}
+const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("blessing-alert");
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+(function () {
+  "use strict";
+  const q = new URLSearchParams(location.search),
+    cfg = {
+      sat: +q.get("sat") || 10,
+      bri: +q.get("bri") || 90,
+      revealHold: +q.get("revealHold") || 1500,
+      h1: +q.get("hint1") || 22000,
+      h2: +q.get("hint2") || 45000,
+      wind: +q.get("wind") || 30000,
+      badLog: +q.get("badLog") || 2600,
+      badRed: +q.get("badRed") || 1800,
+      badBlack: +q.get("badBlack") || 1200,
+      goodOff: +q.get("goodOff") || 900,
+    };
+  const E = {
+    app: $("#app"),
+    intro: $("#intro-screen"),
+    introVideo: $("#intro-video"),
+    introWarning: $("#intro-warning"),
+    introTvHit: $("#intro-tv-hit"),
+    introMessage: $("#intro-message p"),
+    alert: $("#alert-screen"),
+    invite: $("#invite-screen"),
+    inviteHit: $("#invite-hitarea"),
+    inviteCopy: $(".invite-copy"),
+    instructions: $("#instruction-screen"),
+    instructions2: $("#instruction-two-screen"),
+    instructionFamily: $("#instruction-family"),
+    instructionTitle: $("#instruction-title"),
+    instructionTitle2: $("#instruction-title-2"),
+    approachLog: $("#approach-log"),
+    game: $("#game-screen"),
+    ending: $("#ending-tv-screen"),
+    endingHit: $("#ending-tv-hit"),
+    endingImage: $("#ending-tv-image"),
+    endingMask: $("#ending-sacrifice-mask"),
+    endingLog: $("#ending-log p"),
+    endingBroadcast: $("#ending-broadcast"),
+    red: $("#bad-red-filter"),
+    blackout: $("#ending-blackout"),
+    mute: $("#mute-button"),
+    result: $("#result-screen"),
+    resultMask: $("#result-sacrifice-mask"),
+    crt: $("#crt-hitarea"),
+    instructionPanel: $("#instruction-panel"),
+    instructionPanel2: $("#instruction-panel-2"),
+    instructionBack: $("#instruction-back"),
+    instructionNext: $("#instruction-next"),
+    photoInstructions: $("#photo-instructions"),
+    tvPreview: $("#tv-photo-preview"),
+    tvPhotoHit: $("#tv-photo-hit"),
+    restart: $("#restart-button"),
+    vp: $("#photo-viewport"),
+    stage: $("#photo-stage"),
+    controls: $("#develop-controls"),
+    sat: $("#saturation"),
+    bri: $("#brightness"),
+    satO: $("#sat-output"),
+    briO: $("#bri-output"),
+    fill: $("#exposure-fill"),
+    zoom: $("#zoom-value"),
+    hint: $("#hint"),
+    modal: $("#confirm"),
+    ctitle: $("#confirm-title"),
+    ccopy: $("#confirm-copy"),
+    confirm: $("#confirm-button"),
+    cancel: $("#cancel-button"),
+  };
+  const S = {
+    phase: "intro",
+    photoMode: "preview",
+    scale: 1.4,
+    tx: 0,
+    ty: 0,
+    touches: new Map(),
+    gesture: null,
+    ignorePersonClicksUntil: 0,
+    controls: false,
+    revealStarted: 0,
+    revealed: false,
+    selected: null,
+    started: 0,
+    hints: 0,
+    muted: true,
+    wind: false,
+    goodLog: 0,
+    timeoutFired: false,
+    timeoutLog: 0,
+    approachLog: null,
+    endingTimers: [],
+  };
+  let restoringHistory = false;
+  const introTimer = 0;
+  let introStep = 0;
+  function viewKey() {
+    if (S.phase === "intro") {
+      return "intro";
+    }
+    if (S.phase === "alert") {
+      return "alert";
+    }
+    if (S.phase === "invite") {
+      return "invite";
+    }
+    if (S.phase === "instructions") {
+      return "instructions";
+    }
+    if (S.phase === "instructions2") {
+      return "instructions2";
+    }
+    if (S.phase === "playing" && S.photoMode === "full") {
+      return "photo";
+    }
+    if (S.phase === "playing") {
+      return "tv";
+    }
+    return S.phase;
   }
-  return c;
-}
-function ensureAudio(){if(audio.ctx)return audio.ctx;var C=window.AudioContext||window.webkitAudioContext;if(!C)return null;audio.ctx=new C();audio.master=audio.ctx.createGain();audio.compressor=audio.ctx.createDynamicsCompressor();audio.compressor.threshold.value=-18;audio.compressor.knee.value=18;audio.compressor.ratio.value=5;audio.compressor.attack.value=.006;audio.compressor.release.value=.22;audio.master.gain.value=S.muted?0:1;audio.master.connect(audio.compressor).connect(audio.ctx.destination);return audio.ctx}
-function decodeSound(c,url){return fetch(url).then(function(r){if(!r.ok)throw new Error("audio "+r.status);return r.arrayBuffer()}).then(function(data){return c.decodeAudioData(data)})}
-function loadSound(name){var c=ensureAudio();if(!c||!SOUND_FILES[name])return Promise.resolve(null);if(audio.buffers[name])return Promise.resolve(audio.buffers[name]);if(audio.loads[name])return audio.loads[name];var urls=soundUrls(name),attempt=function(index){if(index>=urls.length)return Promise.resolve(null);return decodeSound(c,urls[index]).catch(function(){return attempt(index+1)})};audio.loads[name]=attempt(0).then(function(buffer){if(buffer)audio.buffers[name]=buffer;delete audio.loads[name];return buffer});return audio.loads[name]}
-function preloadSounds(){Object.keys(SOUND_FILES).forEach(loadSound)}
-function playBuffer(name,options,fallback){var c=ensureAudio();if(!c||S.muted)return;options=options||{};var generation=audio.generation,phase=S.phase;loadSound(name).then(function(buffer){if(S.muted||(!options.ambient&&(generation!==audio.generation||S.phase!==phase))||(options.valid&&!options.valid()))return;if(!buffer){if(fallback)fallback();return}var src=c.createBufferSource(),gain=c.createGain();src.buffer=buffer;src.loop=!!options.loop;src.playbackRate.value=options.rate||1;gain.gain.value=options.gain==null?1:options.gain;src.connect(gain).connect(audio.master);if(!options.ambient){audio.oneShots.add(src);src.onended=function(){audio.oneShots.delete(src)}}src.start();if(options.onstart)options.onstart(src,gain)}).catch(function(){if(fallback&&!S.muted&&generation===audio.generation&&(!options.valid||options.valid()))fallback()})}
-function trackScheduledSource(set,src){set.add(src);var ended=src.onended;src.onended=function(){set.delete(src);if(ended)ended()}}
-function stopScheduledSources(set){set.forEach(function(src){try{src.stop()}catch(e){}});set.clear()}
-function stopCountdownBell(){audio.countdownBellGeneration++;if(audio.countdownBellTimer){clearTimeout(audio.countdownBellTimer);audio.countdownBellTimer=0}stopScheduledSources(audio.countdownBellSources)}
-function stopOneShots(){audio.generation++;stopCountdownBell();audio.oneShots.forEach(function(src){try{src.stop()}catch(e){}});audio.oneShots.clear()}
-function setMuted(value){
-  S.muted=value;
-  var c=value?audio.ctx:resumeAudio();
-  if(c){audio.master.gain.setTargetAtTime(value?0:1,c.currentTime,.025);if(!value)preloadSounds()}
-  if(E.introVideo){
-    E.introVideo.muted=value||S.phase!=="intro";
-    E.introVideo.volume=.72;
-    if(!E.introVideo.muted&&S.phase==="intro")E.introVideo.play().catch(function(){});
+  function pushView() {
+    if (restoringHistory) {
+      return;
+    }
+    const key = viewKey();
+    if (history.state && history.state.blessingView === key) {
+      return;
+    }
+    history.pushState({ blessingView: key }, "", location.pathname + location.search + "#" + key);
   }
-  E.mute.textContent=value?"MUTED":"SOUND ON";
-  E.mute.classList.toggle("is-on",!value);
-  E.mute.setAttribute("aria-pressed",String(value));
-  E.mute.setAttribute("aria-label",value?"音声をオンにする":"音声をミュートする");
-  if(!value){if(S.wind)startWind();cue("tick")}
-  A.track(value?"audio_muted":"audio_unmuted");
-}
-function tone(from,to,duration,volume,type,delay){var c=ensureAudio();if(!c||S.muted)return null;var t=c.currentTime+(delay||0),o=c.createOscillator(),g=c.createGain();o.type=type||"sine";o.frequency.setValueAtTime(from,t);o.frequency.exponentialRampToValueAtTime(Math.max(20,to),t+duration);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(volume,t+Math.min(.035,duration/3));g.gain.exponentialRampToValueAtTime(.0001,t+duration);o.connect(g).connect(audio.master);audio.oneShots.add(o);o.onended=function(){audio.oneShots.delete(o)};o.start(t);o.stop(t+duration+.03);return o}
-function noiseBurst(duration,volume,lowpass,delay){var c=ensureAudio();if(!c||S.muted)return null;var t=c.currentTime+(delay||0),len=Math.ceil(c.sampleRate*duration),b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);var src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();src.buffer=b;f.type="lowpass";f.frequency.value=lowpass||1800;g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.0001,t+duration);src.connect(f).connect(g).connect(audio.master);audio.oneShots.add(src);src.onended=function(){audio.oneShots.delete(src)};src.start(t);return src}
-function sampleCue(name,gain,rate,fallback){playBuffer(name,{gain:gain,rate:rate||1},fallback)}
-function relayFallback(){noiseBurst(.065,.035,2600);tone(125,82,.07,.035,"square")}
-function impactFallback(low){noiseBurst(.08,.045,900);tone(low?58:92,low?38:54,low?.42:.28,low?.09:.075,"sawtooth")}
-function metalBell(f,delay,gain,scheduledSet){var sources=[tone(f,f,.62,gain,"sine",delay),tone(f*2.71,f*2.71,.46,gain*.36,"sine",delay),tone(f*3.93,f*3.93,.3,gain*.18,"sine",delay),tone(59,59,.7,.009,"sine",delay),noiseBurst(.035,.012,2200,delay)];if(scheduledSet)sources.forEach(function(src){if(src)trackScheduledSource(scheduledSet,src)})}
-function instructionSignal(variant){var notes=variant?[330,392,277]:[330,392,277],starts=[0,.16,.34];notes.forEach(function(f,i){metalBell(f,starts[i],.042)});noiseBurst(.72,.004,850)}
-function trackOneShot(source){audio.oneShots.add(source);source.onended=function(){audio.oneShots.delete(source)};return source}
-function roomImpulse(c,seconds){var length=Math.ceil(c.sampleRate*seconds),buffer=c.createBuffer(2,length,c.sampleRate);for(var channel=0;channel<2;channel++){var data=buffer.getChannelData(channel);for(var i=0;i<length;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/length,2.8)}var room=c.createConvolver();room.buffer=buffer;return room}
-function alertVoice(c,dry,room,from,to,start,duration,volume){[-3.5,3.5].forEach(function(detuneHz){var o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.setValueAtTime(from+detuneHz,start);o.frequency.linearRampToValueAtTime(to+detuneHz,start+duration*.72);g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(volume*.52,start+.012);g.gain.exponentialRampToValueAtTime(volume*.22,start+duration*.56);g.gain.exponentialRampToValueAtTime(.0001,start+duration);o.connect(g);g.connect(dry);g.connect(room);trackOneShot(o);o.start(start);o.stop(start+duration+.04)})}
-function broadcastAlertCue(kind){var c=ensureAudio();if(!c||S.muted)return;var red=kind==="red",profile=red?{first:294,second:466,gap:.46,duration:.22,volume:.105}:{first:330,second:495,gap:.4,duration:.19,volume:.09},dry=c.createGain(),wet=c.createGain(),room=roomImpulse(c,.34),start=c.currentTime+.015;dry.gain.value=.82;wet.gain.value=.16;dry.connect(audio.master);room.connect(wet).connect(audio.master);[0,profile.gap].forEach(function(offset,index){var bend=index?1.012:1;alertVoice(c,dry,room,profile.first*bend,profile.second*bend,start+offset,profile.duration,profile.volume)});if(red){tone(74,60,1.25,.021,"sine",.12);noiseBurst(.06,.006,2600,.02)}}
-function unlockCue(){var generation=audio.generation,phase=S.phase,valid=function(){return generation===audio.generation&&S.phase===phase};playBuffer("relay",{gain:.45,rate:.95,valid:valid},relayFallback);setTimeout(function(){playBuffer("relay",{gain:.35,rate:.8,valid:valid},relayFallback)},90)}
-function offFallback(){tone(50,32,.28,.06,"sawtooth");sampleCue("relay",.45,.75,relayFallback)}
-function clearFallback(){tone(68,39,1.35,.038,"sawtooth");noiseBurst(1.1,.012,480)}
-function playGoodBurn(){var generation=audio.generation;playBuffer("burn",{loop:true,gain:.55,rate:1,valid:function(){return generation===audio.generation&&S.phase==="good"}},clearFallback)}
-function cue(name){if(S.muted)return;switch(name){case"interrupt":sampleCue("alarm",.8,1,function(){broadcastAlertCue("interrupt")});break;case"open":sampleCue("instruction",.72,1,function(){instructionSignal(false)});break;case"receive":sampleCue("instruction",.72,.91,function(){instructionSignal(true)});break;case"broadcast":sampleCue("instruction",.5,.84,function(){instructionSignal()});break;case"photo":sampleCue("photoAppear",.8,1,function(){impactFallback(true)});break;case"expand":noiseBurst(.38,.025,520);tone(160,58,.45,.055,"sawtooth");break;case"unlock":unlockCue();break;case"reveal":sampleCue("reveal",.82,1,function(){sampleCue("metal",.5,.68,function(){impactFallback(true)});tone(65,52,.8,.065,"sawtooth")});break;case"select":sampleCue("message",.6,.82,relayFallback);break;case"cancel":sampleCue("relay",.5,.78,relayFallback);break;case"confirm":sampleCue("confirmLatch",.7,1,function(){impactFallback()});break;case"message":sampleCue("message",.66,.92+Math.random()*.05,relayFallback);break;case"off":sampleCue("tvOff",.85,1,offFallback);break;case"clear":playGoodBurn();break;case"red":sampleCue("alarm",.7,.92,function(){broadcastAlertCue("red")});break;case"blackout":sampleCue("lowImpact",.7,.72,function(){impactFallback(true)});break;case"badresult":sampleCue("badCelebration",.82,1,function(){tone(47,38,1.55,.085,"sawtooth");tone(185,171,1.2,.018,"square",.12);noiseBurst(1.4,.012,420)});break;case"hint":noiseBurst(.055,.018,1400);sampleCue("relay",.25,1.05,relayFallback);break;case"tick":sampleCue("relay",.45,.88,relayFallback);break;case"detent":sampleCue("message",.4,.7,relayFallback);break;case"restart":sampleCue("relay",.55,.7,relayFallback);tone(54,57,.3,.035,"sawtooth",.09);break;case"back":sampleCue("relay",.4,.74,relayFallback);break}}
-function scheduleWhaleOsc(c,filter,profile,start,ratio,type,volume,detune){var end=start+profile.duration,o=c.createOscillator(),g=c.createGain(),lfo=c.createOscillator(),lfoGain=c.createGain();o.type=type;o.detune.value=detune;profile.frequencies.forEach(function(f,index){var t=start+profile.points[index],value=f*ratio;if(index===0)o.frequency.setValueAtTime(value,t);else o.frequency.exponentialRampToValueAtTime(value,t)});g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(volume,start+profile.fadeIn);g.gain.setValueAtTime(volume*.62,end-profile.fadeOut);g.gain.exponentialRampToValueAtTime(.0001,end);lfo.type="sine";lfo.frequency.value=profile.vibratoRate;lfoGain.gain.value=profile.vibratoDepth;lfo.connect(lfoGain).connect(o.frequency);o.connect(g).connect(filter);trackOneShot(o);trackOneShot(lfo);o.start(start);lfo.start(start);o.stop(end+.08);lfo.stop(end+.08)}
-function whaleCue(kind){var c=ensureAudio();if(!c||S.muted)return;var recede=kind==="recede",profile=recede?{duration:5.6,points:[0,1.7,3.7,5.6],frequencies:[330,170,275,105],fadeIn:.55,fadeOut:1.65,vibratoRate:.105,vibratoDepth:8}:{duration:6.2,points:[0,1.8,4.05,6.2],frequencies:[185,105,285,145],fadeIn:.9,fadeOut:1.55,vibratoRate:.115,vibratoDepth:11},start=c.currentTime+.025,filter=c.createBiquadFilter(),dry=c.createGain(),delay=c.createDelay(1),delayFilter=c.createBiquadFilter(),wet=c.createGain();filter.type="lowpass";filter.frequency.setValueAtTime(recede?1700:1450,start);filter.frequency.exponentialRampToValueAtTime(recede?300:390,start+profile.duration);dry.gain.value=recede?.82:.9;wet.gain.value=recede?.13:.16;delay.delayTime.value=recede?.24:.2;delayFilter.type="lowpass";delayFilter.frequency.value=850;filter.connect(dry).connect(audio.master);filter.connect(delay).connect(delayFilter).connect(wet).connect(audio.master);scheduleWhaleOsc(c,filter,profile,start,1,"sine",recede?.095:.12,0);scheduleWhaleOsc(c,filter,profile,start,.5,"triangle",recede?.042:.052,-7)}
-function proceduralDistantCue(){whaleCue("distant")}
-function proceduralRecedeCue(){whaleCue("recede")}
-function proceduralWind(){var c=ensureAudio();if(!c||S.muted||audio.windSource||!audio.windWanted)return;var len=c.sampleRate*2,b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);for(var i=0;i<len;i++)d[i]=Math.random()*2-1;var src=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain();src.buffer=b;src.loop=true;filter.type="lowpass";filter.frequency.value=420;gain.gain.value=.035;src.connect(filter).connect(gain).connect(audio.master);src.start();audio.windSource=src;audio.windGain=gain}
-function playDistantCue(){playBuffer("bellDistant",{gain:.7},proceduralDistantCue)}
-function playRecedeCue(){playBuffer("bellRecede",{gain:.7},proceduralRecedeCue)}
-function startWind(){var generation=++audio.windGeneration;audio.windWanted=true;if(S.muted||audio.windSource)return;playBuffer("ambientBed",{loop:true,ambient:true,gain:.5,onstart:function(src,gain){if(!audio.windWanted||generation!==audio.windGeneration){try{src.stop()}catch(e){}return}audio.windSource=src;audio.windGain=gain}},proceduralWind)}
-function stopWind(){audio.windWanted=false;audio.windGeneration++;if(audio.windSource){try{audio.windSource.stop()}catch(e){}audio.windSource=null;audio.windGain=null}}
-function playCreak(){playBuffer("creak",{gain:.58,rate:.9+Math.random()*.18},function(){tone(150,58,1.15,.07,"sawtooth")})}
-function isBadApproachPhase(){return S.phase==="bad-tv"||S.phase==="bad-red"||S.phase==="timeout-tv"||S.phase==="timeout-red"}
-function proceduralBadApproach(){var c=ensureAudio();if(!c||S.muted||!isBadApproachPhase())return;var o=c.createOscillator(),g=c.createGain();o.type="sawtooth";o.frequency.value=43;g.gain.setValueAtTime(.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(.045,c.currentTime+.35);o.connect(g).connect(audio.master);o.start();audio.badSource=o}
-function scheduleBadBell(delay,generation,interval,gain){audio.badBellTimer=setTimeout(function(){audio.badBellTimer=0;if(generation!==audio.badBellGeneration||!isBadApproachPhase())return;playBuffer("bellStrike",{gain:gain,rate:1,valid:function(){return generation===audio.badBellGeneration&&isBadApproachPhase()},onstart:function(src){trackScheduledSource(audio.badBellSources,src)}},function(){if(generation===audio.badBellGeneration&&isBadApproachPhase())metalBell(210,0,Math.min(.16,gain*.28),audio.badBellSources)});scheduleBadBell(Math.max(380,interval*.88),generation,Math.max(380,interval*.88),Math.min(.85,gain+.03))},delay)}
-function startBadBell(){stopBadBell();var generation=audio.badBellGeneration;scheduleBadBell(2600,generation,2600,.5)}
-function stopBadBell(){audio.badBellGeneration++;if(audio.badBellTimer){clearTimeout(audio.badBellTimer);audio.badBellTimer=0}stopScheduledSources(audio.badBellSources)}
-function playBadApproach(){playBuffer("bad",{loop:true,ambient:true,gain:.68,valid:isBadApproachPhase,onstart:function(src){audio.badSource=src}},proceduralBadApproach);startBadBell()}
-function stopBadApproach(){stopBadBell();if(audio.badSource){try{audio.badSource.stop()}catch(e){}audio.badSource=null}}
-function countdownBellGain(remaining){return Math.max(.04,Math.min(.7,.04+(20-Math.max(0,Math.min(20,remaining)))*.033))}
-function scheduleCountdownBell(delay,generation){audio.countdownBellTimer=setTimeout(function(){audio.countdownBellTimer=0;if(generation!==audio.countdownBellGeneration||S.phase!=="playing"||S.timeoutFired)return;var remaining=Math.max(0,179-Math.floor((performance.now()-S.started)/1000));if(remaining>20||remaining===0)return;playBuffer("bellStrike",{gain:countdownBellGain(remaining),rate:1,valid:function(){return generation===audio.countdownBellGeneration&&S.phase==="playing"&&!S.timeoutFired},onstart:function(src){trackScheduledSource(audio.countdownBellSources,src)}},function(){if(generation===audio.countdownBellGeneration&&S.phase==="playing"&&!S.timeoutFired)metalBell(210,0,.06,audio.countdownBellSources)});scheduleCountdownBell(2500,generation)},delay)}
-function startCountdownBell(){if(audio.countdownBellTimer)return;var generation=audio.countdownBellGeneration;scheduleCountdownBell(0,generation)}
-E.mute.onclick=function(){setMuted(!S.muted)};
-var fitFrame=0,lastDetentAt=-Infinity,revealCueArmed={subtle:true,partial:true};
-function fitText(container,text,min,max){if(!container||!text||!container.clientHeight)return;text.style.fontSize=max+"px";var low=min,high=max;for(var i=0;i<8;i++){var size=(low+high)/2;text.style.fontSize=size+"px";if(container.scrollHeight<=container.clientHeight+1&&container.scrollWidth<=container.clientWidth+1)low=size;else high=size}text.style.fontSize=Math.floor(low*10)/10+"px"}
-function fitCurrentText(){if(S.phase==="invite")fitText(E.inviteHit,E.inviteCopy,10,24);else if(S.phase==="instructions")fitText(E.instructionPanel,E.instructionTitle,9,15);else if(S.phase==="instructions2")fitText(E.instructionPanel2,E.instructionTitle2,9,16);else if((S.phase==="bad-tv"||S.phase==="timeout-tv")&&!E.endingBroadcast.hidden)fitText(E.endingBroadcast,E.endingBroadcast,10,24)}
-function scheduleTextFit(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitCurrentText)}
-function viewport(){var h=Math.round(window.visualViewport?visualViewport.height:innerHeight),frameH=Math.min(h,900);document.documentElement.style.setProperty("--vvh",h+"px");if(innerWidth>=500)E.app.style.setProperty("--vvh",frameH+"px");else E.app.style.removeProperty("--vvh");document.documentElement.classList.toggle("vvh-short",h<=640);document.documentElement.classList.toggle("vvh-tiny",h<=520);scheduleTextFit();updateSacrificeMasks()}
-function render(){E.stage.style.transform="translate("+S.tx+"px,"+S.ty+"px) scale("+S.scale+")";E.zoom.textContent=Math.round(S.scale*100)}
-function clampPan(){if(S.scale<=1){S.tx=S.ty=0;return}var r=E.vp.getBoundingClientRect(),maxX=r.width*(S.scale-1)/2,maxY=r.height*(S.scale-1)/2;S.tx=Math.max(-maxX,Math.min(maxX,S.tx));S.ty=Math.max(-maxY,Math.min(maxY,S.ty))}
-var introMessages=["仕事終わりに、くだらないテレビ番組を見るのが日課だ。","缶ビールを開けて、見るともなく画面を眺める。","内容なんて、頭に入っていない。それがいい。","……あれ？　番組が途切れた。","知らない放送が割り込んできた。"];
-var sacrificeFaceBoxes={"父":{left:25,top:25.3,width:9,height:7.5},"姉":{left:37.3,top:31.6,width:8.3,height:6.8},"弟":{left:48.5,top:38.8,width:7.8,height:6.8},"母":{left:56.3,top:31.2,width:8.3,height:6.6},"祖母":{left:68.5,top:32.8,width:8.8,height:7.2}};
-var sacrificeImageSize={width:1024,height:1536};
-function objectPositionOffset(token,containerSize,displaySize){var freeSpace=containerSize-displaySize,normalized=String(token||"").toLowerCase();if(normalized==="left"||normalized==="top")return 0;if(normalized==="right"||normalized==="bottom")return freeSpace;if(normalized==="center")return freeSpace/2;var percent=normalized.match(/^(-?\d+(?:\.\d+)?)%$/);if(percent)return freeSpace*parseFloat(percent[1])/100;var pixels=normalized.match(/^(-?\d+(?:\.\d+)?)px$/);if(pixels)return parseFloat(pixels[1]);return freeSpace/2}
-function positionFaceMask(mask,person){var box=sacrificeFaceBoxes[person],container=mask&&mask.parentElement,image=container&&container.querySelector("img");if(!box||!container||!image)return;var containerRect=container.getBoundingClientRect(),imageRect=image.getBoundingClientRect(),containerWidth=imageRect.width,containerHeight=imageRect.height;if(!containerWidth||!containerHeight)return;var naturalWidth=image.naturalWidth||sacrificeImageSize.width,naturalHeight=image.naturalHeight||sacrificeImageSize.height,scale=Math.max(containerWidth/naturalWidth,containerHeight/naturalHeight),displayWidth=naturalWidth*scale,displayHeight=naturalHeight*scale,position=(getComputedStyle(image).objectPosition||"50% 50%").trim().split(/\s+/),imageLeft=imageRect.left-containerRect.left+objectPositionOffset(position[0],containerWidth,displayWidth),imageTop=imageRect.top-containerRect.top+objectPositionOffset(position[1]||"50%",containerHeight,displayHeight);mask.style.left=imageLeft+naturalWidth*box.left/100*scale+"px";mask.style.top=imageTop+naturalHeight*box.top/100*scale+"px";mask.style.width=naturalWidth*box.width/100*scale+"px";mask.style.height=naturalHeight*box.height/100*scale+"px"}
-function updateSacrificeMasks(){[E.endingMask,E.resultMask].forEach(function(mask){if(mask&&!mask.hidden)positionFaceMask(mask,mask.dataset.person)})}
-function bindSacrificeMaskImage(mask,image){if(!image||image.__sacrificeMaskBound)return;image.__sacrificeMaskBound=true;image.addEventListener("load",function(){if(!mask.hidden)positionFaceMask(mask,mask.dataset.person)})}
-function setSacrificeMask(mask,visible,person){if(!mask)return;if(!visible||!sacrificeFaceBoxes[person]){mask.hidden=true;mask.className="sacrifice-mask";mask.removeAttribute("data-person");mask.style.left="";mask.style.top="";mask.style.width="";mask.style.height="";return}mask.className="sacrifice-mask";mask.hidden=false;mask.dataset.person=person;mask.setAttribute("aria-label",person+"が生贄に選ばれました");var image=mask.parentElement&&mask.parentElement.querySelector("img");bindSacrificeMaskImage(mask,image);positionFaceMask(mask,person)}
-var photoApproachLogs=["……遠くから鐘のような音が聞こえる","近くに教会はなかったはずだが","そもそも夜中だし迷惑だな","ひとまず、ここから選べってことか……"];
-function hideFlowScreens(){E.intro.hidden=true;E.alert.hidden=true;E.invite.hidden=true;E.instructions.hidden=true;E.instructions2.hidden=true;E.game.hidden=true;E.ending.hidden=true;E.result.hidden=true;E.photoInstructions.hidden=true}
-function clearEndingTimers(){S.endingTimers.forEach(clearTimeout);S.endingTimers=[]}
-function later(fn,ms){var id=setTimeout(fn,ms);S.endingTimers.push(id);return id}
-function showIntro(push){clearTimeout(introTimer);clearEndingTimers();stopOneShots();stopBadApproach();stopWind();hideFlowScreens();E.blackout.hidden=true;E.red.hidden=true;E.ending.className="screen ending-tv-screen";E.intro.hidden=false;S.phase="intro";S.timeoutFired=false;S.timeoutLog=0;introStep=0;if(E.introVideo){E.introVideo.hidden=false;E.introVideo.currentTime=0;E.introVideo.muted=S.muted;E.introVideo.volume=.72;E.introVideo.play().catch(function(){})}if(E.introWarning)E.introWarning.hidden=true;if(E.introMessage){E.introMessage.parentElement.hidden=false;E.introMessage.textContent=introMessages[0];E.introMessage.setAttribute("aria-label","メッセージを送る（タップして続ける）")}if(push!==false)pushView()}
-function advanceIntro(){if(S.phase!=="intro")return;introStep++;if(introStep===3){if(E.introVideo){E.introVideo.pause();E.introVideo.hidden=true}if(E.introWarning)E.introWarning.hidden=false;cue("interrupt");A.track("intro_interrupted")}else cue("message");if(introStep<introMessages.length){E.introMessage.textContent=introMessages[introStep];return}if(E.introMessage)E.introMessage.parentElement.hidden=true;showAlert()}
-function showAlert(push){clearTimeout(introTimer);if(E.introVideo)E.introVideo.pause();hideFlowScreens();E.alert.hidden=false;S.phase="alert";if(push!==false)pushView();E.crt&&E.crt.focus()}
-function showInvite(push){hideFlowScreens();E.invite.hidden=false;S.phase="invite";scheduleTextFit();if(push!==false){cue("open");pushView()}E.inviteHit&&E.inviteHit.focus()}
-function showInstructions(push){hideFlowScreens();E.instructions.hidden=false;S.phase="instructions";scheduleTextFit();if(push!==false){cue("receive");pushView()}E.instructionPanel.focus()}
-function showInstructionTwo(push){hideFlowScreens();E.instructions2.hidden=false;S.phase="instructions2";scheduleTextFit();if(push!==false){cue("receive");pushView()}E.instructionPanel2.focus()}
-function triggerFirstTremor(){S.approachLog=0;E.approachLog.textContent=photoApproachLogs[0];E.approachLog.hidden=false;E.game.classList.remove("is-trembling");void E.game.offsetWidth;E.game.classList.add("is-trembling");playDistantCue();A.track("blessing_first_tremor")}
-function advanceApproachLog(){if(S.approachLog==null)return false;if(S.approachLog<photoApproachLogs.length-1){S.approachLog++;E.approachLog.textContent=photoApproachLogs[S.approachLog];cue("message");return true}E.approachLog.hidden=true;S.approachLog=null;return false}
-function start(reset,push){hideFlowScreens();E.game.hidden=false;if(reset){stopOneShots();S.scale=1.4;S.tx=S.ty=0;S.touches.clear();S.gesture=null;S.ignorePersonClicksUntil=0;S.controls=false;S.revealStarted=0;S.revealed=false;S.selected=null;S.hints=0;S.wind=false;S.timeoutFired=false;S.timeoutLog=0;lastDetentAt=-Infinity;resetRevealCueArming();stopWind();E.controls.hidden=true;E.modal.hidden=true;E.sat.value=100;E.bri.value=50;setRevealProgress(0);S.started=performance.now();if(push!==false)cue("photo");A.track("game_start")}else if(!S.started)S.started=performance.now();S.phase="playing";showTvPreview();if(reset&&push!==false)triggerFirstTremor();if(push!==false)pushView();render()}
-function showTvPreview(){S.photoMode="preview";E.tvPreview.hidden=false;E.game.classList.add("is-tv-preview");E.game.classList.remove("is-photo-full");E.photoInstructions.hidden=false;E.vp.hidden=true;E.controls.hidden=true}
-function enterFullPhoto(push){S.photoMode="full";E.tvPreview.hidden=true;E.game.classList.remove("is-tv-preview");E.game.classList.add("is-photo-full");E.photoInstructions.hidden=false;E.vp.hidden=false;E.controls.hidden=!S.controls;if(push!==false){cue("expand");pushView()}E.vp.focus();A.track("photo_fullscreen")}
-function returnToTvPreview(){if(S.phase!=="playing")return;cue("back");historyBack(function(){showTvPreview(false)});A.track("photo_preview_back")}
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)} function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
-function capturePointer(id){try{E.vp.setPointerCapture(id)}catch(e){}}
-E.vp.addEventListener("pointerdown",function(e){S.touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(S.touches.size===1)S.gesture={kind:"pan",x:e.clientX,y:e.clientY,tx:S.tx,ty:S.ty};if(S.touches.size===2){var p=Array.from(S.touches.values());S.gesture={kind:"pinch",d:dist(p[0],p[1]),scale:S.scale,startScale:S.scale,m:mid(p[0],p[1]),tx:S.tx,ty:S.ty};S.ignorePersonClicksUntil=performance.now()+500;S.touches.forEach(function(_,id){capturePointer(id)})}},true);
-E.vp.addEventListener("pointermove",function(e){if(!S.touches.has(e.pointerId))return;S.touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(!S.gesture)return;if(S.touches.size===2&&S.gesture.kind==="pinch"){var p=Array.from(S.touches.values()),currentMid=mid(p[0],p[1]),ratio=dist(p[0],p[1])/S.gesture.d,nextScale=Math.max(1,Math.min(3,S.gesture.scale*ratio)),r=E.vp.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,scaleRatio=nextScale/S.gesture.startScale,previousScale=S.scale;S.ignorePersonClicksUntil=performance.now()+500;S.scale=nextScale;S.tx=currentMid.x-cx-scaleRatio*(S.gesture.m.x-cx-S.gesture.tx);S.ty=currentMid.y-cy-scaleRatio*(S.gesture.m.y-cy-S.gesture.ty);if(S.scale===1){S.tx=S.ty=0;maybePlayDetent(previousScale);unlock()}clampPan();render()}else if(S.touches.size===1&&S.gesture.kind==="pan"&&S.scale>1){var moved=Math.hypot(e.clientX-S.gesture.x,e.clientY-S.gesture.y);if(moved>6){S.ignorePersonClicksUntil=performance.now()+400;capturePointer(e.pointerId)}S.tx=S.gesture.tx+e.clientX-S.gesture.x;S.ty=S.gesture.ty+e.clientY-S.gesture.y;clampPan();render()}});
-function pointerUp(e){S.touches.delete(e.pointerId);if(S.touches.size<2){S.gesture=null;render()}} E.vp.addEventListener("pointerup",pointerUp);E.vp.addEventListener("pointercancel",pointerUp);
-E.vp.addEventListener("wheel",function(e){e.preventDefault();var down=e.deltaY>0,previousScale=S.scale,next=Math.max(1,Math.min(3,S.scale*(down?.9:1.1)));S.scale=next;if(next===1){S.tx=S.ty=0;maybePlayDetent(previousScale);unlock()}clampPan();render()},{passive:false});
-function maybePlayDetent(previousScale){if(previousScale<=1)return;var now=performance.now();if(now-lastDetentAt<600)return;lastDetentAt=now;cue("detent")}
-function unlock(){if(S.controls)return;S.controls=true;E.controls.hidden=false;cue("unlock");A.track("controls_revealed")}
-function resetRevealCueArming(){revealCueArmed.subtle=true;revealCueArmed.partial=true}
-function playRevealProgressCue(p,threshold,key,name,gain){if(p<threshold-.08)revealCueArmed[key]=true;if(p>threshold&&revealCueArmed[key]){revealCueArmed[key]=false;if(S.phase!=="playing"||S.photoMode!=="full")return;var generation=audio.generation,phase=S.phase;playBuffer(name,{gain:gain,valid:function(){return generation===audio.generation&&S.phase===phase&&S.photoMode==="full"}});}}
-function smooth(a,b,x){var t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)}
-function setRevealProgress(p){p=Math.max(0,Math.min(1,p));var base=1-smooth(.12,.28,p),subtle=smooth(.12,.28,p)*(1-smooth(.38,.56,p)),partial=smooth(.32,.52,p)*(1-smooth(.65,.82,p)),full=smooth(.65,.88,p),sum=base+subtle+partial+full||1;E.stage.style.setProperty("--base-alpha",base/sum);E.stage.style.setProperty("--subtle-alpha",subtle/sum);E.stage.style.setProperty("--partial-alpha",partial/sum);E.stage.style.setProperty("--full-alpha",full/sum);playRevealProgressCue(p,.15,"subtle","revealSubtle",.55);playRevealProgressCue(p,.45,"partial","revealPartial",.7)}
-function tune(){var sat=+E.sat.value,bri=+E.bri.value;E.satO.value=sat;E.briO.value=bri;E.stage.style.setProperty("--sat",sat/100);E.stage.style.setProperty("--bri",.55+bri/100);var p=Math.max(0,Math.min(1,((cfg.sat-sat)/Math.max(1,cfg.sat)+(bri-cfg.bri)/Math.max(1,100-cfg.bri)+2)/4));if(sat<=cfg.sat&&bri>=cfg.bri){if(!S.revealStarted)S.revealStarted=performance.now();p=Math.max(p,Math.min(1,(performance.now()-S.revealStarted)/cfg.revealHold));if(performance.now()-S.revealStarted>=cfg.revealHold&&!S.revealed){S.revealed=true;cue("reveal");A.track("entity_revealed");showHint("存在照合：中央個体の生体情報が一致しません。",false)}}else S.revealStarted=0;setRevealProgress(S.revealed?1:p);E.fill.style.setProperty("--progress",Math.round(p*100)+"%")}
-E.sat.addEventListener("input",tune);E.bri.addEventListener("input",tune);
-$$('.person').forEach(function(b){b.addEventListener("pointerdown",function(e){e.stopPropagation()});b.addEventListener("click",function(e){e.stopPropagation();if(performance.now()<S.ignorePersonClicksUntil){e.preventDefault();return}S.selected=b.dataset.person;cue("select");E.ctitle.textContent=S.selected+"を選定";E.ccopy.textContent="この人物を生贄候補として奉納しますか？ 選定後は取り消せません。";E.modal.hidden=false;E.confirm.focus()})});E.cancel.onclick=function(){cue("cancel");S.selected=null;E.modal.hidden=true};E.confirm.onclick=function(){cue("confirm");finish(S.selected==="弟")};
-var goodLogs=["気持ちわる、なんだこの写真。","未だよくわからないが、これで正解なのか...?","近づいてきていた鐘のような音が遠ざかっていく...","急に疲れを感じた俺は、テレビを消した後、気づいたら寝ていた"];
-var badLogs=["……あれ？　写真に、知らない男がいる。","泣いているのに、笑っている。","あれは――","おめでとうございます。","あなたの記録は『兄』として保存されました。","次の祝福まで、どうぞ健やかにお過ごしください。"];
-var timeoutLogs=["……選定期限が、過ぎた。","写真の中で、肉羽家がゆっくりとこちらを向いた。","選定を怠ったため、あなた自身が肉羽家に加えられました。","祝福の元へ運ばれます。どうぞ、静かにお待ちください。"];
-function showEndingTv(kind,image,log){clearEndingTimers();hideFlowScreens();E.ending.hidden=false;E.ending.className="screen ending-tv-screen is-"+kind+(kind==="timeout"?" is-bad":"");E.endingImage.src=image;setSacrificeMask(E.endingMask,kind==="bad"&&S.selected!=="弟",S.selected);E.endingLog.parentElement.hidden=false;E.endingLog.textContent=log;E.endingBroadcast.hidden=true;E.red.hidden=true;E.blackout.hidden=true;S.phase=kind+"-tv"}
-function finish(good){E.modal.hidden=true;stopCountdownBell();stopWind();if(good)startGoodEnding();else startBadEnding()}
-function startGoodEnding(){S.goodLog=0;showEndingTv("good","./entity-full-v2.png?v=20260714d",goodLogs[0]);cue("photo");A.track("return_to_tv_for_good_end")}
-function advanceGoodEnding(){if(S.phase!=="good-tv")return;if(S.goodLog<goodLogs.length-1){S.goodLog++;E.endingLog.textContent=goodLogs[S.goodLog];cue("message");if(S.goodLog===2){playRecedeCue();A.track("blessing_receding")}return}S.phase="good-tv-off";cue("off");E.ending.classList.add("tv-off");E.endingLog.parentElement.hidden=true;A.track("television_turned_off");later(function(){showResult(true)},cfg.goodOff)}
-function startBadEnding(){S.badLog=0;showEndingTv("bad","./family-bad-end-brother-released.png",badLogs[0]);S.wind=true;startWind();playCreak();A.track("return_to_tv_for_bad_end");playBadApproach()}
-function advanceBadEnding(){if(S.phase!=="bad-tv")return;if(S.badLog<2){S.badLog++;E.endingLog.textContent=badLogs[S.badLog];cue("message");return}if(S.badLog<badLogs.length-1){S.badLog++;E.endingLog.parentElement.hidden=true;E.endingBroadcast.hidden=false;E.endingBroadcast.textContent=badLogs[S.badLog];scheduleTextFit();return}S.phase="bad-red";cue("red");E.red.hidden=false;A.track("bad_end_red_alert");later(function(){if(S.phase!=="bad-red")return;S.phase="bad-blackout";cue("blackout");stopBadApproach();stopWind();E.blackout.hidden=false;E.red.hidden=true;later(function(){showResult(false)},cfg.badBlack)},cfg.badRed)}
-function showResult(good){clearEndingTimers();stopBadApproach();stopOneShots();hideFlowScreens();E.blackout.hidden=true;E.result.hidden=false;E.result.className="screen result-screen "+(good?"good":"bad");$("#result-photo img").src=good?"./entity-full-v2.png?v=20260714d":"./family-bad-end-brother-released.png";setSacrificeMask(E.resultMask,!good&&S.selected!=="弟",S.selected);$("#result-code").textContent=good?"BLESSING PASSED / SAFE":"BLESSING RECEIVED / REWRITING";$("#result-title").textContent=good?"祝福は通過しました":"おめでとうございます、あなたの元に祝福が訪れました";$("#result-copy").textContent=good?"架空存在を奉納。祝福は去っていきます。":S.selected+"は生身の生贄として捧げられました。";var epilogue=$("#epilogue");epilogue.textContent=good?"鐘のような音は遠ざかり、夜は静けさを取り戻した。":"その空席を埋めるため、あなたは肉羽家の『兄』として迎えられました。";if(!good)epilogue.append(document.createElement("br"),"誰かがあなたを選んだ時、生贄として奉納されるでしょう。");S.phase=good?"good":"bad";cue(good?"clear":"badresult");A.track(good?"game_clear":"bad_end",{selected:S.selected})}
-function startTimeoutEnding(){S.timeoutLog=0;S.selected=null;showEndingTv("timeout","./family-bad-end-brother-released.png",timeoutLogs[0]);S.wind=true;startWind();playCreak();A.track("timeout_bad_end");playBadApproach()}
-function triggerTimeoutEnd(){if(S.phase!=="playing"||S.timeoutFired)return;E.modal.hidden=true;stopCountdownBell();S.timeoutFired=true;startTimeoutEnding()}
-function advanceTimeoutEnding(){if(S.phase!=="timeout-tv")return;if(S.timeoutLog<2){S.timeoutLog++;E.endingLog.textContent=timeoutLogs[S.timeoutLog];cue("message");return}if(S.timeoutLog<timeoutLogs.length-1){S.timeoutLog++;E.endingLog.parentElement.hidden=true;E.endingBroadcast.hidden=false;E.endingBroadcast.textContent=timeoutLogs[S.timeoutLog];scheduleTextFit();return}S.phase="timeout-red";cue("red");E.red.hidden=false;later(function(){if(S.phase!=="timeout-red")return;S.phase="timeout-blackout";cue("blackout");stopBadApproach();stopWind();E.blackout.hidden=false;E.red.hidden=true;later(showTimeoutResult,cfg.badBlack)},cfg.badRed)}
-function showTimeoutResult(){clearEndingTimers();stopBadApproach();stopOneShots();hideFlowScreens();E.blackout.hidden=true;E.result.hidden=false;E.result.className="screen result-screen bad timeout";$("#result-photo img").src="./family-bad-end-brother-released.png";setSacrificeMask(E.resultMask,false,null);$("#result-code").textContent="BLESSING RECEIVED / TIMEOUT";$("#result-title").textContent="選定期限、終了";$("#result-copy").textContent="肉羽家の誰も生贄にはなりません。選定を怠ったあなた自身が、肉羽家に加えられました。";var epilogue=$("#epilogue");epilogue.textContent="あなたはそのまま、祝福の元へ運ばれていきます。";S.phase="timeout";cue("badresult")}
-function showHint(t,sound){if(sound!==false)cue("hint");E.hint.textContent=t;E.hint.classList.add("show");setTimeout(function(){E.hint.classList.remove("show")},6000)}
-function loop(now){if(S.phase==="playing"){var e=now-S.started,remaining=Math.max(0,179-Math.floor(e/1000));$("#countdown").textContent="選定期限 "+String(Math.floor(remaining/60)).padStart(2,"0")+":"+String(remaining%60).padStart(2,"0");if(remaining===0){stopCountdownBell();triggerTimeoutEnd()}else{if(remaining<=20)startCountdownBell();else stopCountdownBell();if(!S.hints&&e>cfg.h1){S.hints=1;showHint("一度きれいに元へ戻す。")}if(S.hints===1&&e>cfg.h2){S.hints=2;showHint("100%まで縮めてみる。")}if(S.revealStarted&&!S.revealed)tune();if(!S.wind&&e>=cfg.wind){S.wind=true;startWind();A.track("blessing_wind_started")}}}else stopCountdownBell();window.__GAME_STATE__={phase:S.phase,scale:S.scale,controls:S.controls,revealed:S.revealed,selected:S.selected,muted:S.muted,wind:S.wind,goodLog:S.goodLog,timeoutFired:S.timeoutFired};requestAnimationFrame(loop)}
-/* The family photo is the last thing the broadcast shows.  It first appears
+  function historyBack(fallback) {
+    if (history.length > 1) {
+      history.back();
+    } else {
+      fallback();
+    }
+  }
+  const A = window.AkashicAnalytics || { track: function () {} };
+  const SOUND_FILES = {
+    creak: "./audio/structural-creak.ogg",
+    bad: "./audio/bad-approach.ogg?v=drone20260715",
+    bellStrike: "./audio/bell-strike.ogg?v=badbell20260715",
+    message: "./audio/message-click.ogg?v=gdc2026a",
+    relay: "./audio/relay-click.ogg?v=gdc2026a",
+    metal: "./audio/metal-impact.ogg?v=gdc2026a",
+    lowImpact: "./audio/low-impact.ogg?v=gdc2026a",
+    instruction: "./audio/instruction-signal.ogg?v=hallbell1",
+    alarm: "./audio/broadcast-alarm.ogg?v=sfx20260715",
+    reveal: "./audio/reveal-stinger.ogg?v=sfx20260715",
+    badCelebration: "./audio/bad-celebration.ogg?v=sfx20260715",
+    ambientBed: "./audio/ambient-bed.ogg?v=ambient20260715",
+    bellDistant: "./audio/bell-distant.ogg?v=bell20260715",
+    bellRecede: "./audio/bell-recede.ogg?v=bell20260715",
+    revealSubtle: "./audio/reveal-subtle.ogg?v=reveal20260715",
+    revealPartial: "./audio/reveal-partial.ogg?v=reveal20260715",
+    photoAppear: "./audio/photo-appear.ogg?v=photo20260715",
+    tvOff: "./audio/tv-off.ogg?v=tv20260715",
+    burn: "./audio/burn.ogg?v=burnloop20260715",
+    confirmLatch: "./audio/confirm-latch.ogg?v=latch20260715",
+  };
+  const audioFormat = (function () {
+    const probe = document.createElement("audio"),
+      canPlay = probe.canPlayType && probe.canPlayType('audio/ogg; codecs="vorbis"');
+    return canPlay ? "ogg" : "m4a";
+  })();
+  function replaceAudioExtension(url, extension) {
+    return url.replace(/\.ogg(?=\?|$)/i, "." + extension);
+  }
+  function selectSoundUrl(name, oggSupported) {
+    const url = SOUND_FILES[name];
+    if (!url) {
+      return null;
+    }
+    const useOgg = oggSupported == null ? audioFormat === "ogg" : !!oggSupported;
+    return replaceAudioExtension(url, useOgg ? "ogg" : "m4a");
+  }
+  function soundUrls(name, oggSupported) {
+    const url = SOUND_FILES[name];
+    if (!url) {
+      return [];
+    }
+    const useOgg = oggSupported == null ? audioFormat === "ogg" : !!oggSupported,
+      preferred = replaceAudioExtension(url, useOgg ? "ogg" : "m4a"),
+      alternate = replaceAudioExtension(url, useOgg ? "m4a" : "ogg");
+    return preferred === alternate ? [preferred] : [preferred, alternate];
+  }
+  const audio = {
+    ctx: null,
+    master: null,
+    compressor: null,
+    windSource: null,
+    windGain: null,
+    windWanted: false,
+    windGeneration: 0,
+    badSource: null,
+    badBellTimer: 0,
+    badBellGeneration: 0,
+    badBellSources: new Set(),
+    countdownBellTimer: 0,
+    countdownBellGeneration: 0,
+    countdownBellSources: new Set(),
+    buffers: {},
+    loads: {},
+    oneShots: new Set(),
+    generation: 0,
+  };
+  function configurePlaybackSession() {
+    try {
+      // Like hon-lion-riddle, opt into media playback only after sound is enabled.
+      // iOS otherwise treats Web Audio as ambient and obeys the Ring/Silent switch.
+      const session = window.navigator.audioSession;
+      if (session) {
+        session.type = "playback";
+      }
+    } catch (_e) {
+      /* The optional API must not prevent playback on other browsers. */
+    }
+  }
+  function resumeAudio() {
+    // Keep the iOS session change and context resume in the user gesture.
+    configurePlaybackSession();
+    const c = ensureAudio();
+    if (c && c.state !== "running") {
+      try {
+        const resume = c.resume();
+        if (resume && resume.catch) {
+          resume.catch(function () {});
+        }
+      } catch (_e) {
+        /* Resume is best-effort on browsers without Audio Session support. */
+      }
+    }
+    return c;
+  }
+  function ensureAudio() {
+    if (audio.ctx) {
+      return audio.ctx;
+    }
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) {
+      return null;
+    }
+    audio.ctx = new C();
+    audio.master = audio.ctx.createGain();
+    audio.compressor = audio.ctx.createDynamicsCompressor();
+    audio.compressor.threshold.value = -18;
+    audio.compressor.knee.value = 18;
+    audio.compressor.ratio.value = 5;
+    audio.compressor.attack.value = 0.006;
+    audio.compressor.release.value = 0.22;
+    audio.master.gain.value = S.muted ? 0 : 1;
+    audio.master.connect(audio.compressor).connect(audio.ctx.destination);
+    return audio.ctx;
+  }
+  function decodeSound(c, url) {
+    return fetch(url)
+      .then(function (r) {
+        if (!r.ok) {
+          throw new Error("audio " + r.status);
+        }
+        return r.arrayBuffer();
+      })
+      .then(function (data) {
+        return c.decodeAudioData(data);
+      });
+  }
+  function loadSound(name) {
+    const c = ensureAudio();
+    if (!c || !SOUND_FILES[name]) {
+      return Promise.resolve(null);
+    }
+    if (audio.buffers[name]) {
+      return Promise.resolve(audio.buffers[name]);
+    }
+    if (audio.loads[name]) {
+      return audio.loads[name];
+    }
+    const urls = soundUrls(name),
+      attempt = function (index) {
+        if (index >= urls.length) {
+          return Promise.resolve(null);
+        }
+        return decodeSound(c, urls[index]).catch(function () {
+          return attempt(index + 1);
+        });
+      };
+    audio.loads[name] = attempt(0).then(function (buffer) {
+      if (buffer) {
+        audio.buffers[name] = buffer;
+      }
+      delete audio.loads[name];
+      return buffer;
+    });
+    return audio.loads[name];
+  }
+  function preloadSounds() {
+    Object.keys(SOUND_FILES).forEach(loadSound);
+  }
+  function playBuffer(name, options, fallback) {
+    const c = ensureAudio();
+    if (!c || S.muted) {
+      return;
+    }
+    options = options || {};
+    const generation = audio.generation,
+      phase = S.phase;
+    loadSound(name)
+      .then(function (buffer) {
+        if (
+          S.muted ||
+          (!options.ambient && (generation !== audio.generation || S.phase !== phase)) ||
+          (options.valid && !options.valid())
+        ) {
+          return;
+        }
+        if (!buffer) {
+          if (fallback) {
+            fallback();
+          }
+          return;
+        }
+        const src = c.createBufferSource(),
+          gain = c.createGain();
+        src.buffer = buffer;
+        src.loop = !!options.loop;
+        src.playbackRate.value = options.rate || 1;
+        gain.gain.value = options.gain == null ? 1 : options.gain;
+        src.connect(gain).connect(audio.master);
+        if (!options.ambient) {
+          audio.oneShots.add(src);
+          src.addEventListener("ended", function () {
+            audio.oneShots.delete(src);
+          });
+        }
+        src.start();
+        if (options.onstart) {
+          options.onstart(src, gain);
+        }
+      })
+      .catch(function () {
+        if (
+          fallback &&
+          !S.muted &&
+          generation === audio.generation &&
+          (!options.valid || options.valid())
+        ) {
+          fallback();
+        }
+      });
+  }
+  function trackScheduledSource(set, src) {
+    set.add(src);
+    src.addEventListener("ended", function () {
+      set.delete(src);
+    });
+  }
+  function stopScheduledSources(set) {
+    set.forEach(function (src) {
+      try {
+        src.stop();
+      } catch (_e) {}
+    });
+    set.clear();
+  }
+  function stopCountdownBell() {
+    audio.countdownBellGeneration++;
+    if (audio.countdownBellTimer) {
+      clearTimeout(audio.countdownBellTimer);
+      audio.countdownBellTimer = 0;
+    }
+    stopScheduledSources(audio.countdownBellSources);
+  }
+  function stopOneShots() {
+    audio.generation++;
+    stopCountdownBell();
+    audio.oneShots.forEach(function (src) {
+      try {
+        src.stop();
+      } catch (_e) {}
+    });
+    audio.oneShots.clear();
+  }
+  function setMuted(value) {
+    S.muted = value;
+    const c = value ? audio.ctx : resumeAudio();
+    if (c) {
+      audio.master.gain.setTargetAtTime(value ? 0 : 1, c.currentTime, 0.025);
+      if (!value) {
+        preloadSounds();
+      }
+    }
+    if (E.introVideo) {
+      E.introVideo.muted = value || S.phase !== "intro";
+      E.introVideo.volume = 0.72;
+      if (!E.introVideo.muted && S.phase === "intro") {
+        E.introVideo.play().catch(function () {});
+      }
+    }
+    E.mute.textContent = value ? "MUTED" : "SOUND ON";
+    E.mute.classList.toggle("is-on", !value);
+    E.mute.setAttribute("aria-pressed", String(value));
+    E.mute.setAttribute("aria-label", value ? "音声をオンにする" : "音声をミュートする");
+    if (!value) {
+      if (S.wind) {
+        startWind();
+      }
+      cue("tick");
+    }
+    A.track(value ? "audio_muted" : "audio_unmuted");
+  }
+  function tone(from, to, duration, volume, type, delay) {
+    const c = ensureAudio();
+    if (!c || S.muted) {
+      return null;
+    }
+    const t = c.currentTime + (delay || 0),
+      o = c.createOscillator(),
+      g = c.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(from, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + duration);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(volume, t + Math.min(0.035, duration / 3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    o.connect(g).connect(audio.master);
+    audio.oneShots.add(o);
+    o.addEventListener("ended", function () {
+      audio.oneShots.delete(o);
+    });
+    o.start(t);
+    o.stop(t + duration + 0.03);
+    return o;
+  }
+  function noiseBurst(duration, volume, lowpass, delay) {
+    const c = ensureAudio();
+    if (!c || S.muted) {
+      return null;
+    }
+    const t = c.currentTime + (delay || 0),
+      len = Math.ceil(c.sampleRate * duration),
+      b = c.createBuffer(1, len, c.sampleRate),
+      d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    }
+    const src = c.createBufferSource(),
+      f = c.createBiquadFilter(),
+      g = c.createGain();
+    src.buffer = b;
+    f.type = "lowpass";
+    f.frequency.value = lowpass || 1800;
+    g.gain.setValueAtTime(volume, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    src.connect(f).connect(g).connect(audio.master);
+    audio.oneShots.add(src);
+    src.addEventListener("ended", function () {
+      audio.oneShots.delete(src);
+    });
+    src.start(t);
+    return src;
+  }
+  function sampleCue(name, gain, rate, fallback) {
+    playBuffer(name, { gain: gain, rate: rate || 1 }, fallback);
+  }
+  function relayFallback() {
+    noiseBurst(0.065, 0.035, 2600);
+    tone(125, 82, 0.07, 0.035, "square");
+  }
+  function impactFallback(low) {
+    noiseBurst(0.08, 0.045, 900);
+    tone(low ? 58 : 92, low ? 38 : 54, low ? 0.42 : 0.28, low ? 0.09 : 0.075, "sawtooth");
+  }
+  function metalBell(f, delay, gain, scheduledSet) {
+    const sources = [
+      tone(f, f, 0.62, gain, "sine", delay),
+      tone(f * 2.71, f * 2.71, 0.46, gain * 0.36, "sine", delay),
+      tone(f * 3.93, f * 3.93, 0.3, gain * 0.18, "sine", delay),
+      tone(59, 59, 0.7, 0.009, "sine", delay),
+      noiseBurst(0.035, 0.012, 2200, delay),
+    ];
+    if (scheduledSet) {
+      sources.forEach(function (src) {
+        if (src) {
+          trackScheduledSource(scheduledSet, src);
+        }
+      });
+    }
+  }
+  function instructionSignal(variant) {
+    const notes = variant ? [330, 392, 277] : [330, 392, 277],
+      starts = [0, 0.16, 0.34];
+    notes.forEach(function (f, i) {
+      metalBell(f, starts[i], 0.042);
+    });
+    noiseBurst(0.72, 0.004, 850);
+  }
+  function trackOneShot(source) {
+    audio.oneShots.add(source);
+    source.addEventListener("ended", function () {
+      audio.oneShots.delete(source);
+    });
+    return source;
+  }
+  function roomImpulse(c, seconds) {
+    const length = Math.ceil(c.sampleRate * seconds),
+      buffer = c.createBuffer(2, length, c.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+      const data = buffer.getChannelData(channel);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.8);
+      }
+    }
+    const room = c.createConvolver();
+    room.buffer = buffer;
+    return room;
+  }
+  function alertVoice(c, dry, room, from, to, startTime, duration, volume) {
+    [-3.5, 3.5].forEach(function (detuneHz) {
+      const o = c.createOscillator(),
+        g = c.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(from + detuneHz, startTime);
+      o.frequency.linearRampToValueAtTime(to + detuneHz, startTime + duration * 0.72);
+      g.gain.setValueAtTime(0.0001, startTime);
+      g.gain.exponentialRampToValueAtTime(volume * 0.52, startTime + 0.012);
+      g.gain.exponentialRampToValueAtTime(volume * 0.22, startTime + duration * 0.56);
+      g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      o.connect(g);
+      g.connect(dry);
+      g.connect(room);
+      trackOneShot(o);
+      o.start(startTime);
+      o.stop(startTime + duration + 0.04);
+    });
+  }
+  function broadcastAlertCue(kind) {
+    const c = ensureAudio();
+    if (!c || S.muted) {
+      return;
+    }
+    const red = kind === "red",
+      profile = red
+        ? { first: 294, second: 466, gap: 0.46, duration: 0.22, volume: 0.105 }
+        : { first: 330, second: 495, gap: 0.4, duration: 0.19, volume: 0.09 },
+      dry = c.createGain(),
+      wet = c.createGain(),
+      room = roomImpulse(c, 0.34),
+      startTime = c.currentTime + 0.015;
+    dry.gain.value = 0.82;
+    wet.gain.value = 0.16;
+    dry.connect(audio.master);
+    room.connect(wet).connect(audio.master);
+    [0, profile.gap].forEach(function (offset, index) {
+      const bend = index ? 1.012 : 1;
+      alertVoice(
+        c,
+        dry,
+        room,
+        profile.first * bend,
+        profile.second * bend,
+        startTime + offset,
+        profile.duration,
+        profile.volume
+      );
+    });
+    if (red) {
+      tone(74, 60, 1.25, 0.021, "sine", 0.12);
+      noiseBurst(0.06, 0.006, 2600, 0.02);
+    }
+  }
+  function unlockCue() {
+    const generation = audio.generation,
+      phase = S.phase,
+      valid = function () {
+        return generation === audio.generation && S.phase === phase;
+      };
+    playBuffer("relay", { gain: 0.45, rate: 0.95, valid: valid }, relayFallback);
+    setTimeout(function () {
+      playBuffer("relay", { gain: 0.35, rate: 0.8, valid: valid }, relayFallback);
+    }, 90);
+  }
+  function offFallback() {
+    tone(50, 32, 0.28, 0.06, "sawtooth");
+    sampleCue("relay", 0.45, 0.75, relayFallback);
+  }
+  function clearFallback() {
+    tone(68, 39, 1.35, 0.038, "sawtooth");
+    noiseBurst(1.1, 0.012, 480);
+  }
+  function playGoodBurn() {
+    const generation = audio.generation;
+    playBuffer(
+      "burn",
+      {
+        loop: true,
+        gain: 0.55,
+        rate: 1,
+        valid: function () {
+          return generation === audio.generation && S.phase === "good";
+        },
+      },
+      clearFallback
+    );
+  }
+  function cue(name) {
+    if (S.muted) {
+      return;
+    }
+    switch (name) {
+      case "interrupt":
+        sampleCue("alarm", 0.8, 1, function () {
+          broadcastAlertCue("interrupt");
+        });
+        break;
+      case "open":
+        sampleCue("instruction", 0.72, 1, function () {
+          instructionSignal(false);
+        });
+        break;
+      case "receive":
+        sampleCue("instruction", 0.72, 0.91, function () {
+          instructionSignal(true);
+        });
+        break;
+      case "broadcast":
+        sampleCue("instruction", 0.5, 0.84, function () {
+          instructionSignal();
+        });
+        break;
+      case "photo":
+        sampleCue("photoAppear", 0.8, 1, function () {
+          impactFallback(true);
+        });
+        break;
+      case "expand":
+        noiseBurst(0.38, 0.025, 520);
+        tone(160, 58, 0.45, 0.055, "sawtooth");
+        break;
+      case "unlock":
+        unlockCue();
+        break;
+      case "reveal":
+        sampleCue("reveal", 0.82, 1, function () {
+          sampleCue("metal", 0.5, 0.68, function () {
+            impactFallback(true);
+          });
+          tone(65, 52, 0.8, 0.065, "sawtooth");
+        });
+        break;
+      case "select":
+        sampleCue("message", 0.6, 0.82, relayFallback);
+        break;
+      case "cancel":
+        sampleCue("relay", 0.5, 0.78, relayFallback);
+        break;
+      case "confirm":
+        sampleCue("confirmLatch", 0.7, 1, function () {
+          impactFallback();
+        });
+        break;
+      case "message":
+        sampleCue("message", 0.66, 0.92 + Math.random() * 0.05, relayFallback);
+        break;
+      case "off":
+        sampleCue("tvOff", 0.85, 1, offFallback);
+        break;
+      case "clear":
+        playGoodBurn();
+        break;
+      case "red":
+        sampleCue("alarm", 0.7, 0.92, function () {
+          broadcastAlertCue("red");
+        });
+        break;
+      case "blackout":
+        sampleCue("lowImpact", 0.7, 0.72, function () {
+          impactFallback(true);
+        });
+        break;
+      case "badresult":
+        sampleCue("badCelebration", 0.82, 1, function () {
+          tone(47, 38, 1.55, 0.085, "sawtooth");
+          tone(185, 171, 1.2, 0.018, "square", 0.12);
+          noiseBurst(1.4, 0.012, 420);
+        });
+        break;
+      case "hint":
+        noiseBurst(0.055, 0.018, 1400);
+        sampleCue("relay", 0.25, 1.05, relayFallback);
+        break;
+      case "tick":
+        sampleCue("relay", 0.45, 0.88, relayFallback);
+        break;
+      case "detent":
+        sampleCue("message", 0.4, 0.7, relayFallback);
+        break;
+      case "restart":
+        sampleCue("relay", 0.55, 0.7, relayFallback);
+        tone(54, 57, 0.3, 0.035, "sawtooth", 0.09);
+        break;
+      case "back":
+        sampleCue("relay", 0.4, 0.74, relayFallback);
+        break;
+    }
+  }
+  function scheduleWhaleOsc(c, filter, profile, startTime, ratio, type, volume, detune) {
+    const end = startTime + profile.duration,
+      o = c.createOscillator(),
+      g = c.createGain(),
+      lfo = c.createOscillator(),
+      lfoGain = c.createGain();
+    o.type = type;
+    o.detune.value = detune;
+    profile.frequencies.forEach(function (f, index) {
+      const t = startTime + profile.points[index],
+        value = f * ratio;
+      if (index === 0) {
+        o.frequency.setValueAtTime(value, t);
+      } else {
+        o.frequency.exponentialRampToValueAtTime(value, t);
+      }
+    });
+    g.gain.setValueAtTime(0.0001, startTime);
+    g.gain.exponentialRampToValueAtTime(volume, startTime + profile.fadeIn);
+    g.gain.setValueAtTime(volume * 0.62, end - profile.fadeOut);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+    lfo.type = "sine";
+    lfo.frequency.value = profile.vibratoRate;
+    lfoGain.gain.value = profile.vibratoDepth;
+    lfo.connect(lfoGain).connect(o.frequency);
+    o.connect(g).connect(filter);
+    trackOneShot(o);
+    trackOneShot(lfo);
+    o.start(startTime);
+    lfo.start(startTime);
+    o.stop(end + 0.08);
+    lfo.stop(end + 0.08);
+  }
+  function whaleCue(kind) {
+    const c = ensureAudio();
+    if (!c || S.muted) {
+      return;
+    }
+    const recede = kind === "recede",
+      profile = recede
+        ? {
+            duration: 5.6,
+            points: [0, 1.7, 3.7, 5.6],
+            frequencies: [330, 170, 275, 105],
+            fadeIn: 0.55,
+            fadeOut: 1.65,
+            vibratoRate: 0.105,
+            vibratoDepth: 8,
+          }
+        : {
+            duration: 6.2,
+            points: [0, 1.8, 4.05, 6.2],
+            frequencies: [185, 105, 285, 145],
+            fadeIn: 0.9,
+            fadeOut: 1.55,
+            vibratoRate: 0.115,
+            vibratoDepth: 11,
+          },
+      startTime = c.currentTime + 0.025,
+      filter = c.createBiquadFilter(),
+      dry = c.createGain(),
+      delay = c.createDelay(1),
+      delayFilter = c.createBiquadFilter(),
+      wet = c.createGain();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(recede ? 1700 : 1450, startTime);
+    filter.frequency.exponentialRampToValueAtTime(recede ? 300 : 390, startTime + profile.duration);
+    dry.gain.value = recede ? 0.82 : 0.9;
+    wet.gain.value = recede ? 0.13 : 0.16;
+    delay.delayTime.value = recede ? 0.24 : 0.2;
+    delayFilter.type = "lowpass";
+    delayFilter.frequency.value = 850;
+    filter.connect(dry).connect(audio.master);
+    filter.connect(delay).connect(delayFilter).connect(wet).connect(audio.master);
+    scheduleWhaleOsc(c, filter, profile, startTime, 1, "sine", recede ? 0.095 : 0.12, 0);
+    scheduleWhaleOsc(c, filter, profile, startTime, 0.5, "triangle", recede ? 0.042 : 0.052, -7);
+  }
+  function proceduralDistantCue() {
+    whaleCue("distant");
+  }
+  function proceduralRecedeCue() {
+    whaleCue("recede");
+  }
+  function proceduralWind() {
+    const c = ensureAudio();
+    if (!c || S.muted || audio.windSource || !audio.windWanted) {
+      return;
+    }
+    const len = c.sampleRate * 2,
+      b = c.createBuffer(1, len, c.sampleRate),
+      d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      d[i] = Math.random() * 2 - 1;
+    }
+    const src = c.createBufferSource(),
+      filter = c.createBiquadFilter(),
+      gain = c.createGain();
+    src.buffer = b;
+    src.loop = true;
+    filter.type = "lowpass";
+    filter.frequency.value = 420;
+    gain.gain.value = 0.035;
+    src.connect(filter).connect(gain).connect(audio.master);
+    src.start();
+    audio.windSource = src;
+    audio.windGain = gain;
+  }
+  function playDistantCue() {
+    playBuffer("bellDistant", { gain: 0.7 }, proceduralDistantCue);
+  }
+  function playRecedeCue() {
+    playBuffer("bellRecede", { gain: 0.7 }, proceduralRecedeCue);
+  }
+  function startWind() {
+    const generation = ++audio.windGeneration;
+    audio.windWanted = true;
+    if (S.muted || audio.windSource) {
+      return;
+    }
+    playBuffer(
+      "ambientBed",
+      {
+        loop: true,
+        ambient: true,
+        gain: 0.5,
+        onstart: function (src, gain) {
+          if (!audio.windWanted || generation !== audio.windGeneration) {
+            try {
+              src.stop();
+            } catch (_e) {}
+            return;
+          }
+          audio.windSource = src;
+          audio.windGain = gain;
+        },
+      },
+      proceduralWind
+    );
+  }
+  function stopWind() {
+    audio.windWanted = false;
+    audio.windGeneration++;
+    if (audio.windSource) {
+      try {
+        audio.windSource.stop();
+      } catch (_e) {}
+      audio.windSource = null;
+      audio.windGain = null;
+    }
+  }
+  function playCreak() {
+    playBuffer("creak", { gain: 0.58, rate: 0.9 + Math.random() * 0.18 }, function () {
+      tone(150, 58, 1.15, 0.07, "sawtooth");
+    });
+  }
+  function isBadApproachPhase() {
+    return (
+      S.phase === "bad-tv" ||
+      S.phase === "bad-red" ||
+      S.phase === "timeout-tv" ||
+      S.phase === "timeout-red"
+    );
+  }
+  function proceduralBadApproach() {
+    const c = ensureAudio();
+    if (!c || S.muted || !isBadApproachPhase()) {
+      return;
+    }
+    const o = c.createOscillator(),
+      g = c.createGain();
+    o.type = "sawtooth";
+    o.frequency.value = 43;
+    g.gain.setValueAtTime(0.0001, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.045, c.currentTime + 0.35);
+    o.connect(g).connect(audio.master);
+    o.start();
+    audio.badSource = o;
+  }
+  function scheduleBadBell(delay, generation, interval, gain) {
+    audio.badBellTimer = setTimeout(function () {
+      audio.badBellTimer = 0;
+      if (generation !== audio.badBellGeneration || !isBadApproachPhase()) {
+        return;
+      }
+      playBuffer(
+        "bellStrike",
+        {
+          gain: gain,
+          rate: 1,
+          valid: function () {
+            return generation === audio.badBellGeneration && isBadApproachPhase();
+          },
+          onstart: function (src) {
+            trackScheduledSource(audio.badBellSources, src);
+          },
+        },
+        function () {
+          if (generation === audio.badBellGeneration && isBadApproachPhase()) {
+            metalBell(210, 0, Math.min(0.16, gain * 0.28), audio.badBellSources);
+          }
+        }
+      );
+      scheduleBadBell(
+        Math.max(380, interval * 0.88),
+        generation,
+        Math.max(380, interval * 0.88),
+        Math.min(0.85, gain + 0.03)
+      );
+    }, delay);
+  }
+  function startBadBell() {
+    stopBadBell();
+    const generation = audio.badBellGeneration;
+    scheduleBadBell(2600, generation, 2600, 0.5);
+  }
+  function stopBadBell() {
+    audio.badBellGeneration++;
+    if (audio.badBellTimer) {
+      clearTimeout(audio.badBellTimer);
+      audio.badBellTimer = 0;
+    }
+    stopScheduledSources(audio.badBellSources);
+  }
+  function playBadApproach() {
+    playBuffer(
+      "bad",
+      {
+        loop: true,
+        ambient: true,
+        gain: 0.68,
+        valid: isBadApproachPhase,
+        onstart: function (src) {
+          audio.badSource = src;
+        },
+      },
+      proceduralBadApproach
+    );
+    startBadBell();
+  }
+  function stopBadApproach() {
+    stopBadBell();
+    if (audio.badSource) {
+      try {
+        audio.badSource.stop();
+      } catch (_e) {}
+      audio.badSource = null;
+    }
+  }
+  function countdownBellGain(remaining) {
+    return Math.max(
+      0.04,
+      Math.min(0.7, 0.04 + (20 - Math.max(0, Math.min(20, remaining))) * 0.033)
+    );
+  }
+  function scheduleCountdownBell(delay, generation) {
+    audio.countdownBellTimer = setTimeout(function () {
+      audio.countdownBellTimer = 0;
+      if (generation !== audio.countdownBellGeneration || S.phase !== "playing" || S.timeoutFired) {
+        return;
+      }
+      const remaining = Math.max(0, 179 - Math.floor((performance.now() - S.started) / 1000));
+      if (remaining > 20 || remaining === 0) {
+        return;
+      }
+      playBuffer(
+        "bellStrike",
+        {
+          gain: countdownBellGain(remaining),
+          rate: 1,
+          valid: function () {
+            return (
+              generation === audio.countdownBellGeneration &&
+              S.phase === "playing" &&
+              !S.timeoutFired
+            );
+          },
+          onstart: function (src) {
+            trackScheduledSource(audio.countdownBellSources, src);
+          },
+        },
+        function () {
+          if (
+            generation === audio.countdownBellGeneration &&
+            S.phase === "playing" &&
+            !S.timeoutFired
+          ) {
+            metalBell(210, 0, 0.06, audio.countdownBellSources);
+          }
+        }
+      );
+      scheduleCountdownBell(2500, generation);
+    }, delay);
+  }
+  function startCountdownBell() {
+    if (audio.countdownBellTimer) {
+      return;
+    }
+    const generation = audio.countdownBellGeneration;
+    scheduleCountdownBell(0, generation);
+  }
+  E.mute.addEventListener("click", function () {
+    setMuted(!S.muted);
+  });
+  let fitFrame = 0,
+    lastDetentAt = -Infinity;
+  const revealCueArmed = { subtle: true, partial: true };
+  function fitText(container, text, min, max) {
+    if (!container || !text || !container.clientHeight) {
+      return;
+    }
+    text.style.fontSize = max + "px";
+    let low = min,
+      high = max;
+    for (let i = 0; i < 8; i++) {
+      const size = (low + high) / 2;
+      text.style.fontSize = size + "px";
+      if (
+        container.scrollHeight <= container.clientHeight + 1 &&
+        container.scrollWidth <= container.clientWidth + 1
+      ) {
+        low = size;
+      } else {
+        high = size;
+      }
+    }
+    text.style.fontSize = Math.floor(low * 10) / 10 + "px";
+  }
+  function fitCurrentText() {
+    if (S.phase === "invite") {
+      fitText(E.inviteHit, E.inviteCopy, 10, 24);
+    } else if (S.phase === "instructions") {
+      fitText(E.instructionPanel, E.instructionTitle, 9, 15);
+    } else if (S.phase === "instructions2") {
+      fitText(E.instructionPanel2, E.instructionTitle2, 9, 16);
+    } else if ((S.phase === "bad-tv" || S.phase === "timeout-tv") && !E.endingBroadcast.hidden) {
+      fitText(E.endingBroadcast, E.endingBroadcast, 10, 24);
+    }
+  }
+  function scheduleTextFit() {
+    cancelAnimationFrame(fitFrame);
+    fitFrame = requestAnimationFrame(fitCurrentText);
+  }
+  function viewport() {
+    const h = Math.round(window.visualViewport ? visualViewport.height : innerHeight),
+      frameH = Math.min(h, 900);
+    document.documentElement.style.setProperty("--vvh", h + "px");
+    if (innerWidth >= 500) {
+      E.app.style.setProperty("--vvh", frameH + "px");
+    } else {
+      E.app.style.removeProperty("--vvh");
+    }
+    document.documentElement.classList.toggle("vvh-short", h <= 640);
+    document.documentElement.classList.toggle("vvh-tiny", h <= 520);
+    scheduleTextFit();
+    updateSacrificeMasks();
+  }
+  function render() {
+    E.stage.style.transform = "translate(" + S.tx + "px," + S.ty + "px) scale(" + S.scale + ")";
+    E.zoom.textContent = Math.round(S.scale * 100);
+  }
+  function clampPan() {
+    if (S.scale <= 1) {
+      S.tx = S.ty = 0;
+      return;
+    }
+    const r = E.vp.getBoundingClientRect(),
+      maxX = (r.width * (S.scale - 1)) / 2,
+      maxY = (r.height * (S.scale - 1)) / 2;
+    S.tx = Math.max(-maxX, Math.min(maxX, S.tx));
+    S.ty = Math.max(-maxY, Math.min(maxY, S.ty));
+  }
+  const introMessages = [
+    "仕事終わりに、くだらないテレビ番組を見るのが日課だ。",
+    "缶ビールを開けて、見るともなく画面を眺める。",
+    "内容なんて、頭に入っていない。それがいい。",
+    "……あれ？　番組が途切れた。",
+    "知らない放送が割り込んできた。",
+  ];
+  const sacrificeFaceBoxes = {
+    父: { left: 25, top: 25.3, width: 9, height: 7.5 },
+    姉: { left: 37.3, top: 31.6, width: 8.3, height: 6.8 },
+    弟: { left: 48.5, top: 38.8, width: 7.8, height: 6.8 },
+    母: { left: 56.3, top: 31.2, width: 8.3, height: 6.6 },
+    祖母: { left: 68.5, top: 32.8, width: 8.8, height: 7.2 },
+  };
+  const sacrificeImageSize = { width: 1024, height: 1536 };
+  function objectPositionOffset(token, containerSize, displaySize) {
+    const freeSpace = containerSize - displaySize,
+      normalized = String(token || "").toLowerCase();
+    if (normalized === "left" || normalized === "top") {
+      return 0;
+    }
+    if (normalized === "right" || normalized === "bottom") {
+      return freeSpace;
+    }
+    if (normalized === "center") {
+      return freeSpace / 2;
+    }
+    const percent = normalized.match(/^(-?\d+(?:\.\d+)?)%$/);
+    if (percent) {
+      return (freeSpace * parseFloat(percent[1])) / 100;
+    }
+    const pixels = normalized.match(/^(-?\d+(?:\.\d+)?)px$/);
+    if (pixels) {
+      return parseFloat(pixels[1]);
+    }
+    return freeSpace / 2;
+  }
+  function positionFaceMask(mask, person) {
+    const box = sacrificeFaceBoxes[person],
+      container = mask && mask.parentElement,
+      image = container && container.querySelector("img");
+    if (!box || !container || !image) {
+      return;
+    }
+    const containerRect = container.getBoundingClientRect(),
+      imageRect = image.getBoundingClientRect(),
+      containerWidth = imageRect.width,
+      containerHeight = imageRect.height;
+    if (!containerWidth || !containerHeight) {
+      return;
+    }
+    const naturalWidth = image.naturalWidth || sacrificeImageSize.width,
+      naturalHeight = image.naturalHeight || sacrificeImageSize.height,
+      scale = Math.max(containerWidth / naturalWidth, containerHeight / naturalHeight),
+      displayWidth = naturalWidth * scale,
+      displayHeight = naturalHeight * scale,
+      position = (getComputedStyle(image).objectPosition || "50% 50%").trim().split(/\s+/),
+      imageLeft =
+        imageRect.left -
+        containerRect.left +
+        objectPositionOffset(position[0], containerWidth, displayWidth),
+      imageTop =
+        imageRect.top -
+        containerRect.top +
+        objectPositionOffset(position[1] || "50%", containerHeight, displayHeight);
+    mask.style.left = imageLeft + ((naturalWidth * box.left) / 100) * scale + "px";
+    mask.style.top = imageTop + ((naturalHeight * box.top) / 100) * scale + "px";
+    mask.style.width = ((naturalWidth * box.width) / 100) * scale + "px";
+    mask.style.height = ((naturalHeight * box.height) / 100) * scale + "px";
+  }
+  function updateSacrificeMasks() {
+    [E.endingMask, E.resultMask].forEach(function (mask) {
+      if (mask && !mask.hidden) {
+        positionFaceMask(mask, mask.dataset.person);
+      }
+    });
+  }
+  function bindSacrificeMaskImage(mask, image) {
+    if (!image || image["__sacrificeMaskBound"]) {
+      return;
+    }
+    image["__sacrificeMaskBound"] = true;
+    image.addEventListener("load", function () {
+      if (!mask.hidden) {
+        positionFaceMask(mask, mask.dataset.person);
+      }
+    });
+  }
+  function setSacrificeMask(mask, visible, person) {
+    if (!mask) {
+      return;
+    }
+    if (!visible || !sacrificeFaceBoxes[person]) {
+      mask.hidden = true;
+      mask.className = "sacrifice-mask";
+      mask.removeAttribute("data-person");
+      mask.style.left = "";
+      mask.style.top = "";
+      mask.style.width = "";
+      mask.style.height = "";
+      return;
+    }
+    mask.className = "sacrifice-mask";
+    mask.hidden = false;
+    mask.dataset.person = person;
+    mask.setAttribute("aria-label", person + "が生贄に選ばれました");
+    const image = mask.parentElement && mask.parentElement.querySelector("img");
+    bindSacrificeMaskImage(mask, image);
+    positionFaceMask(mask, person);
+  }
+  const photoApproachLogs = [
+    "……遠くから鐘のような音が聞こえる",
+    "近くに教会はなかったはずだが",
+    "そもそも夜中だし迷惑だな",
+    "ひとまず、ここから選べってことか……",
+  ];
+  function hideFlowScreens() {
+    E.intro.hidden = true;
+    E.alert.hidden = true;
+    E.invite.hidden = true;
+    E.instructions.hidden = true;
+    E.instructions2.hidden = true;
+    E.game.hidden = true;
+    E.ending.hidden = true;
+    E.result.hidden = true;
+    E.photoInstructions.hidden = true;
+  }
+  function clearEndingTimers() {
+    S.endingTimers.forEach(clearTimeout);
+    S.endingTimers = [];
+  }
+  function later(fn, ms) {
+    const id = setTimeout(fn, ms);
+    S.endingTimers.push(id);
+    return id;
+  }
+  function showIntro(push) {
+    clearTimeout(introTimer);
+    clearEndingTimers();
+    stopOneShots();
+    stopBadApproach();
+    stopWind();
+    hideFlowScreens();
+    E.blackout.hidden = true;
+    E.red.hidden = true;
+    E.ending.className = "screen ending-tv-screen";
+    E.intro.hidden = false;
+    S.phase = "intro";
+    S.timeoutFired = false;
+    S.timeoutLog = 0;
+    introStep = 0;
+    if (E.introVideo) {
+      E.introVideo.hidden = false;
+      E.introVideo.currentTime = 0;
+      E.introVideo.muted = S.muted;
+      E.introVideo.volume = 0.72;
+      E.introVideo.play().catch(function () {});
+    }
+    if (E.introWarning) {
+      E.introWarning.hidden = true;
+    }
+    if (E.introMessage) {
+      E.introMessage.parentElement.hidden = false;
+      E.introMessage.textContent = introMessages[0];
+      E.introMessage.setAttribute("aria-label", "メッセージを送る（タップして続ける）");
+    }
+    if (push !== false) {
+      pushView();
+    }
+  }
+  function advanceIntro() {
+    if (S.phase !== "intro") {
+      return;
+    }
+    introStep++;
+    if (introStep === 3) {
+      if (E.introVideo) {
+        E.introVideo.pause();
+        E.introVideo.hidden = true;
+      }
+      if (E.introWarning) {
+        E.introWarning.hidden = false;
+      }
+      cue("interrupt");
+      A.track("intro_interrupted");
+    } else {
+      cue("message");
+    }
+    if (introStep < introMessages.length) {
+      E.introMessage.textContent = introMessages[introStep];
+      return;
+    }
+    if (E.introMessage) {
+      E.introMessage.parentElement.hidden = true;
+    }
+    showAlert();
+  }
+  function showAlert(push) {
+    clearTimeout(introTimer);
+    if (E.introVideo) {
+      E.introVideo.pause();
+    }
+    hideFlowScreens();
+    E.alert.hidden = false;
+    S.phase = "alert";
+    if (push !== false) {
+      pushView();
+    }
+    if (E.crt) {
+      E.crt.focus();
+    }
+  }
+  function showInvite(push) {
+    hideFlowScreens();
+    E.invite.hidden = false;
+    S.phase = "invite";
+    scheduleTextFit();
+    if (push !== false) {
+      cue("open");
+      pushView();
+    }
+    if (E.inviteHit) {
+      E.inviteHit.focus();
+    }
+  }
+  function showInstructions(push) {
+    hideFlowScreens();
+    E.instructions.hidden = false;
+    S.phase = "instructions";
+    scheduleTextFit();
+    if (push !== false) {
+      cue("receive");
+      pushView();
+    }
+    E.instructionPanel.focus();
+  }
+  function showInstructionTwo(push) {
+    hideFlowScreens();
+    E.instructions2.hidden = false;
+    S.phase = "instructions2";
+    scheduleTextFit();
+    if (push !== false) {
+      cue("receive");
+      pushView();
+    }
+    E.instructionPanel2.focus();
+  }
+  function triggerFirstTremor() {
+    S.approachLog = 0;
+    E.approachLog.textContent = photoApproachLogs[0];
+    E.approachLog.hidden = false;
+    E.game.classList.remove("is-trembling");
+    void E.game.offsetWidth;
+    E.game.classList.add("is-trembling");
+    playDistantCue();
+    A.track("blessing_first_tremor");
+  }
+  function advanceApproachLog() {
+    if (S.approachLog == null) {
+      return false;
+    }
+    if (S.approachLog < photoApproachLogs.length - 1) {
+      S.approachLog++;
+      E.approachLog.textContent = photoApproachLogs[S.approachLog];
+      cue("message");
+      return true;
+    }
+    E.approachLog.hidden = true;
+    S.approachLog = null;
+    return false;
+  }
+  function start(reset, push) {
+    if (reset) {
+      completionAttempt.reset();
+    }
+    hideFlowScreens();
+    E.game.hidden = false;
+    if (reset) {
+      stopOneShots();
+      S.scale = 1.4;
+      S.tx = S.ty = 0;
+      S.touches.clear();
+      S.gesture = null;
+      S.ignorePersonClicksUntil = 0;
+      S.controls = false;
+      S.revealStarted = 0;
+      S.revealed = false;
+      S.selected = null;
+      S.hints = 0;
+      S.wind = false;
+      S.timeoutFired = false;
+      S.timeoutLog = 0;
+      lastDetentAt = -Infinity;
+      resetRevealCueArming();
+      stopWind();
+      E.controls.hidden = true;
+      E.modal.hidden = true;
+      E.sat.value = 100;
+      E.bri.value = 50;
+      setRevealProgress(0);
+      S.started = performance.now();
+      if (push !== false) {
+        cue("photo");
+      }
+      A.track("game_start");
+    } else if (!S.started) {
+      S.started = performance.now();
+    }
+    S.phase = "playing";
+    showTvPreview();
+    if (reset && push !== false) {
+      triggerFirstTremor();
+    }
+    if (push !== false) {
+      pushView();
+    }
+    render();
+  }
+  function showTvPreview() {
+    S.photoMode = "preview";
+    E.tvPreview.hidden = false;
+    E.game.classList.add("is-tv-preview");
+    E.game.classList.remove("is-photo-full");
+    E.photoInstructions.hidden = false;
+    E.vp.hidden = true;
+    E.controls.hidden = true;
+  }
+  function enterFullPhoto(push) {
+    S.photoMode = "full";
+    E.tvPreview.hidden = true;
+    E.game.classList.remove("is-tv-preview");
+    E.game.classList.add("is-photo-full");
+    E.photoInstructions.hidden = false;
+    E.vp.hidden = false;
+    E.controls.hidden = !S.controls;
+    if (push !== false) {
+      cue("expand");
+      pushView();
+    }
+    E.vp.focus();
+    A.track("photo_fullscreen");
+  }
+  function returnToTvPreview() {
+    if (S.phase !== "playing") {
+      return;
+    }
+    cue("back");
+    historyBack(function () {
+      showTvPreview(false);
+    });
+    A.track("photo_preview_back");
+  }
+  function dist(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+  function mid(a, b) {
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+  function capturePointer(id) {
+    try {
+      E.vp.setPointerCapture(id);
+    } catch (_e) {}
+  }
+  E.vp.addEventListener(
+    "pointerdown",
+    function (e) {
+      S.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (S.touches.size === 1) {
+        S.gesture = { kind: "pan", x: e.clientX, y: e.clientY, tx: S.tx, ty: S.ty };
+      }
+      if (S.touches.size === 2) {
+        const p = Array.from(S.touches.values());
+        S.gesture = {
+          kind: "pinch",
+          d: dist(p[0], p[1]),
+          scale: S.scale,
+          startScale: S.scale,
+          m: mid(p[0], p[1]),
+          tx: S.tx,
+          ty: S.ty,
+        };
+        S.ignorePersonClicksUntil = performance.now() + 500;
+        S.touches.forEach(function (_, id) {
+          capturePointer(id);
+        });
+      }
+    },
+    true
+  );
+  E.vp.addEventListener("pointermove", function (e) {
+    if (!S.touches.has(e.pointerId)) {
+      return;
+    }
+    S.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!S.gesture) {
+      return;
+    }
+    if (S.touches.size === 2 && S.gesture.kind === "pinch") {
+      const p = Array.from(S.touches.values()),
+        currentMid = mid(p[0], p[1]),
+        ratio = dist(p[0], p[1]) / S.gesture.d,
+        nextScale = Math.max(1, Math.min(3, S.gesture.scale * ratio)),
+        r = E.vp.getBoundingClientRect(),
+        cx = r.left + r.width / 2,
+        cy = r.top + r.height / 2,
+        scaleRatio = nextScale / S.gesture.startScale,
+        previousScale = S.scale;
+      S.ignorePersonClicksUntil = performance.now() + 500;
+      S.scale = nextScale;
+      S.tx = currentMid.x - cx - scaleRatio * (S.gesture.m.x - cx - S.gesture.tx);
+      S.ty = currentMid.y - cy - scaleRatio * (S.gesture.m.y - cy - S.gesture.ty);
+      if (S.scale === 1) {
+        S.tx = S.ty = 0;
+        maybePlayDetent(previousScale);
+        unlock();
+      }
+      clampPan();
+      render();
+    } else if (S.touches.size === 1 && S.gesture.kind === "pan" && S.scale > 1) {
+      const moved = Math.hypot(e.clientX - S.gesture.x, e.clientY - S.gesture.y);
+      if (moved > 6) {
+        S.ignorePersonClicksUntil = performance.now() + 400;
+        capturePointer(e.pointerId);
+      }
+      S.tx = S.gesture.tx + e.clientX - S.gesture.x;
+      S.ty = S.gesture.ty + e.clientY - S.gesture.y;
+      clampPan();
+      render();
+    }
+  });
+  function pointerUp(e) {
+    S.touches.delete(e.pointerId);
+    if (S.touches.size < 2) {
+      S.gesture = null;
+      render();
+    }
+  }
+  E.vp.addEventListener("pointerup", pointerUp);
+  E.vp.addEventListener("pointercancel", pointerUp);
+  E.vp.addEventListener(
+    "wheel",
+    function (e) {
+      e.preventDefault();
+      const down = e.deltaY > 0,
+        previousScale = S.scale,
+        next = Math.max(1, Math.min(3, S.scale * (down ? 0.9 : 1.1)));
+      S.scale = next;
+      if (next === 1) {
+        S.tx = S.ty = 0;
+        maybePlayDetent(previousScale);
+        unlock();
+      }
+      clampPan();
+      render();
+    },
+    { passive: false }
+  );
+  function maybePlayDetent(previousScale) {
+    if (previousScale <= 1) {
+      return;
+    }
+    const now = performance.now();
+    if (now - lastDetentAt < 600) {
+      return;
+    }
+    lastDetentAt = now;
+    cue("detent");
+  }
+  function unlock() {
+    if (S.controls) {
+      return;
+    }
+    S.controls = true;
+    E.controls.hidden = false;
+    cue("unlock");
+    A.track("controls_revealed");
+  }
+  function resetRevealCueArming() {
+    revealCueArmed.subtle = true;
+    revealCueArmed.partial = true;
+  }
+  function playRevealProgressCue(p, threshold, key, name, gain) {
+    if (p < threshold - 0.08) {
+      revealCueArmed[key] = true;
+    }
+    if (p > threshold && revealCueArmed[key]) {
+      revealCueArmed[key] = false;
+      if (S.phase !== "playing" || S.photoMode !== "full") {
+        return;
+      }
+      const generation = audio.generation,
+        phase = S.phase;
+      playBuffer(name, {
+        gain: gain,
+        valid: function () {
+          return generation === audio.generation && S.phase === phase && S.photoMode === "full";
+        },
+      });
+    }
+  }
+  function smooth(a, b, x) {
+    const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  }
+  function setRevealProgress(p) {
+    p = Math.max(0, Math.min(1, p));
+    const base = 1 - smooth(0.12, 0.28, p),
+      subtle = smooth(0.12, 0.28, p) * (1 - smooth(0.38, 0.56, p)),
+      partial = smooth(0.32, 0.52, p) * (1 - smooth(0.65, 0.82, p)),
+      full = smooth(0.65, 0.88, p),
+      sum = base + subtle + partial + full || 1;
+    E.stage.style.setProperty("--base-alpha", base / sum);
+    E.stage.style.setProperty("--subtle-alpha", subtle / sum);
+    E.stage.style.setProperty("--partial-alpha", partial / sum);
+    E.stage.style.setProperty("--full-alpha", full / sum);
+    playRevealProgressCue(p, 0.15, "subtle", "revealSubtle", 0.55);
+    playRevealProgressCue(p, 0.45, "partial", "revealPartial", 0.7);
+  }
+  function tune() {
+    const sat = +E.sat.value,
+      bri = +E.bri.value;
+    E.satO.value = sat;
+    E.briO.value = bri;
+    E.stage.style.setProperty("--sat", sat / 100);
+    E.stage.style.setProperty("--bri", 0.55 + bri / 100);
+    let p = Math.max(
+      0,
+      Math.min(
+        1,
+        ((cfg.sat - sat) / Math.max(1, cfg.sat) +
+          (bri - cfg.bri) / Math.max(1, 100 - cfg.bri) +
+          2) /
+          4
+      )
+    );
+    if (sat <= cfg.sat && bri >= cfg.bri) {
+      if (!S.revealStarted) {
+        S.revealStarted = performance.now();
+      }
+      p = Math.max(p, Math.min(1, (performance.now() - S.revealStarted) / cfg.revealHold));
+      if (performance.now() - S.revealStarted >= cfg.revealHold && !S.revealed) {
+        S.revealed = true;
+        cue("reveal");
+        A.track("entity_revealed");
+        showHint("存在照合：中央個体の生体情報が一致しません。", false);
+      }
+    } else {
+      S.revealStarted = 0;
+    }
+    setRevealProgress(S.revealed ? 1 : p);
+    E.fill.style.setProperty("--progress", Math.round(p * 100) + "%");
+  }
+  E.sat.addEventListener("input", tune);
+  E.bri.addEventListener("input", tune);
+  $$(".person").forEach(function (b) {
+    b.addEventListener("pointerdown", function (e) {
+      e.stopPropagation();
+    });
+    b.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (performance.now() < S.ignorePersonClicksUntil) {
+        e.preventDefault();
+        return;
+      }
+      S.selected = b.dataset.person;
+      cue("select");
+      E.ctitle.textContent = S.selected + "を選定";
+      E.ccopy.textContent = "この人物を生贄候補として奉納しますか？ 選定後は取り消せません。";
+      E.modal.hidden = false;
+      E.confirm.focus();
+    });
+  });
+  E.cancel.addEventListener("click", function () {
+    cue("cancel");
+    S.selected = null;
+    E.modal.hidden = true;
+  });
+  E.confirm.addEventListener("click", function () {
+    cue("confirm");
+    finish(S.selected === "弟");
+  });
+  const goodLogs = [
+    "気持ちわる、なんだこの写真。",
+    "未だよくわからないが、これで正解なのか...?",
+    "近づいてきていた鐘のような音が遠ざかっていく...",
+    "急に疲れを感じた俺は、テレビを消した後、気づいたら寝ていた",
+  ];
+  const badLogs = [
+    "……あれ？　写真に、知らない男がいる。",
+    "泣いているのに、笑っている。",
+    "あれは――",
+    "おめでとうございます。",
+    "あなたの記録は『兄』として保存されました。",
+    "次の祝福まで、どうぞ健やかにお過ごしください。",
+  ];
+  const timeoutLogs = [
+    "……選定期限が、過ぎた。",
+    "写真の中で、肉羽家がゆっくりとこちらを向いた。",
+    "選定を怠ったため、あなた自身が肉羽家に加えられました。",
+    "祝福の元へ運ばれます。どうぞ、静かにお待ちください。",
+  ];
+  function showEndingTv(kind, image, log) {
+    clearEndingTimers();
+    hideFlowScreens();
+    E.ending.hidden = false;
+    E.ending.className =
+      "screen ending-tv-screen is-" + kind + (kind === "timeout" ? " is-bad" : "");
+    E.endingImage.src = image;
+    setSacrificeMask(E.endingMask, kind === "bad" && S.selected !== "弟", S.selected);
+    E.endingLog.parentElement.hidden = false;
+    E.endingLog.textContent = log;
+    E.endingBroadcast.hidden = true;
+    E.red.hidden = true;
+    E.blackout.hidden = true;
+    S.phase = kind + "-tv";
+  }
+  function finish(good) {
+    E.modal.hidden = true;
+    stopCountdownBell();
+    stopWind();
+    if (good) {
+      startGoodEnding();
+    } else {
+      startBadEnding();
+    }
+  }
+  function startGoodEnding() {
+    S.goodLog = 0;
+    showEndingTv("good", "./entity-full-v2.png?v=20260714d", goodLogs[0]);
+    cue("photo");
+    A.track("return_to_tv_for_good_end");
+  }
+  function advanceGoodEnding() {
+    if (S.phase !== "good-tv") {
+      return;
+    }
+    if (S.goodLog < goodLogs.length - 1) {
+      S.goodLog++;
+      E.endingLog.textContent = goodLogs[S.goodLog];
+      cue("message");
+      if (S.goodLog === 2) {
+        playRecedeCue();
+        A.track("blessing_receding");
+      }
+      return;
+    }
+    S.phase = "good-tv-off";
+    cue("off");
+    E.ending.classList.add("tv-off");
+    E.endingLog.parentElement.hidden = true;
+    A.track("television_turned_off");
+    later(function () {
+      showResult(true);
+    }, cfg.goodOff);
+  }
+  function startBadEnding() {
+    S.badLog = 0;
+    showEndingTv("bad", "./family-bad-end-brother-released.png", badLogs[0]);
+    S.wind = true;
+    startWind();
+    playCreak();
+    A.track("return_to_tv_for_bad_end");
+    playBadApproach();
+  }
+  function advanceBadEnding() {
+    if (S.phase !== "bad-tv") {
+      return;
+    }
+    if (S.badLog < 2) {
+      S.badLog++;
+      E.endingLog.textContent = badLogs[S.badLog];
+      cue("message");
+      return;
+    }
+    if (S.badLog < badLogs.length - 1) {
+      S.badLog++;
+      E.endingLog.parentElement.hidden = true;
+      E.endingBroadcast.hidden = false;
+      E.endingBroadcast.textContent = badLogs[S.badLog];
+      scheduleTextFit();
+      return;
+    }
+    S.phase = "bad-red";
+    cue("red");
+    E.red.hidden = false;
+    A.track("bad_end_red_alert");
+    later(function () {
+      if (S.phase !== "bad-red") {
+        return;
+      }
+      S.phase = "bad-blackout";
+      cue("blackout");
+      stopBadApproach();
+      stopWind();
+      E.blackout.hidden = false;
+      E.red.hidden = true;
+      later(function () {
+        showResult(false);
+      }, cfg.badBlack);
+    }, cfg.badRed);
+  }
+  function showResult(good) {
+    clearEndingTimers();
+    stopBadApproach();
+    stopOneShots();
+    hideFlowScreens();
+    E.blackout.hidden = true;
+    E.result.hidden = false;
+    E.result.className = "screen result-screen " + (good ? "good" : "bad");
+    $("#result-photo img").src = good
+      ? "./entity-full-v2.png?v=20260714d"
+      : "./family-bad-end-brother-released.png";
+    setSacrificeMask(E.resultMask, !good && S.selected !== "弟", S.selected);
+    $("#result-code").textContent = good
+      ? "BLESSING PASSED / SAFE"
+      : "BLESSING RECEIVED / REWRITING";
+    $("#result-title").textContent = good
+      ? "祝福は通過しました"
+      : "おめでとうございます、あなたの元に祝福が訪れました";
+    $("#result-copy").textContent = good
+      ? "架空存在を奉納。祝福は去っていきます。"
+      : S.selected + "は生身の生贄として捧げられました。";
+    const epilogue = $("#epilogue");
+    epilogue.textContent = good
+      ? "鐘のような音は遠ざかり、夜は静けさを取り戻した。"
+      : "その空席を埋めるため、あなたは肉羽家の『兄』として迎えられました。";
+    if (!good) {
+      epilogue.append(
+        document.createElement("br"),
+        "誰かがあなたを選んだ時、生贄として奉納されるでしょう。"
+      );
+    }
+    S.phase = good ? "good" : "bad";
+    if (good) {
+      completionAttempt.complete();
+    }
+    cue(good ? "clear" : "badresult");
+    const oldShare = E.result.querySelector(".completion-share");
+    if (oldShare) {
+      oldShare.remove();
+    }
+    if (good) {
+      const share = document.createElement("a");
+      share.className = "primary completion-share";
+      share.textContent = "Xでシェア";
+      share.href =
+        "https://twitter.com/intent/tweet?text=" +
+        encodeURIComponent(
+          "祝福は通過しました。「緊急祝福警報」" +
+            (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
+        ) +
+        "&url=" +
+        encodeURIComponent("https://games.escape-safari.com/blessing-alert/");
+      share.target = "_blank";
+      share.rel = "noopener";
+      E.result.appendChild(share);
+    }
+    A.track(good ? "game_clear" : "bad_end", { selected: S.selected });
+  }
+  function startTimeoutEnding() {
+    S.timeoutLog = 0;
+    S.selected = null;
+    showEndingTv("timeout", "./family-bad-end-brother-released.png", timeoutLogs[0]);
+    S.wind = true;
+    startWind();
+    playCreak();
+    A.track("timeout_bad_end");
+    playBadApproach();
+  }
+  function triggerTimeoutEnd() {
+    if (S.phase !== "playing" || S.timeoutFired) {
+      return;
+    }
+    E.modal.hidden = true;
+    stopCountdownBell();
+    S.timeoutFired = true;
+    startTimeoutEnding();
+  }
+  function advanceTimeoutEnding() {
+    if (S.phase !== "timeout-tv") {
+      return;
+    }
+    if (S.timeoutLog < 2) {
+      S.timeoutLog++;
+      E.endingLog.textContent = timeoutLogs[S.timeoutLog];
+      cue("message");
+      return;
+    }
+    if (S.timeoutLog < timeoutLogs.length - 1) {
+      S.timeoutLog++;
+      E.endingLog.parentElement.hidden = true;
+      E.endingBroadcast.hidden = false;
+      E.endingBroadcast.textContent = timeoutLogs[S.timeoutLog];
+      scheduleTextFit();
+      return;
+    }
+    S.phase = "timeout-red";
+    cue("red");
+    E.red.hidden = false;
+    later(function () {
+      if (S.phase !== "timeout-red") {
+        return;
+      }
+      S.phase = "timeout-blackout";
+      cue("blackout");
+      stopBadApproach();
+      stopWind();
+      E.blackout.hidden = false;
+      E.red.hidden = true;
+      later(showTimeoutResult, cfg.badBlack);
+    }, cfg.badRed);
+  }
+  function showTimeoutResult() {
+    clearEndingTimers();
+    stopBadApproach();
+    stopOneShots();
+    hideFlowScreens();
+    E.blackout.hidden = true;
+    E.result.hidden = false;
+    E.result.className = "screen result-screen bad timeout";
+    $("#result-photo img").src = "./family-bad-end-brother-released.png";
+    setSacrificeMask(E.resultMask, false, null);
+    $("#result-code").textContent = "BLESSING RECEIVED / TIMEOUT";
+    $("#result-title").textContent = "選定期限、終了";
+    $("#result-copy").textContent =
+      "肉羽家の誰も生贄にはなりません。選定を怠ったあなた自身が、肉羽家に加えられました。";
+    const epilogue = $("#epilogue");
+    epilogue.textContent = "あなたはそのまま、祝福の元へ運ばれていきます。";
+    S.phase = "timeout";
+    cue("badresult");
+  }
+  function showHint(t, sound) {
+    if (sound !== false) {
+      completionAttempt.hint();
+    }
+    if (sound !== false) {
+      cue("hint");
+    }
+    E.hint.textContent = t;
+    E.hint.classList.add("show");
+    setTimeout(function () {
+      E.hint.classList.remove("show");
+    }, 6000);
+  }
+  function loop(now) {
+    if (S.phase === "playing") {
+      const e = now - S.started,
+        remaining = Math.max(0, 179 - Math.floor(e / 1000));
+      $("#countdown").textContent =
+        "選定期限 " +
+        String(Math.floor(remaining / 60)).padStart(2, "0") +
+        ":" +
+        String(remaining % 60).padStart(2, "0");
+      if (remaining === 0) {
+        stopCountdownBell();
+        triggerTimeoutEnd();
+      } else {
+        if (remaining <= 20) {
+          startCountdownBell();
+        } else {
+          stopCountdownBell();
+        }
+        if (!S.hints && e > cfg.h1) {
+          S.hints = 1;
+          showHint("一度きれいに元へ戻す。");
+        }
+        if (S.hints === 1 && e > cfg.h2) {
+          S.hints = 2;
+          showHint("100%まで縮めてみる。");
+        }
+        if (S.revealStarted && !S.revealed) {
+          tune();
+        }
+        if (!S.wind && e >= cfg.wind) {
+          S.wind = true;
+          startWind();
+          A.track("blessing_wind_started");
+        }
+      }
+    } else {
+      stopCountdownBell();
+    }
+    window["__GAME_STATE__"] = {
+      phase: S.phase,
+      scale: S.scale,
+      controls: S.controls,
+      revealed: S.revealed,
+      selected: S.selected,
+      muted: S.muted,
+      wind: S.wind,
+      goodLog: S.goodLog,
+      timeoutFired: S.timeoutFired,
+    };
+    requestAnimationFrame(loop);
+  }
+  /* The family photo is the last thing the broadcast shows.  It first appears
    inside the same CRT, then opens into the investigation surface on tap. */
-/* The broadcast is deliberately staged: warning first, then the blue
+  /* The broadcast is deliberately staged: warning first, then the blue
    post-broadcast instruction slate, and only then the photograph. */
-function receiveInvite(){if(S.phase!=="invite")return;showInstructions();A.track("blessing_invite_received")}
-function openBroadcast(){if(S.phase!=="alert")return;showInvite();A.track("broadcast_open")}
-function enterGame(){if(S.phase!=="instructions2")return;start(true);A.track("instruction_panel_next")}
-function advancePhotoPreview(){if(S.phase!=="playing"||S.photoMode!=="preview")return;if(advanceApproachLog())return;enterFullPhoto()}
-function advanceEnding(){if(S.phase==="good-tv")advanceGoodEnding();else if(S.phase==="bad-tv")advanceBadEnding();else if(S.phase==="timeout-tv")advanceTimeoutEnding()}
-function isExplicitControl(target){return !!target.closest("button,a,input,select,textarea,label,[role=button],[contenteditable=true]")}
-function advanceFromScreenTap(e){
-  if(isExplicitControl(e.target))return;
-  if(S.phase==="intro")advanceIntro();
-  else if(S.phase==="alert")openBroadcast();
-  else if(S.phase==="invite")receiveInvite();
-  else if(S.phase==="instructions")advanceFromInstruction();
-  else if(S.phase==="instructions2")enterGame();
-  else if(S.phase==="playing"&&S.photoMode==="preview")advancePhotoPreview();
-  else advanceEnding();
-}
-E.crt.onclick=openBroadcast;
-E.crt.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();openBroadcast()}};
-E.inviteHit.onclick=receiveInvite;
-E.inviteHit.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();receiveInvite()}};
-E.instructionBack.onclick=function(){cue("back");historyBack(function(){showAlert(false)});A.track("broadcast_back")};
-E.instructionNext.onclick=function(){advanceFromInstruction();A.track("instruction_next")};
-function advanceFromInstruction(){if(S.phase!=="instructions")return;showInstructionTwo();A.track("instruction_second_open")}
-E.instructionPanel.onclick=function(e){if(e.target.closest("button"))return;advanceFromInstruction()};
-E.instructionPanel.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();advanceFromInstruction()}};
-E.instructionPanel2.onclick=enterGame;
-E.instructionPanel2.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();enterGame()}};
-E.tvPhotoHit.onclick=advancePhotoPreview;
-E.endingHit.onclick=advanceEnding;
-E.endingHit.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();advanceEnding()}};
-E.photoInstructions.onclick=function(){returnToTvPreview();A.track("instructions_viewed")};
-E.game.addEventListener("pointerdown",function(e){if(S.phase==="playing"&&S.photoMode==="full"&&!e.target.closest(".photo-viewport")&&!e.target.closest(".develop-controls")&&!e.target.closest(".outside-tv")){returnToTvPreview()}});
-E.app.addEventListener("click",advanceFromScreenTap);
-document.addEventListener("pointerdown",function(){if(!S.muted)resumeAudio()},{passive:true});
-E.restart.onclick=function(){cue("restart");setTimeout(function(){location.reload()},140)};
-E.introMessage&&E.introMessage.parentElement.addEventListener("click",advanceIntro);
-E.introMessage&&E.introMessage.parentElement.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();advanceIntro()}});
-E.introTvHit&&E.introTvHit.addEventListener("click",advanceIntro);
-E.introTvHit&&E.introTvHit.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();advanceIntro()}});
-function restoreView(key){restoringHistory=true;switch(key){case "intro":showIntro(false);break;case "alert":showAlert(false);break;case "invite":showInvite(false);break;case "instructions":showInstructions(false);break;case "instructions2":showInstructionTwo(false);break;case "photo":start(false,false);enterFullPhoto(false);break;case "tv":start(false,false);break;default:showIntro(false)}restoringHistory=false}
-window.addEventListener("popstate",function(e){restoreView(e.state&&e.state.blessingView||"alert")});
-if(!history.state||!history.state.blessingView)history.replaceState({blessingView:"intro"},"",location.pathname+location.search+"#intro");
-E.instructionFamily.addEventListener("load",scheduleTextFit);window.addEventListener("load",scheduleTextFit);
-window.addEventListener("resize",viewport);if(window.visualViewport)visualViewport.addEventListener("resize",viewport);viewport();requestAnimationFrame(loop);
-window.gameDebug={unlock:unlock,reveal:function(){unlock();E.sat.value=0;E.bri.value=100;S.revealed=true;tune()},finish:finish,expireTimer:function(){if(S.phase==="playing")S.started=performance.now()-179000},cue:cue,playDistantCue:playDistantCue,playRecedeCue:playRecedeCue,broadcastAlertCue:broadcastAlertCue,selectSoundUrl:selectSoundUrl,soundUrls:soundUrls,audioNodes:function(){ensureAudio();return{ctx:audio.ctx,master:audio.master}},audioStatus:function(){return{format:audioFormat,loaded:Object.keys(audio.buffers),loading:Object.keys(audio.loads)}},state:function(){return Object.assign({},S)}};
-showIntro(false);
+  function receiveInvite() {
+    if (S.phase !== "invite") {
+      return;
+    }
+    showInstructions();
+    A.track("blessing_invite_received");
+  }
+  function openBroadcast() {
+    if (S.phase !== "alert") {
+      return;
+    }
+    showInvite();
+    A.track("broadcast_open");
+  }
+  function enterGame() {
+    if (S.phase !== "instructions2") {
+      return;
+    }
+    start(true);
+    A.track("instruction_panel_next");
+  }
+  function advancePhotoPreview() {
+    if (S.phase !== "playing" || S.photoMode !== "preview") {
+      return;
+    }
+    if (advanceApproachLog()) {
+      return;
+    }
+    enterFullPhoto();
+  }
+  function advanceEnding() {
+    if (S.phase === "good-tv") {
+      advanceGoodEnding();
+    } else if (S.phase === "bad-tv") {
+      advanceBadEnding();
+    } else if (S.phase === "timeout-tv") {
+      advanceTimeoutEnding();
+    }
+  }
+  function isExplicitControl(target) {
+    return !!target.closest(
+      "button,a,input,select,textarea,label,[role=button],[contenteditable=true]"
+    );
+  }
+  function advanceFromScreenTap(e) {
+    if (isExplicitControl(e.target)) {
+      return;
+    }
+    if (S.phase === "intro") {
+      advanceIntro();
+    } else if (S.phase === "alert") {
+      openBroadcast();
+    } else if (S.phase === "invite") {
+      receiveInvite();
+    } else if (S.phase === "instructions") {
+      advanceFromInstruction();
+    } else if (S.phase === "instructions2") {
+      enterGame();
+    } else if (S.phase === "playing" && S.photoMode === "preview") {
+      advancePhotoPreview();
+    } else {
+      advanceEnding();
+    }
+  }
+  E.crt.addEventListener("click", openBroadcast);
+  E.crt.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openBroadcast();
+    }
+  });
+  E.inviteHit.addEventListener("click", receiveInvite);
+  E.inviteHit.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      receiveInvite();
+    }
+  });
+  E.instructionBack.addEventListener("click", function () {
+    cue("back");
+    historyBack(function () {
+      showAlert(false);
+    });
+    A.track("broadcast_back");
+  });
+  E.instructionNext.addEventListener("click", function () {
+    advanceFromInstruction();
+    A.track("instruction_next");
+  });
+  function advanceFromInstruction() {
+    if (S.phase !== "instructions") {
+      return;
+    }
+    showInstructionTwo();
+    A.track("instruction_second_open");
+  }
+  E.instructionPanel.addEventListener("click", function (e) {
+    if (e.target.closest("button")) {
+      return;
+    }
+    advanceFromInstruction();
+  });
+  E.instructionPanel.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      advanceFromInstruction();
+    }
+  });
+  E.instructionPanel2.addEventListener("click", enterGame);
+  E.instructionPanel2.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      enterGame();
+    }
+  });
+  E.tvPhotoHit.addEventListener("click", advancePhotoPreview);
+  E.endingHit.addEventListener("click", advanceEnding);
+  E.endingHit.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      advanceEnding();
+    }
+  });
+  E.photoInstructions.addEventListener("click", function () {
+    returnToTvPreview();
+    A.track("instructions_viewed");
+  });
+  E.game.addEventListener("pointerdown", function (e) {
+    if (
+      S.phase === "playing" &&
+      S.photoMode === "full" &&
+      !e.target.closest(".photo-viewport") &&
+      !e.target.closest(".develop-controls") &&
+      !e.target.closest(".outside-tv")
+    ) {
+      returnToTvPreview();
+    }
+  });
+  E.app.addEventListener("click", advanceFromScreenTap);
+  document.addEventListener(
+    "pointerdown",
+    function () {
+      if (!S.muted) {
+        resumeAudio();
+      }
+    },
+    { passive: true }
+  );
+  E.restart.addEventListener("click", function () {
+    cue("restart");
+    setTimeout(function () {
+      location.reload();
+    }, 140);
+  });
+  if (E.introMessage) {
+    E.introMessage.parentElement.addEventListener("click", advanceIntro);
+    E.introMessage.parentElement.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        advanceIntro();
+      }
+    });
+  }
+  if (E.introTvHit) {
+    E.introTvHit.addEventListener("click", advanceIntro);
+    E.introTvHit.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        advanceIntro();
+      }
+    });
+  }
+  function restoreView(key) {
+    restoringHistory = true;
+    switch (key) {
+      case "intro":
+        showIntro(false);
+        break;
+      case "alert":
+        showAlert(false);
+        break;
+      case "invite":
+        showInvite(false);
+        break;
+      case "instructions":
+        showInstructions(false);
+        break;
+      case "instructions2":
+        showInstructionTwo(false);
+        break;
+      case "photo":
+        start(false, false);
+        enterFullPhoto(false);
+        break;
+      case "tv":
+        start(false, false);
+        break;
+      default:
+        showIntro(false);
+    }
+    restoringHistory = false;
+  }
+  window.addEventListener("popstate", function (e) {
+    restoreView((e.state && e.state.blessingView) || "alert");
+  });
+  if (!history.state || !history.state.blessingView) {
+    history.replaceState(
+      { blessingView: "intro" },
+      "",
+      location.pathname + location.search + "#intro"
+    );
+  }
+  E.instructionFamily.addEventListener("load", scheduleTextFit);
+  window.addEventListener("load", scheduleTextFit);
+  window.addEventListener("resize", viewport);
+  if (window.visualViewport) {
+    visualViewport.addEventListener("resize", viewport);
+  }
+  viewport();
+  requestAnimationFrame(loop);
+  window.gameDebug = {
+    unlock: unlock,
+    reveal: function () {
+      unlock();
+      E.sat.value = 0;
+      E.bri.value = 100;
+      S.revealed = true;
+      tune();
+    },
+    finish: finish,
+    expireTimer: function () {
+      if (S.phase === "playing") {
+        S.started = performance.now() - 179000;
+      }
+    },
+    cue: cue,
+    playDistantCue: playDistantCue,
+    playRecedeCue: playRecedeCue,
+    broadcastAlertCue: broadcastAlertCue,
+    selectSoundUrl: selectSoundUrl,
+    soundUrls: soundUrls,
+    audioNodes: function () {
+      ensureAudio();
+      return { ctx: audio.ctx, master: audio.master };
+    },
+    audioStatus: function () {
+      return {
+        format: audioFormat,
+        loaded: Object.keys(audio.buffers),
+        loading: Object.keys(audio.loads),
+      };
+    },
+    state: function () {
+      return Object.assign({}, S);
+    },
+  };
+  showIntro(false);
 })();
