@@ -1913,7 +1913,10 @@
           startedAt: 0,
           wrongCount: 0,
           hintCount: 0,
+          puzzleDraft: "",
         };
+        const isValidPuzzleDraft = (draft) =>
+          typeof draft === "string" && draft.length <= 5 && /^[→←]*$/.test(draft);
         const savedProgress = window.AkashicProgress.readProgress(
           "broken-web",
           (saved) =>
@@ -1948,6 +1951,12 @@
             browserHintSeen: savedProgress.browserHintSeen,
             puzzleHintShown: savedProgress.puzzleHintShown,
             puzzleHintStep: savedProgress.puzzleHintStep,
+            puzzleDraft:
+              savedProgress.deviceRevealed ||
+              savedProgress.ended ||
+              !isValidPuzzleDraft(savedProgress.puzzleDraft)
+                ? ""
+                : savedProgress.puzzleDraft,
           });
           // Browser history belongs to one tab session. Resume from the stable device checkpoint;
           // the three-forward/two-back sequence starts again at its defined origin.
@@ -1958,6 +1967,7 @@
           state.routeValid = true;
           if (state.hintCount > 0) completionAttempt.hint();
         }
+        puzzleInput.value = state.puzzleDraft;
         function saveProgress() {
           window.AkashicProgress.writeProgress("broken-web", {
             started: Boolean(state.started),
@@ -1971,6 +1981,7 @@
             browserHintSeen: state.browserHintSeen,
             puzzleHintShown: state.puzzleHintShown,
             puzzleHintStep: state.puzzleHintStep,
+            puzzleDraft: state.puzzleDraft,
           });
         }
         let flavorActionHandler = null;
@@ -2027,7 +2038,14 @@
               item.classList.remove("is-selected");
             });
             if (button.dataset.answer) button.classList.add("is-selected");
+            state.puzzleDraft = puzzleInput.value;
+            saveProgress();
           });
+        });
+
+        puzzleInput.addEventListener("input", () => {
+          state.puzzleDraft = puzzleInput.value.slice(0, 5);
+          saveProgress();
         });
 
         puzzleForm.addEventListener("submit", (event) => {
@@ -2334,6 +2352,8 @@
         function revealDevice() {
           if (state.deviceRevealed) return;
           state.deviceRevealed = true;
+          state.puzzleDraft = "";
+          puzzleInput.value = "";
           saveProgress();
           state.forward = 0;
           state.back = 0;

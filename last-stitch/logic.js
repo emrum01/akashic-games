@@ -462,6 +462,7 @@
     return {
       phase: state.phase,
       unraveled: state.unraveled.slice(),
+      exposed: (state.exposed || []).slice(),
       wrongCount: state.wrongCount,
       hintLevel: state.hintLevel,
       scissorCount: state.scissorCount,
@@ -480,10 +481,24 @@
       return null;
     }
     const unraveled = saved.unraveled;
+    const exposed = saved.exposed === undefined ? [] : saved.exposed;
     if (
       unraveled.length > allowed.length ||
       unraveled.some(function (id, index) {
         return allowed.indexOf(id) === -1 || unraveled.indexOf(id) !== index;
+      })
+    ) {
+      return null;
+    }
+    if (
+      !Array.isArray(exposed) ||
+      exposed.length > allowed.length ||
+      exposed.some(function (id, index) {
+        return (
+          allowed.indexOf(id) === -1 ||
+          exposed.indexOf(id) !== index ||
+          unraveled.indexOf(id) !== -1
+        );
       })
     ) {
       return null;
@@ -515,6 +530,7 @@
       objects: objects || DEFAULT_OBJECTS,
       config: config || DEFAULT_CONFIG,
       unraveled: unraveled.slice(),
+      exposed: exposed.slice(),
       wrongCount: wrongCount,
       hintLevel: hintLevel,
       scissorCount: scissorCount,
@@ -528,6 +544,7 @@
       objects: objects || DEFAULT_OBJECTS,
       config: config || DEFAULT_CONFIG,
       unraveled: [],
+      exposed: [],
       wrongCount: 0,
       hintLevel: 0,
       scissorCount: 0,
@@ -586,8 +603,32 @@
         const complete = isComplete(state.objects, unraveled);
         return Object.assign({}, state, {
           unraveled: unraveled,
+          exposed: (state.exposed || []).filter(function (id) {
+            return id !== action.targetId;
+          }),
           phase: complete ? "epilogue" : "room",
           lastEvent: complete ? "complete" : "unravel-ok",
+        });
+      }
+
+      case "EXPOSE_THREAD": {
+        if (state.phase !== "room") {
+          return state;
+        }
+        const id = action.targetId;
+        const known = state.objects.some(function (object) {
+          return object.id === id;
+        });
+        if (!known || state.unraveled.indexOf(id) !== -1) {
+          return state;
+        }
+        const exposed = state.exposed || [];
+        if (exposed.indexOf(id) !== -1) {
+          return Object.assign({}, state, { lastEvent: "thread-exposed" });
+        }
+        return Object.assign({}, state, {
+          exposed: exposed.concat([id]),
+          lastEvent: "thread-exposed",
         });
       }
 

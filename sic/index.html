@@ -671,6 +671,7 @@
         };
 
         // ---------- 状態 ----------
+        var MAX_MESSAGE_DRAFT_LENGTH = 8192;
         var state = {
           copyCount: 0,
           badCount: 0,
@@ -685,6 +686,7 @@
           clipboardBroken: false,
           transcribeMode: false,
           cleared: false,
+          messageDraft: "",
         };
         var validSections = [
           "apology-body",
@@ -753,6 +755,11 @@
             state.transcribeMode
           )
             completionAttempt.hint();
+          if (
+            typeof savedProgress.messageDraft === "string" &&
+            savedProgress.messageDraft.length <= MAX_MESSAGE_DRAFT_LENGTH
+          )
+            state.messageDraft = savedProgress.messageDraft;
         }
         function saveProgress() {
           window.AkashicProgress.writeProgress("sic", {
@@ -768,6 +775,7 @@
             clipboardBroken: state.clipboardBroken,
             transcribeMode: state.transcribeMode,
             cleared: state.cleared,
+            messageDraft: state.messageDraft.slice(0, MAX_MESSAGE_DRAFT_LENGTH),
           });
         }
 
@@ -784,6 +792,11 @@
         var overlay = $("overlay");
         var modal = $("modal");
         var textarea = $("msg");
+        textarea.value = state.messageDraft;
+        textarea.addEventListener("input", function () {
+          state.messageDraft = textarea.value.slice(0, MAX_MESSAGE_DRAFT_LENGTH);
+          touch();
+        });
         var hud = $("hud");
 
         // コピー対象（真文を持つ区画）の要素リスト（DOM出現順）
@@ -888,6 +901,7 @@
 
         // ---------- 送信判定 ----------
         $("send").addEventListener("click", function () {
+          state.messageDraft = textarea.value.slice(0, MAX_MESSAGE_DRAFT_LENGTH);
           touch();
           var val = textarea.value; // value のみを見る（G-003）
           if (normalize(val).indexOf(normalize(CORE)) !== -1) {
@@ -966,12 +980,14 @@
         }
 
         quoteAnchor.addEventListener("click", function () {
-          touch();
           if (state.transcribeMode) {
             // 転写モード: textarea へ直接転記（in-page）
             textarea.value = TRUTH["apology-body"];
+            state.messageDraft = textarea.value.slice(0, MAX_MESSAGE_DRAFT_LENGTH);
+            touch();
             textarea.focus();
           } else {
+            touch();
             // 通常: 当該段落を選択状態にする（コピー直前まで運ぶ）
             var sel = window.getSelection();
             var range = document.createRange();

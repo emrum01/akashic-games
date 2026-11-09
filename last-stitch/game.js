@@ -932,13 +932,8 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
       closeFurnitureDialog();
       const node = nodeById(id);
       if (node) {
-        node.classList.add("reveal");
-        const fray = node.querySelector(".fray");
-        if (fray) {
-          fray.tabIndex = 0;
-          fray.setAttribute("aria-hidden", "false");
-          fray.focus();
-        }
+        dispatch({ type: "EXPOSE_THREAD", targetId: id });
+        restoreExposedOutlet(id, true);
       }
     });
   }
@@ -1070,6 +1065,9 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
       if (node) {
         node.classList.add("unraveled");
       }
+    });
+    state.exposed.forEach(function (id) {
+      restoreExposedOutlet(id, false);
     });
     updateYarnBall();
     if (state.phase === "epilogue") {
