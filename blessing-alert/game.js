@@ -3,19 +3,23 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 (function () {
   "use strict";
-  const q = new URLSearchParams(location.search),
-    cfg = {
-      sat: +q.get("sat") || 10,
-      bri: +q.get("bri") || 90,
-      revealHold: +q.get("revealHold") || 1500,
-      h1: +q.get("hint1") || 22000,
-      h2: +q.get("hint2") || 45000,
-      wind: +q.get("wind") || 30000,
-      badLog: +q.get("badLog") || 2600,
-      badRed: +q.get("badRed") || 1800,
-      badBlack: +q.get("badBlack") || 1200,
-      goodOff: +q.get("goodOff") || 900,
-    };
+  const q = new URLSearchParams(location.search);
+  const forceFreshStart = q.get("restart") === "1";
+  if (forceFreshStart) {
+    globalThis.AkashicProgress.removeProgress("blessing-alert");
+  }
+  const cfg = {
+    sat: +q.get("sat") || 10,
+    bri: +q.get("bri") || 90,
+    revealHold: +q.get("revealHold") || 1500,
+    h1: +q.get("hint1") || 22000,
+    h2: +q.get("hint2") || 45000,
+    wind: +q.get("wind") || 30000,
+    badLog: +q.get("badLog") || 2600,
+    badRed: +q.get("badRed") || 1800,
+    badBlack: +q.get("badBlack") || 1200,
+    goodOff: +q.get("goodOff") || 900,
+  };
   const E = {
     app: $("#app"),
     intro: $("#intro-screen"),
@@ -93,7 +97,126 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     approachLog: null,
     endingTimers: [],
   };
+  const allowedProgressPhases = new Set([
+    "intro",
+    "alert",
+    "invite",
+    "instructions",
+    "instructions2",
+    "playing",
+    "good-tv",
+    "bad-tv",
+    "timeout-tv",
+    "good",
+    "bad",
+    "timeout",
+  ]);
+  const savedProgress = forceFreshStart
+    ? null
+    : globalThis.AkashicProgress.readProgress("blessing-alert", function (saved) {
+        return (
+          allowedProgressPhases.has(saved.phase) &&
+          Number.isInteger(saved.introStep) &&
+          saved.introStep >= 0 &&
+          saved.introStep <= 4 &&
+          ["preview", "full"].includes(saved.photoMode) &&
+          Number.isFinite(saved.scale) &&
+          saved.scale >= 1 &&
+          saved.scale <= 3 &&
+          Number.isFinite(saved.tx) &&
+          Math.abs(saved.tx) <= 2000 &&
+          Number.isFinite(saved.ty) &&
+          Math.abs(saved.ty) <= 2000 &&
+          Number.isInteger(saved.saturation) &&
+          saved.saturation >= 0 &&
+          saved.saturation <= 100 &&
+          Number.isInteger(saved.brightness) &&
+          saved.brightness >= 0 &&
+          saved.brightness <= 100 &&
+          typeof saved.controls === "boolean" &&
+          typeof saved.revealed === "boolean" &&
+          (saved.selected === null || ["父", "姉", "弟", "母", "祖母"].includes(saved.selected)) &&
+          Number.isInteger(saved.remainingMs) &&
+          saved.remainingMs >= 0 &&
+          saved.remainingMs <= 179000 &&
+          Number.isInteger(saved.hints) &&
+          saved.hints >= 0 &&
+          saved.hints <= 2 &&
+          (saved.approachLog === null ||
+            (Number.isInteger(saved.approachLog) &&
+              saved.approachLog >= 0 &&
+              saved.approachLog < 4)) &&
+          Number.isInteger(saved.goodLog) &&
+          saved.goodLog >= 0 &&
+          saved.goodLog < 4 &&
+          Number.isInteger(saved.badLog) &&
+          saved.badLog >= 0 &&
+          saved.badLog < 6 &&
+          Number.isInteger(saved.timeoutLog) &&
+          saved.timeoutLog >= 0 &&
+          saved.timeoutLog < 4
+        );
+      });
+  let timerPausedAt = null;
+  function activeTimerNow() {
+    return timerPausedAt ?? performance.now();
+  }
+  function pauseForAbsence() {
+    if (timerPausedAt === null) {
+      timerPausedAt = performance.now();
+    }
+    saveProgress();
+    stopCountdownBell();
+  }
+  function resumeAfterAbsence() {
+    if (timerPausedAt === null) {
+      return;
+    }
+    if (S.started) {
+      S.started += performance.now() - timerPausedAt;
+    }
+    timerPausedAt = null;
+  }
+  function saveProgress() {
+    if (restartRequested) {
+      return;
+    }
+    let phase = S.phase;
+    // Ending transitions contain timed blackouts. Persist their nearest readable log beat
+    // so a reload resumes a stable scene instead of replaying a half-finished animation.
+    if (phase === "good-tv-off") {
+      phase = "good-tv";
+    }
+    if (phase === "bad-red" || phase === "bad-blackout") {
+      phase = "bad-tv";
+    }
+    if (phase === "timeout-red" || phase === "timeout-blackout") {
+      phase = "timeout-tv";
+    }
+    globalThis.AkashicProgress.writeProgress("blessing-alert", {
+      phase,
+      introStep,
+      photoMode: S.photoMode,
+      scale: S.scale,
+      tx: S.tx,
+      ty: S.ty,
+      saturation: Number(E.sat.value) || 0,
+      brightness: Number(E.bri.value) || 0,
+      controls: S.controls,
+      revealed: S.revealed,
+      selected: S.selected,
+      remainingMs: S.started
+        ? Math.max(0, Math.min(179000, Math.round(179000 - (activeTimerNow() - S.started))))
+        : 179000,
+      hints: S.hints,
+      approachLog: S.approachLog,
+      goodLog: S.goodLog || 0,
+      badLog: S.badLog || 0,
+      timeoutLog: S.timeoutLog || 0,
+    });
+  }
   let restoringHistory = false;
+  let restartRequested = false;
   const introTimer = 0;
   let introStep = 0;
   function viewKey() {
@@ -1245,6 +1368,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     if (push !== false) {
       pushView();
     }
+    saveProgress();
   }
   function advanceIntro() {
     if (S.phase !== "intro") {
@@ -1266,6 +1390,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     }
     if (introStep < introMessages.length) {
       E.introMessage.textContent = introMessages[introStep];
+      saveProgress();
       return;
     }
     if (E.introMessage) {
@@ -1287,6 +1412,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     if (E.crt) {
       E.crt.focus();
     }
+    saveProgress();
   }
   function showInvite(push) {
     hideFlowScreens();
@@ -1300,6 +1426,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     if (E.inviteHit) {
       E.inviteHit.focus();
     }
+    saveProgress();
   }
   function showInstructions(push) {
     hideFlowScreens();
@@ -1311,6 +1438,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       pushView();
     }
     E.instructionPanel.focus();
+    saveProgress();
   }
   function showInstructionTwo(push) {
     hideFlowScreens();
@@ -1322,6 +1450,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       pushView();
     }
     E.instructionPanel2.focus();
+    saveProgress();
   }
   function triggerFirstTremor() {
     S.approachLog = 0;
@@ -1341,6 +1470,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       S.approachLog++;
       E.approachLog.textContent = photoApproachLogs[S.approachLog];
       cue("message");
+      saveProgress();
       return true;
     }
     E.approachLog.hidden = true;
@@ -1350,6 +1480,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
   function start(reset, push) {
     if (reset) {
       completionAttempt.reset();
+      globalThis.AkashicProgress.removeProgress("blessing-alert");
     }
     hideFlowScreens();
     E.game.hidden = false;
@@ -1393,6 +1524,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       pushView();
     }
     render();
+    saveProgress();
   }
   function showTvPreview() {
     S.photoMode = "preview";
@@ -1417,6 +1549,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     }
     E.vp.focus();
     A.track("photo_fullscreen");
+    saveProgress();
   }
   function returnToTvPreview() {
     if (S.phase !== "playing") {
@@ -1494,6 +1627,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       }
       clampPan();
       render();
+      saveProgress();
     } else if (S.touches.size === 1 && S.gesture.kind === "pan" && S.scale > 1) {
       const moved = Math.hypot(e.clientX - S.gesture.x, e.clientY - S.gesture.y);
       if (moved > 6) {
@@ -1504,6 +1638,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       S.ty = S.gesture.ty + e.clientY - S.gesture.y;
       clampPan();
       render();
+      saveProgress();
     }
   });
   function pointerUp(e) {
@@ -1530,6 +1665,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       }
       clampPan();
       render();
+      saveProgress();
     },
     { passive: false }
   );
@@ -1552,6 +1688,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     E.controls.hidden = false;
     cue("unlock");
     A.track("controls_revealed");
+    saveProgress();
   }
   function resetRevealCueArming() {
     revealCueArmed.subtle = true;
@@ -1628,8 +1765,14 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     setRevealProgress(S.revealed ? 1 : p);
     E.fill.style.setProperty("--progress", Math.round(p * 100) + "%");
   }
-  E.sat.addEventListener("input", tune);
-  E.bri.addEventListener("input", tune);
+  E.sat.addEventListener("input", function () {
+    tune();
+    saveProgress();
+  });
+  E.bri.addEventListener("input", function () {
+    tune();
+    saveProgress();
+  });
   $$(".person").forEach(function (b) {
     b.addEventListener("pointerdown", function (e) {
       e.stopPropagation();
@@ -1646,12 +1789,14 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       E.ccopy.textContent = "この人物を生贄候補として奉納しますか？ 選定後は取り消せません。";
       E.modal.hidden = false;
       E.confirm.focus();
+      saveProgress();
     });
   });
   E.cancel.addEventListener("click", function () {
     cue("cancel");
     S.selected = null;
     E.modal.hidden = true;
+    saveProgress();
   });
   E.confirm.addEventListener("click", function () {
     cue("confirm");
@@ -1691,6 +1836,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     E.red.hidden = true;
     E.blackout.hidden = true;
     S.phase = kind + "-tv";
+    saveProgress();
   }
   function finish(good) {
     E.modal.hidden = true;
@@ -1716,6 +1862,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       S.goodLog++;
       E.endingLog.textContent = goodLogs[S.goodLog];
       cue("message");
+      saveProgress();
       if (S.goodLog === 2) {
         playRecedeCue();
         A.track("blessing_receding");
@@ -1730,6 +1877,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     later(function () {
       showResult(true);
     }, cfg.goodOff);
+    saveProgress();
   }
   function startBadEnding() {
     S.badLog = 0;
@@ -1748,6 +1896,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       S.badLog++;
       E.endingLog.textContent = badLogs[S.badLog];
       cue("message");
+      saveProgress();
       return;
     }
     if (S.badLog < badLogs.length - 1) {
@@ -1756,6 +1905,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       E.endingBroadcast.hidden = false;
       E.endingBroadcast.textContent = badLogs[S.badLog];
       scheduleTextFit();
+      saveProgress();
       return;
     }
     S.phase = "bad-red";
@@ -1776,8 +1926,9 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
         showResult(false);
       }, cfg.badBlack);
     }, cfg.badRed);
+    saveProgress();
   }
-  function showResult(good) {
+  function showResult(good, restoring) {
     clearEndingTimers();
     stopBadApproach();
     stopOneShots();
@@ -1809,10 +1960,12 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       );
     }
     S.phase = good ? "good" : "bad";
-    if (good) {
+    if (good && !restoring) {
       completionAttempt.complete();
     }
-    cue(good ? "clear" : "badresult");
+    if (!restoring) {
+      cue(good ? "clear" : "badresult");
+    }
     const oldShare = E.result.querySelector(".completion-share");
     if (oldShare) {
       oldShare.remove();
@@ -1833,7 +1986,10 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       share.rel = "noopener";
       E.result.appendChild(share);
     }
-    A.track(good ? "game_clear" : "bad_end", { selected: S.selected });
+    if (!restoring) {
+      A.track(good ? "game_clear" : "bad_end", { selected: S.selected });
+    }
+    saveProgress();
   }
   function startTimeoutEnding() {
     S.timeoutLog = 0;
@@ -1862,6 +2018,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       S.timeoutLog++;
       E.endingLog.textContent = timeoutLogs[S.timeoutLog];
       cue("message");
+      saveProgress();
       return;
     }
     if (S.timeoutLog < timeoutLogs.length - 1) {
@@ -1870,6 +2027,7 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       E.endingBroadcast.hidden = false;
       E.endingBroadcast.textContent = timeoutLogs[S.timeoutLog];
       scheduleTextFit();
+      saveProgress();
       return;
     }
     S.phase = "timeout-red";
@@ -1887,8 +2045,9 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       E.red.hidden = true;
       later(showTimeoutResult, cfg.badBlack);
     }, cfg.badRed);
+    saveProgress();
   }
-  function showTimeoutResult() {
+  function showTimeoutResult(restoring) {
     clearEndingTimers();
     stopBadApproach();
     stopOneShots();
@@ -1905,7 +2064,10 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     const epilogue = $("#epilogue");
     epilogue.textContent = "あなたはそのまま、祝福の元へ運ばれていきます。";
     S.phase = "timeout";
-    cue("badresult");
+    if (!restoring) {
+      cue("badresult");
+    }
+    saveProgress();
   }
   function showHint(t, sound) {
     if (sound !== false) {
@@ -1920,8 +2082,9 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       E.hint.classList.remove("show");
     }, 6000);
   }
+  let lastProgressSave = 0;
   function loop(now) {
-    if (S.phase === "playing") {
+    if (S.phase === "playing" && timerPausedAt === null && !document.hidden) {
       const e = now - S.started,
         remaining = Math.max(0, 179 - Math.floor(e / 1000));
       $("#countdown").textContent =
@@ -1941,10 +2104,12 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
         if (!S.hints && e > cfg.h1) {
           S.hints = 1;
           showHint("一度きれいに元へ戻す。");
+          saveProgress();
         }
         if (S.hints === 1 && e > cfg.h2) {
           S.hints = 2;
           showHint("100%まで縮めてみる。");
+          saveProgress();
         }
         if (S.revealStarted && !S.revealed) {
           tune();
@@ -1954,6 +2119,10 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
           startWind();
           A.track("blessing_wind_started");
         }
+      }
+      if (now - lastProgressSave >= 1000) {
+        lastProgressSave = now;
+        saveProgress();
       }
     } else {
       stopCountdownBell();
@@ -2125,8 +2294,14 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
   );
   E.restart.addEventListener("click", function () {
     cue("restart");
+    restartRequested = true;
+    completionAttempt.reset();
+    globalThis.AkashicProgress.removeProgress("blessing-alert");
     setTimeout(function () {
-      location.reload();
+      const restartUrl = new URL(location.href);
+      restartUrl.searchParams.set("restart", "1");
+      restartUrl.hash = "intro";
+      location.replace(restartUrl.pathname + restartUrl.search + restartUrl.hash);
     }, 140);
   });
   if (E.introMessage) {
@@ -2177,6 +2352,95 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
     }
     restoringHistory = false;
   }
+  function restoreSavedProgress() {
+    if (!savedProgress) {
+      return;
+    }
+    introStep = savedProgress.introStep;
+    S.scale = savedProgress.scale;
+    S.tx = savedProgress.tx;
+    S.ty = savedProgress.ty;
+    S.controls = savedProgress.controls;
+    S.revealed = savedProgress.revealed;
+    S.selected = savedProgress.selected;
+    S.hints = savedProgress.hints;
+    S.approachLog = savedProgress.approachLog;
+    S.goodLog = savedProgress.goodLog;
+    S.badLog = savedProgress.badLog;
+    S.timeoutLog = savedProgress.timeoutLog;
+    if (S.hints > 0) {
+      completionAttempt.hint();
+    }
+    const phase = savedProgress.phase;
+    if (phase === "intro") {
+      showIntro(false);
+      introStep = savedProgress.introStep;
+      E.introMessage.textContent = introMessages[introStep];
+      E.introWarning.hidden = introStep < 3;
+    } else if (phase === "alert") {
+      showAlert(false);
+    } else if (phase === "invite") {
+      showInvite(false);
+    } else if (phase === "instructions") {
+      showInstructions(false);
+    } else if (phase === "instructions2") {
+      showInstructionTwo(false);
+    } else if (phase === "playing") {
+      S.started = performance.now() - (179000 - savedProgress.remainingMs);
+      start(false, false);
+      S.photoMode = savedProgress.photoMode;
+      S.scale = savedProgress.scale;
+      S.tx = savedProgress.tx;
+      S.ty = savedProgress.ty;
+      S.revealStarted = S.revealed ? performance.now() : 0;
+      E.sat.value = String(savedProgress.saturation);
+      E.bri.value = String(savedProgress.brightness);
+      if (S.photoMode === "full") {
+        enterFullPhoto(false);
+      }
+      E.controls.hidden = !S.controls;
+      if (S.approachLog !== null) {
+        E.approachLog.textContent = photoApproachLogs[S.approachLog];
+        E.approachLog.hidden = false;
+      }
+      tune();
+      if (S.selected) {
+        E.ctitle.textContent = S.selected + "を選定";
+        E.ccopy.textContent = "この人物を生贄候補として奉納しますか？ 選定後は取り消せません。";
+        E.modal.hidden = false;
+      }
+    } else if (phase === "good-tv") {
+      showEndingTv("good", "./entity-full-v2.png?v=20260714d", goodLogs[S.goodLog]);
+    } else if (phase === "bad-tv") {
+      showEndingTv("bad", "./family-bad-end-brother-released.png", badLogs[S.badLog]);
+    } else if (phase === "timeout-tv") {
+      showEndingTv("timeout", "./family-bad-end-brother-released.png", timeoutLogs[S.timeoutLog]);
+    } else if (phase === "good" || phase === "bad") {
+      showResult(phase === "good", true);
+    } else if (phase === "timeout") {
+      showTimeoutResult(true);
+    }
+    const restoredView = viewKey();
+    history.replaceState(
+      { blessingView: restoredView },
+      "",
+      location.pathname + location.search + "#" + restoredView
+    );
+    saveProgress();
+  }
+  window.addEventListener("pagehide", pauseForAbsence);
+  window.addEventListener("pageshow", function () {
+    if (!document.hidden) {
+      resumeAfterAbsence();
+    }
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      pauseForAbsence();
+    } else {
+      resumeAfterAbsence();
+    }
+  });
   window.addEventListener("popstate", function (e) {
     restoreView((e.state && e.state.blessingView) || "alert");
   });
@@ -2231,5 +2495,21 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       return Object.assign({}, S);
     },
   };
-  showIntro(false);
+  if (savedProgress) {
+    restoreSavedProgress();
+  } else {
+    showIntro(false);
+  }
+  if (document.hidden) {
+    pauseForAbsence();
+  }
+  if (forceFreshStart) {
+    q.delete("restart");
+    const search = q.toString();
+    history.replaceState(
+      { blessingView: "intro" },
+      "",
+      location.pathname + (search ? "?" + search : "") + "#intro"
+    );
+  }
 })();

@@ -85,6 +85,62 @@ const akashicCompletionCreateCompletionAttempt = (id, revision) => {
     },
   };
 };
+const akashicProgressKey = (id) =>
+  akashicCompletionValid(id) ? "akashic:progress:" + id + ":v1" : "";
+const akashicProgressRead = (id, validate) => {
+  const key = akashicProgressKey(id);
+  if (!key) {
+    return null;
+  }
+  const raw = akashicCompletionRead(key);
+  if (raw === null || raw.length > 32768) {
+    return null;
+  }
+  try {
+    const envelope = JSON.parse(raw);
+    if (
+      !envelope ||
+      envelope.version !== 1 ||
+      !envelope.data ||
+      typeof envelope.data !== "object" ||
+      Array.isArray(envelope.data)
+    ) {
+      return null;
+    }
+    return typeof validate !== "function" || validate(envelope.data) ? envelope.data : null;
+  } catch {
+    return null;
+  }
+};
+const akashicProgressWrite = (id, value) => {
+  const key = akashicProgressKey(id);
+  if (!key || !value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  try {
+    const raw = JSON.stringify({ version: 1, data: value });
+    return raw.length <= 32768 && akashicCompletionWrite(key, raw);
+  } catch {
+    return false;
+  }
+};
+const akashicProgressRemove = (id) => {
+  const key = akashicProgressKey(id);
+  if (!key) {
+    return false;
+  }
+  try {
+    globalThis.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+};
+globalThis.AkashicProgress = {
+  readProgress: akashicProgressRead,
+  writeProgress: akashicProgressWrite,
+  removeProgress: akashicProgressRemove,
+};
 globalThis.AkashicCompletion = {
   createCompletionAttempt: akashicCompletionCreateCompletionAttempt,
   readNoHintCleared: akashicCompletionReadNoHintCleared,

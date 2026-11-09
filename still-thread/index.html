@@ -1631,7 +1631,7 @@
 
     <output id="debug-hud" hidden></output>
 
-    <script src="../shared/completion-record.js"></script>
+    <script src="../shared/completion-record.js?v=20261109-progress"></script>
     <script src="./analytics.js"></script>
     <script>
       (function () {
@@ -1738,6 +1738,36 @@
           h2Posted: false,
           h3Warned: false, // 段階ごとの一度きり演出
         };
+        const savedProgress = window.AkashicProgress.readProgress(
+          "still-thread",
+          (saved) =>
+            ["practice", "main", "choice"].includes(saved.phase) &&
+            Array.isArray(saved.fragments) &&
+            saved.fragments.every((value) => typeof value === "boolean") &&
+            saved.fragments.length ===
+              WORDS[saved.phase === "practice" ? "practice" : "main"].length &&
+            saved.hintFlags &&
+            typeof saved.hintFlags === "object" &&
+            !Array.isArray(saved.hintFlags) &&
+            Object.keys(saved.hintFlags).every(
+              (key) =>
+                Object.prototype.hasOwnProperty.call(state.hintFlags, key) &&
+                typeof saved.hintFlags[key] === "boolean"
+            )
+        );
+        let resumePending = Boolean(savedProgress);
+        if (savedProgress && Object.keys(savedProgress.hintFlags || {}).length) {
+          Object.assign(state, { hintFlags: { ...state.hintFlags, ...savedProgress.hintFlags } });
+          if (Object.values(state.hintFlags).some(Boolean)) completionAttempt.hint();
+        }
+        function saveProgress() {
+          if (!["practice", "main", "choice"].includes(state.phase)) return;
+          window.AkashicProgress.writeProgress("still-thread", {
+            phase: state.phase,
+            fragments: state.fragments.map(Boolean),
+            hintFlags: { ...state.hintFlags },
+          });
+        }
 
         // ---- パラメータ（世界内の意味付き数値） ----
         var HOLD_TARGET = 2000; // 保持2秒＝留まる意思の証明（世界観上の意味があるため据え置き）
@@ -1921,13 +1951,54 @@
 
         /* ---------------- フェーズ遷移 ---------------- */
         function startGame() {
-          completionAttempt.reset();
           hideOverlay(el.title);
-          window.scrollTo(0, 0);
           state.programmaticFrame = true;
+          if (resumePending && savedProgress) {
+            resumePending = false;
+            state.phase = savedProgress.phase;
+            state.mainDone = savedProgress.phase === "choice";
+            state.practiceDone = savedProgress.phase !== "practice";
+            state.startT = performance.now();
+            var resumeWord = savedProgress.phase === "practice" ? "practice" : "main";
+            setActiveWord(resumeWord);
+            state.fragments = savedProgress.fragments.slice();
+            [el.shimiRow, resumeWord === "practice" ? el.practiceInk : el.mainInk].forEach(
+              function (row) {
+                Array.prototype.forEach.call(row.children, function (glyph, index) {
+                  var done = savedProgress.fragments[index];
+                  glyph.classList.toggle("done", done);
+                  var character = glyph.querySelector("span");
+                  if (character && character.dataset.char)
+                    character.textContent = character.dataset.char;
+                });
+              }
+            );
+            window.scrollTo(0, 0);
+            if (savedProgress.phase === "choice") {
+              markAllDone(el.shimiRow);
+              markAllDone(el.mainInk);
+              enterChoice();
+            } else if (savedProgress.phase === "main") {
+              el.mainInk.hidden = false;
+              document.body.classList.add("hold-lock");
+              requestAnimationFrame(function () {
+                jumpTo(alignScrollTarget());
+              });
+            }
+            saveProgress();
+            A.track("game_start", { resume: true });
+            return;
+          }
+          window.AkashicProgress.removeProgress("still-thread");
+          completionAttempt.reset();
+          state.fragments = [];
+          state.mainDone = false;
+          state.practiceDone = false;
+          window.scrollTo(0, 0);
           state.phase = "practice";
           state.startT = performance.now();
           setActiveWord("practice");
+          saveProgress();
           A.track("game_start", {});
         }
 
@@ -1943,6 +2014,7 @@
           el.mainInk.hidden = false;
           el.shimiRow.classList.remove("pulse");
           setActiveWord("main");
+          saveProgress();
           // 暴走スクロール中に読ませる住人のパニック投稿（group="pull"）を、スクロール開始前に一括表示。
           // staggered な revealDeferredPosts と違い、演出上ここでは全件を即座に画面へ載せてから引きずり下ろす。
           showGroupInstant("pull");
@@ -2108,6 +2180,7 @@
 
         function enterChoice() {
           state.phase = "choice";
+          saveProgress();
           state.stayMs = 0;
           state.stayTimerStarted = false;
           state.stayMidShown = false;
@@ -2147,6 +2220,7 @@
         // 「次スレへ」ボタン自体のタップは、ダイアログの表示有無に関係なく常に即狂死ルート（decoy）。
         function hardReset() {
           if (state.phase !== "choice") return;
+          window.AkashicProgress.removeProgress("still-thread");
           state.phase = "nextthread";
           el.choiceLayer.hidden = true;
           hideOverlay(el.leaveDialog);
@@ -2179,6 +2253,7 @@
 
         function doClear(method) {
           if (state.phase === "clear") return;
+          window.AkashicProgress.removeProgress("still-thread");
           completionAttempt.complete();
           state.phase = "clear";
           el.choiceLayer.hidden = true;
@@ -2364,6 +2439,7 @@
         // 末路は「実際に次スレへ遷移する」1本の演出シーケンス（playNextThreadSequence）に一本化する。
         function badEnd() {
           if (state.badEnded) return;
+          window.AkashicProgress.removeProgress("still-thread");
           state.badEnded = true;
           state.phase = "nextthread"; // ループのフェーズ処理を停止（凍結）
           document.body.classList.remove("hold-lock"); // v3.1: main途中で死んだ場合もタッチパンを戻しておく
@@ -3082,6 +3158,11 @@
         }
 
         /* ---------------- 初期化 ---------------- */
+        window.addEventListener("pagehide", saveProgress);
+        document.addEventListener("visibilitychange", function () {
+          if (document.hidden) saveProgress();
+        });
+        if (resumePending) el.startBtn.textContent = "つづきから";
         syncViewport();
         buildStreamGhosts();
         setActiveWord("practice"); // タイトル背後にシミを見せておく（動かない黒い点）

@@ -1678,7 +1678,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="../shared/completion-record.js"></script>
+    <script src="../shared/completion-record.js?v=20261109-progress"></script>
     <script>
       (() => {
         const objective = document.querySelector(".objective");
@@ -1733,8 +1733,61 @@
           browserHintSeen: false,
           puzzleHintShown: false,
           puzzleHintStep: 0,
+          hintUsed: false,
           ended: false,
         };
+        const savedProgress = window.AkashicProgress.readProgress(
+          "three-forward-two-back",
+          (saved) =>
+            typeof saved.started === "boolean" &&
+            typeof saved.deviceRevealed === "boolean" &&
+            typeof saved.escapeArmed === "boolean" &&
+            typeof saved.ended === "boolean" &&
+            typeof saved.puzzleHintShown === "boolean" &&
+            typeof saved.hintUsed === "boolean" &&
+            typeof saved.browserHintSeen === "boolean" &&
+            Number.isInteger(saved.kakejikuChecks) &&
+            saved.kakejikuChecks >= 0 &&
+            saved.kakejikuChecks <= 20 &&
+            Number.isInteger(saved.puzzleHintStep) &&
+            saved.puzzleHintStep >= 0 &&
+            saved.puzzleHintStep <= 2 &&
+            (!saved.escapeArmed || saved.deviceRevealed)
+        );
+        if (savedProgress) {
+          Object.assign(state, {
+            started: savedProgress.started,
+            deviceRevealed: savedProgress.deviceRevealed,
+            escapeArmed: savedProgress.escapeArmed,
+            ended: savedProgress.ended,
+            kakejikuChecks: savedProgress.kakejikuChecks,
+            puzzleHintShown: savedProgress.puzzleHintShown,
+            puzzleHintStep: savedProgress.puzzleHintStep,
+            hintUsed: savedProgress.hintUsed,
+            browserHintSeen: savedProgress.browserHintSeen,
+          });
+          if (state.hintUsed) completionAttempt.hint();
+          // Browser history is session-scoped. Resume from the stable device checkpoint
+          // and restart the three-forward/two-back sequence at its defined origin.
+          state.forward = 0;
+          state.back = 0;
+          state.routeDepth = 0;
+          state.phase = "forward";
+          state.routeValid = true;
+        }
+        function saveProgress() {
+          window.AkashicProgress.writeProgress("three-forward-two-back", {
+            started: Boolean(state.started),
+            deviceRevealed: state.deviceRevealed,
+            escapeArmed: state.escapeArmed,
+            ended: state.ended,
+            kakejikuChecks: state.kakejikuChecks,
+            puzzleHintShown: state.puzzleHintShown,
+            puzzleHintStep: state.puzzleHintStep,
+            hintUsed: state.hintUsed,
+            browserHintSeen: state.browserHintSeen,
+          });
+        }
         let flavorActionHandler = null;
         const puzzleHints = [
           "中間は、起点から3回同じ操作をした状態。",
@@ -1747,6 +1800,25 @@
         });
 
         primeBrowserHistory();
+        if (savedProgress?.deviceRevealed) {
+          puzzlePanel.classList.add("is-hidden");
+          devicePanel.classList.remove("is-hidden");
+          threeScene.setDeviceVisible(true);
+          if (savedProgress.escapeArmed) armEscape();
+        }
+        if (savedProgress?.puzzleHintShown) puzzleHintButton.classList.remove("is-hidden");
+        if (savedProgress?.ended) {
+          clearStage.classList.add("is-visible", "is-settled");
+          const share = document.getElementById("clear-share");
+          share.href =
+            "https://twitter.com/intent/tweet?text=" +
+            encodeURIComponent(
+              "脱出に成功した。「三歩進んで二歩戻る」" +
+                (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
+            ) +
+            "&url=" +
+            encodeURIComponent("https://games.escape-safari.com/three-forward-two-back/");
+        }
         updateHud();
 
         document.querySelectorAll(".word-bank button").forEach((button) => {
@@ -2051,6 +2123,7 @@
         }
 
         function updateHud() {
+          saveProgress();
           if (!state.deviceRevealed) {
             objective.textContent = "脱出経路：未確定";
           } else if (state.escapeArmed) {
@@ -2113,6 +2186,8 @@
         }
 
         function showPuzzleHint() {
+          state.hintUsed = true;
+          saveProgress();
           completionAttempt.hint();
           const hasNext = state.puzzleHintStep < puzzleHints.length - 1;
           showFlavor(puzzleHints[state.puzzleHintStep], {
@@ -2121,6 +2196,7 @@
             onAction: hasNext
               ? () => {
                   state.puzzleHintStep += 1;
+                  saveProgress();
                   showPuzzleHint();
                 }
               : null,
@@ -2128,14 +2204,18 @@
         }
 
         function showBrowserHint() {
+          state.hintUsed = true;
           completionAttempt.hint();
           state.browserHintSeen = true;
+          saveProgress();
           showFlavor("進む / 戻る は、ブラウザの進む / 戻る。", {
             title: "ヒント",
           });
         }
 
         function showSwipeHint() {
+          state.hintUsed = true;
+          saveProgress();
           completionAttempt.hint();
           showFlavor("画面の端をスワイプしても、ブラウザの進む / 戻るが使える。", {
             title: "メモ",
@@ -2165,6 +2245,7 @@
             "&url=" +
             encodeURIComponent("https://games.escape-safari.com/three-forward-two-back/");
           state.ended = true;
+          saveProgress();
           clearStage.classList.add("is-visible");
           explosionVideo.pause();
           window.setTimeout(() => {

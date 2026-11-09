@@ -165,7 +165,23 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
   let connectionSource = null;
 
   let state = L.createInitialState(L.DEFAULT_OBJECTS, config);
-  let startedAt = 0;
+  const savedProgress = window.AkashicProgress.readProgress("last-stitch", function (saved) {
+    return Boolean(L.restoreProgress(saved, L.DEFAULT_OBJECTS, config));
+  });
+  if (savedProgress) {
+    state = L.restoreProgress(savedProgress, L.DEFAULT_OBJECTS, config) || state;
+    if (state.hintLevel > 0) {
+      completionAttempt.hint();
+    }
+  }
+  let startedAt = state.phase === "title" ? 0 : performance.now();
+  if (savedProgress) {
+    saveProgress();
+  }
+
+  function saveProgress() {
+    window.AkashicProgress.writeProgress("last-stitch", L.serializeProgress(state));
+  }
   const solutionOrder = L.deriveSolutionOrder(state.objects);
   // 古さ(0..1): データの age を表示上の褪色へ反映する。
   const ageOf = {};
@@ -525,6 +541,7 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
     const prev = state;
     state = L.reduce(state, action);
     handleEvent(prev, state, action);
+    saveProgress();
     render();
     updateDebug();
   }
@@ -868,15 +885,16 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
       dispatch({ type: "START" });
     });
   }
+  function restartGame() {
+    completionAttempt.reset();
+    window.AkashicProgress.removeProgress("last-stitch");
+    location.reload();
+  }
   if (el.restartButton) {
-    el.restartButton.addEventListener("click", function () {
-      location.reload();
-    });
+    el.restartButton.addEventListener("click", restartGame);
   }
   if (el.badendRestartButton) {
-    el.badendRestartButton.addEventListener("click", function () {
-      location.reload();
-    });
+    el.badendRestartButton.addEventListener("click", restartGame);
   }
   if (el.pullEdgeButton) {
     el.pullEdgeButton.addEventListener("click", function () {
@@ -1046,6 +1064,21 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
 
   /* ---------------- 初期化 ---------------- */
   buildRoom();
+  if (savedProgress) {
+    state.unraveled.forEach(function (id) {
+      const node = nodeById(id);
+      if (node) {
+        node.classList.add("unraveled");
+      }
+    });
+    updateYarnBall();
+    if (state.phase === "epilogue") {
+      renderEpilogue();
+    }
+    if (state.hintLevel > 0) {
+      applyHints(state.hintLevel);
+    }
+  }
   buildTangle();
   render();
   applyViewport();

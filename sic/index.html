@@ -598,7 +598,7 @@
     </div>
     <div id="hud"></div>
 
-    <script src="../shared/completion-record.js"></script>
+    <script src="../shared/completion-record.js?v=20261109-progress"></script>
     <script>
       (function () {
         "use strict";
@@ -686,6 +686,90 @@
           transcribeMode: false,
           cleared: false,
         };
+        var validSections = [
+          "apology-body",
+          "ceo-msg",
+          "faq-1",
+          "faq-2",
+          "faq-3",
+          "history",
+          "contact-address",
+        ];
+        var savedProgress = window.AkashicProgress.readProgress("sic", function (saved) {
+          var flags = [
+            "hint2Done",
+            "hint3Done",
+            "hint4Done",
+            "guard1Done",
+            "guard2Done",
+            "truthCopyAttempted",
+            "clipboardBroken",
+            "transcribeMode",
+            "cleared",
+          ];
+          return (
+            Number.isInteger(saved.copyCount) &&
+            saved.copyCount >= 0 &&
+            saved.copyCount <= 10000 &&
+            Number.isInteger(saved.badCount) &&
+            saved.badCount >= 0 &&
+            saved.badCount <= 10000 &&
+            saved.copiedSecs &&
+            typeof saved.copiedSecs === "object" &&
+            !Array.isArray(saved.copiedSecs) &&
+            Object.keys(saved.copiedSecs).every(function (key) {
+              return (
+                validSections.indexOf(key) !== -1 && typeof saved.copiedSecs[key] === "boolean"
+              );
+            }) &&
+            flags.every(function (key) {
+              return typeof saved[key] === "boolean";
+            })
+          );
+        });
+        if (savedProgress) {
+          [
+            "copyCount",
+            "badCount",
+            "copiedSecs",
+            "hint2Done",
+            "hint3Done",
+            "hint4Done",
+            "guard1Done",
+            "guard2Done",
+            "truthCopyAttempted",
+            "clipboardBroken",
+            "transcribeMode",
+            "cleared",
+          ].forEach(function (key) {
+            state[key] = savedProgress[key];
+          });
+          if (
+            state.hint2Done ||
+            state.hint3Done ||
+            state.hint4Done ||
+            state.guard1Done ||
+            state.guard2Done ||
+            state.transcribeMode
+          )
+            completionAttempt.hint();
+        }
+        function saveProgress() {
+          window.AkashicProgress.writeProgress("sic", {
+            copyCount: state.copyCount,
+            badCount: state.badCount,
+            copiedSecs: state.copiedSecs,
+            hint2Done: state.hint2Done,
+            hint3Done: state.hint3Done,
+            hint4Done: state.hint4Done,
+            guard1Done: state.guard1Done,
+            guard2Done: state.guard2Done,
+            truthCopyAttempted: state.truthCopyAttempted,
+            clipboardBroken: state.clipboardBroken,
+            transcribeMode: state.transcribeMode,
+            cleared: state.cleared,
+          });
+        }
 
         // ---------- DOM ----------
         var $ = function (id) {
@@ -720,6 +804,7 @@
 
         function touch() {
           state.lastActivity = Date.now();
+          saveProgress();
         }
 
         // ---------- コアギミック: copy 時の真文注入 ----------
@@ -1040,6 +1125,7 @@
           if (state.cleared) return;
           completionAttempt.complete();
           state.cleared = true;
+          saveProgress();
           modal.className = "modal good";
           modal.innerHTML =
             '<div class="collapse-line" id="cl0">記録しました。</div>' +
@@ -1166,6 +1252,7 @@
         // ---------- デバッグHUD ----------
         if (P.debug) hud.classList.add("show");
         function updateHud() {
+          saveProgress();
           if (!P.debug) return;
           var idle = Math.floor((Date.now() - state.lastActivity) / 1000);
           hud.textContent =
@@ -1209,6 +1296,50 @@
             "cleared=" +
             state.cleared;
         }
+        if (savedProgress) {
+          if (state.hint2Done && !state.guard1Done) {
+            var savedHint = document.createElement("li");
+            savedHint.textContent =
+              "2026年6月20日　本文中の表現につき「誤植では」とのご指摘を複数いただいておりますが、当該箇所は原文ママです。";
+            historyEl.appendChild(savedHint);
+          }
+          if (state.guard1Done) {
+            noticeEl.classList.add("hardened");
+            noticeEl.innerHTML =
+              "本ページの文章の無断転載・複製を<b>固く禁じます</b>。複製行為はすべて記録されます。";
+          } else if (state.hint3Done) {
+            noticeEl.innerHTML = "本ページの文章の無断転載・複製は<b>固く</b>ご遠慮ください。";
+          }
+          if (state.guard2Done) imagizeCopiedSections();
+          if (state.transcribeMode) enableTranscribe();
+          else if (state.hint4Done) quoteLink.classList.add("show");
+          if (state.cleared) renderRestoredClear();
+        }
+        function renderRestoredClear() {
+          modal.className = "modal good";
+          modal.innerHTML =
+            '<div class="epilogue">送信された文字は、表示ではなく記録として、外に出た。<br>あなたは、読者ではなかった。あなたは、運び屋だった。</div><button class="btn" id="good-close">とじる</button>';
+          openOverlay();
+          $("good-close").addEventListener("click", closeOverlay);
+          var share = document.createElement("a");
+          share.className = "btn";
+          share.textContent = "Xでシェア";
+          share.target = "_blank";
+          share.rel = "noopener";
+          share.href =
+            "https://twitter.com/intent/tweet?text=" +
+            encodeURIComponent(
+              "「sic」をクリアした。" +
+                (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
+            ) +
+            "&url=" +
+            encodeURIComponent("https://games.escape-safari.com/sic/");
+          modal.appendChild(share);
+        }
+        window.addEventListener("pagehide", saveProgress);
+        document.addEventListener("visibilitychange", function () {
+          if (document.hidden) saveProgress();
+        });
         updateHud();
 
         // 実測用に公開（debug=1 のときのみ。CORE/TRUTH をコンソールから素で見せない）

@@ -833,7 +833,7 @@
     </div>
 
     <script src="analytics.js"></script>
-    <script src="../shared/completion-record.js"></script>
+    <script src="../shared/completion-record.js?v=20261109-progress"></script>
     <script>
       (function () {
         "use strict";
@@ -957,15 +957,48 @@
         function loadState() {
           try {
             var raw = localStorage.getItem(SAVE_KEY);
-            if (raw) return Object.assign(defaultState(), JSON.parse(raw));
-          } catch (e) {}
-          return defaultState();
+            if (!raw) return defaultState();
+            var saved = JSON.parse(raw);
+            var areas = Object.keys(AREAS);
+            var visited = saved && saved.visited;
+            if (
+              !saved ||
+              typeof saved !== "object" ||
+              typeof saved.started !== "boolean" ||
+              typeof saved.cleared !== "boolean" ||
+              typeof saved.lionSolved !== "boolean" ||
+              typeof saved.signSolved !== "boolean" ||
+              !Number.isInteger(saved.meatTapCount) ||
+              saved.meatTapCount < 0 ||
+              saved.meatTapCount > 100 ||
+              !Number.isInteger(saved.patrolIndex) ||
+              saved.patrolIndex < 0 ||
+              saved.patrolIndex > PATROL.length ||
+              typeof saved.patrolComplete !== "boolean" ||
+              !areas.includes(saved.area) ||
+              !visited ||
+              typeof visited !== "object" ||
+              Array.isArray(visited) ||
+              Object.keys(visited).some(function (area) {
+                return !areas.includes(area) || typeof visited[area] !== "boolean";
+              })
+            )
+              return defaultState();
+            return Object.assign(defaultState(), saved, { visited: Object.assign({}, visited) });
+          } catch (e) {
+            return defaultState();
+          }
         }
         function save() {
           try {
             localStorage.setItem(SAVE_KEY, JSON.stringify(state));
           } catch (e) {}
         }
+
+        window.addEventListener("pagehide", save);
+        document.addEventListener("visibilitychange", function () {
+          if (document.hidden) save();
+        });
 
         // 「一度でもクリアした端末か」。SAVE_KEY とは別に保持し、「はじめから」でも消えない。
         // → クリア済みの端末では、以後ずっと看板に先人（過去の自分）の走り書きが増えたまま。
@@ -2221,6 +2254,7 @@
         });
         el.btnReset.addEventListener("click", function () {
           if (confirm("この夜のことを忘れて、はじめからやり直しますか？（進行状況は消えます）")) {
+            completionAttempt.reset();
             state = defaultState();
             save();
             el.sign.classList.remove("show");

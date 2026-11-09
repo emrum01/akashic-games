@@ -820,12 +820,80 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     // 開いた未来サービス詳細で「契約／購入」した広告を記録する。
     // key=広告コード（重複購入は1回に集約）/ value={ name, amount }。クリア後の叱責演出で列挙する。
     purchases: new Map(),
+    removedAdIndices: new Set(),
     physicsRunning: false,
     physicsRaf: 0,
     lastPhysicsTs: 0,
     fieldW: 1,
     fieldH: 1,
   };
+
+  const savedProgress = globalThis.AkashicProgress.readProgress(
+    "notification-gale",
+    (saved) =>
+      ["micgate", "download", "flood", "detected", "contacted", "resolved", "clear"].includes(
+        saved.phase
+      ) &&
+      Number.isInteger(saved.elapsedMs) &&
+      saved.elapsedMs >= 0 &&
+      saved.elapsedMs <= 3600000 &&
+      Array.isArray(saved.removedIndices) &&
+      saved.removedIndices.length <= ADS.length &&
+      saved.removedIndices.every(
+        (index, position) =>
+          Number.isInteger(index) &&
+          index >= 0 &&
+          index < ADS.length &&
+          saved.removedIndices.indexOf(index) === position
+      ) &&
+      Number.isInteger(saved.failures) &&
+      saved.failures >= 0 &&
+      saved.failures <= 10000 &&
+      Number.isInteger(saved.closeAttempts) &&
+      saved.closeAttempts >= 0 &&
+      saved.closeAttempts <= 10000 &&
+      typeof saved.manualUnlocked === "boolean" &&
+      typeof saved.firstBlowFired === "boolean" &&
+      typeof saved.micDenied === "boolean" &&
+      typeof saved.alertShown === "boolean" &&
+      typeof saved.hintOpen === "boolean" &&
+      Number.isInteger(saved.hintStage) &&
+      saved.hintStage >= 0 &&
+      saved.hintStage <= HINTS.length &&
+      Array.isArray(saved.purchasedCodes) &&
+      saved.purchasedCodes.length <= ADS.length &&
+      saved.purchasedCodes.every(
+        (code, position) =>
+          typeof code === "string" &&
+          ADS.some((ad) => ad.d?.code === code) &&
+          saved.purchasedCodes.indexOf(code) === position
+      )
+  );
+  let lastProgressSaveAt = 0;
+  function saveProgress(force = false) {
+    const now = performance.now();
+    if (!force && now - lastProgressSaveAt < 1000) {
+      return;
+    }
+    lastProgressSaveAt = now;
+    if (state.phase === "title") {
+      return;
+    }
+    globalThis.AkashicProgress.writeProgress("notification-gale", {
+      phase: state.phase,
+      elapsedMs: Math.max(0, Math.min(3600000, Math.round(now - state.startedAt))),
+      removedIndices: Array.from(state.removedAdIndices).toSorted((a, b) => a - b),
+      failures: state.failures,
+      closeAttempts: state.closeAttempts,
+      manualUnlocked: state.manualUnlocked,
+      firstBlowFired: state.firstBlowFired,
+      micDenied: state.micDenied,
+      alertShown: state.alertShown,
+      hintOpen: !elements.hintOverlay.hidden,
+      hintStage: state.hintStage,
+      purchasedCodes: Array.from(state.purchases.keys()),
+    });
+  }
 
   function clearTimers() {
     clearTimeout(state.hintTimer);
@@ -837,8 +905,12 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     state.seqTimers = [];
   }
 
-  function startGame() {
-    completionAttempt.reset();
+  function startGame(restoring = false) {
+    restoring = restoring === true;
+    if (!restoring) {
+      completionAttempt.reset();
+      globalThis.AkashicProgress.removeProgress("notification-gale");
+    }
     releaseMic();
     clearTimers();
     Object.assign(state, {
@@ -880,6 +952,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     }
     state.currentLevel = 0;
     elements.dialogField.replaceChildren();
+    state.removedAdIndices.clear();
     elements.micIndicator.hidden = true;
     elements.micIndicator.classList.remove("detecting");
     elements.micGate.hidden = true;
@@ -898,19 +971,25 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.recordDeadline.textContent = "本日中";
 
     setHeader("受信中", "広告 0件");
-    analytics.track("game_start");
-    showMicGate();
+    if (!restoring) {
+      analytics.track("game_start");
+    }
+    showMicGate(restoring);
+    saveProgress(true);
   }
 
   // 冒頭のマイク許可ゲート。何に使うかは明かさず（伏線）、ユーザージェスチャで getUserMedia を取る
   // （iOS の許可要件もここで満たす）。許可/拒否どちらでも同意書ダウンロードへ進む。
-  function showMicGate() {
+  function showMicGate(restoring = false) {
     state.phase = "micgate";
     elements.app.dataset.phase = "micgate";
     elements.micGate.hidden = false;
     elements.micGateAllow.disabled = false;
     elements.micGateCard.focus?.();
-    analytics.track("mic_prompt_shown");
+    if (!restoring) {
+      analytics.track("mic_prompt_shown");
+    }
+    saveProgress(true);
   }
 
   async function acceptMicGate() {
@@ -977,11 +1056,12 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     typeText(elements.recordNote, DL_BODY, 34);
     // 警告は氾濫直前の必須ビート。タイピングの途中で割り込ませ、中央モーダルで確実に見せる。
     state.seqTimers.push(window.setTimeout(showDownloadAlert, reduceMotion ? 300 : 1500));
+    saveProgress(true);
   }
 
   // 「敵対的広告群を検知しました」を独立したモーダルビートとして表示。タイピングを一時停止し、
   // 最低表示時間が経過するまで閉じられない（早送り連打でもスキップ不可）。閉じた直後に氾濫開始。
-  function showDownloadAlert() {
+  function showDownloadAlert(restoring = false) {
     if (state.phase !== "download" || state.alertShown) {
       return;
     }
@@ -991,7 +1071,9 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.alert.hidden = false;
     elements.alertAck.disabled = true;
     elements.alertAck.textContent = "…";
-    analytics.track("phase_advance", { phase: "alert" });
+    if (!restoring) {
+      analytics.track("phase_advance", { phase: "alert" });
+    }
     // 最低表示時間: これを過ぎて初めて「広告を確認する」で閉じられる（緊張の立ち上がりを保証）。
     const minMs = reduceMotion ? 900 : 1900;
     state.seqTimers.push(
@@ -1005,6 +1087,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     );
     // 未操作時の停止防止（自動進行）。
     state.seqTimers.push(window.setTimeout(dismissDownloadAlert, minMs + 4500));
+    saveProgress(true);
   }
 
   function dismissDownloadAlert() {
@@ -1015,6 +1098,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.recordNote.textContent = DL_BODY; // 割り込みで止めた本文を完成させてから氾濫へ
     elements.recordNote.classList.remove("typing");
     floodAds();
+    saveProgress(true);
   }
 
   // ダウンロード中のタップは演出を早送りするが、警告ビートまで（＝氾濫へは直行しない）。
@@ -1100,6 +1184,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.app.dataset.phase = "flood";
     elements.recordDocument.classList.add("dimmed");
     analytics.track("phase_advance", { phase: "flood" });
+    saveProgress(true);
     ADS.forEach((ad, index) => {
       state.floodTimers.push(window.setTimeout(() => spawnAd(ad, index), 150 + index * 130));
     });
@@ -1144,20 +1229,24 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.hintOverlay.querySelector(".hint-card")?.focus?.();
   }
 
-  function showHintStage() {
+  function showHintStage(restoring = false) {
     completionAttempt.hint();
     const stage = state.hintStage;
     elements.hintText.textContent = HINTS[stage - 1];
     elements.hintLabel.textContent =
       stage === 1 ? "未署名の受信 // 断片 1" : "未署名の受信 // 断片 2";
     elements.hintNext.hidden = stage >= HINTS.length;
-    analytics.track(`hint_open_${stage}`);
+    if (!restoring) {
+      analytics.track(`hint_open_${stage}`);
+    }
+    saveProgress(true);
   }
 
   function nextHint() {
     if (state.hintStage < HINTS.length) {
       state.hintStage += 1;
       showHintStage();
+      saveProgress(true);
     }
   }
 
@@ -1250,7 +1339,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     });
   }
 
-  function onFlooded() {
+  function onFlooded(restoring = false) {
     if (state.phase !== "flood") {
       return;
     }
@@ -1271,7 +1360,10 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
       startPhysics();
     }
     startIdleRescue();
-    analytics.track("phase_advance", { phase: "detected" });
+    if (!restoring) {
+      analytics.track("phase_advance", { phase: "detected" });
+    }
+    saveProgress(true);
   }
 
   function rejectClose(card) {
@@ -1279,6 +1371,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
       return;
     }
     state.closeAttempts += 1;
+    saveProgress(true);
     card.classList.remove("appearing");
     void card.offsetWidth;
     card.classList.add("appearing");
@@ -1308,6 +1401,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     if (!state.micReady) {
       state.seqTimers.push(window.setTimeout(offerFallback, 1400));
     }
+    saveProgress(true);
   }
 
   function hideManager() {
@@ -1321,6 +1415,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
       elements.recordGuidance.textContent =
         "……もう、頼れる窓口はありません。この回線で、できることを探すしかなさそうです。";
     }
+    saveProgress(true);
   }
 
   // 長時間（既定90秒/150秒）進展がない場合のみ、段階的に風＝息のヒントを後出しする（詰み回避）。
@@ -1693,7 +1788,12 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     }
     card.classList.add("flying");
     state.removed += 1;
+    const index = Number(card.dataset.index);
+    if (Number.isInteger(index) && index >= 0 && index < ADS.length) {
+      state.removedAdIndices.add(index);
+    }
     elements.noticeCount.textContent = `広告 ${Math.max(0, remainingDialogs())}件`;
+    saveProgress(true);
     window.setTimeout(() => {
       state.adPhysics.delete(card);
       card.remove();
@@ -1707,7 +1807,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     return elements.dialogField.querySelectorAll(".system-dialog:not(.flying)").length;
   }
 
-  function revealRecord() {
+  function revealRecord(restoring = false) {
     if (state.phase === "resolved" || state.phase === "clear") {
       return;
     }
@@ -1732,7 +1832,10 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
       "広告が晴れ、同意書が読めます。内容を確認し、同意してください。";
     elements.consent.hidden = false;
     setHeader("同意待ち", "広告 0件");
-    analytics.track("phase_advance", { phase: "revealed" });
+    if (!restoring) {
+      analytics.track("phase_advance", { phase: "revealed" });
+    }
+    saveProgress(true);
   }
 
   // 最終アクション: 同意書に署名してクリア。
@@ -1750,27 +1853,127 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.recordGuidance.textContent = "処置が実行されます。";
     analytics.track("approve_click");
     state.clearTimer = window.setTimeout(clearGame, 900);
+    saveProgress(true);
   }
 
-  function clearGame() {
+  function clearGame(restoring = false) {
     if (state.phase !== "resolved") {
       return;
     }
-    completionAttempt.complete();
+    if (!restoring) {
+      completionAttempt.complete();
+    }
     state.phase = "clear";
     elements.app.dataset.phase = "clear";
     elements.game.hidden = true;
     elements.clear.hidden = false;
     const elapsed = Math.max(1, Math.round((performance.now() - state.startedAt) / 1000));
     elements.clearDetail.textContent = `RELAY 0x07 / ${formatDuration(elapsed)} / 不達 ${state.failures}回`;
-    renderScolding();
+    renderScolding(restoring);
     releaseMic();
-    analytics.track("game_clear", { elapsed_sec: elapsed, failures: state.failures });
+    if (!restoring) {
+      analytics.track("game_clear", { elapsed_sec: elapsed, failures: state.failures });
+    }
+    saveProgress(true);
+  }
+
+  function restoreSavedProgress() {
+    if (!savedProgress) {
+      return;
+    }
+    startGame(true);
+    state.startedAt = performance.now() - savedProgress.elapsedMs;
+    state.removedAdIndices = new Set(savedProgress.removedIndices);
+    state.removed = savedProgress.removedIndices.length;
+    state.failures = savedProgress.failures;
+    state.closeAttempts = savedProgress.closeAttempts;
+    state.manualUnlocked = savedProgress.manualUnlocked;
+    state.firstBlowFired = savedProgress.firstBlowFired;
+    state.micDenied = savedProgress.micDenied;
+    state.hintStage = savedProgress.hintStage;
+    savedProgress.purchasedCodes.forEach((code) => {
+      const ad = ADS.find((item) => item.d?.code === code);
+      if (ad) {
+        state.purchases.set(code, { name: ad.d.name, amount: Number(ad.d.total) || 0 });
+      }
+    });
+    if (state.hintStage > 0) {
+      completionAttempt.hint();
+    }
+
+    if (savedProgress.phase === "micgate") {
+      saveProgress(true);
+      return;
+    }
+    elements.micGate.hidden = true;
+    if (savedProgress.phase === "download") {
+      state.phase = "download";
+      elements.app.dataset.phase = "download";
+      elements.recordNote.textContent = DL_BODY;
+      elements.recordNote.classList.remove("typing");
+      // Resume at the required warning beat; its minimum read time still applies.
+      showDownloadAlert(true);
+      saveProgress(true);
+      return;
+    }
+
+    const resumeFloodPhase = () => {
+      state.phase = "flood";
+      elements.app.dataset.phase = "flood";
+      elements.recordDocument.classList.add("dimmed");
+      elements.recordNote.textContent = DL_BODY;
+      ADS.forEach((ad, index) => {
+        if (!state.removedAdIndices.has(index)) {
+          spawnAd(ad, index);
+        }
+      });
+      onFlooded(true);
+    };
+    if (["flood", "detected", "contacted"].includes(savedProgress.phase)) {
+      resumeFloodPhase();
+      const resolvedFromSavedCheckpoint = remainingDialogs() === 0;
+      if (resolvedFromSavedCheckpoint) {
+        revealRecord(true);
+      } else if (savedProgress.phase === "contacted") {
+        state.phase = "contacted";
+        elements.app.dataset.phase = "contacted";
+        elements.contact.hidden = true;
+        elements.manager.hidden = true;
+        elements.recordGuidance.textContent =
+          "……もう、頼れる窓口はありません。この回線で、できることを探すしかなさそうです。";
+      }
+      if (!resolvedFromSavedCheckpoint && state.manualUnlocked) {
+        enableManualMode();
+      } else if (!resolvedFromSavedCheckpoint) {
+        offerFallback();
+      } // Microphone permission is requested again only by a user gesture.
+      if (!resolvedFromSavedCheckpoint && savedProgress.hintOpen && state.hintStage > 0) {
+        elements.hintOverlay.hidden = false;
+        showHintStage(true);
+      }
+      saveProgress(true);
+      return;
+    }
+
+    if (savedProgress.phase === "resolved") {
+      state.phase = "detected";
+      revealRecord(true);
+      saveProgress(true);
+      return;
+    }
+    if (savedProgress.phase === "clear") {
+      state.phase = "resolved";
+      elements.recordState.textContent = "署名済";
+      elements.recordDeadline.textContent = "間に合った";
+      elements.recordNote.textContent = "あなたは、未来のあなたに同意した。";
+      elements.recordDocument.classList.add("signed");
+      clearGame(true);
+    }
   }
 
   // クリア後、詳細オーバーレイで契約／購入していた場合に「未来のあなた」から叱責される演出。
   // 購入ゼロならクリア画面のまま（何も出さない）。世界律「未来からの介入は必ず対価を取る」の回収。
-  function renderScolding() {
+  function renderScolding(restoring = false) {
     const el = elements.clearScold;
     if (!el) {
       return;
@@ -1795,7 +1998,9 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
       `<div class="scold-total"><span>こっちに届いた請求</span><b>${formatYen(total)}</b></div>` +
       `<p class="scold-tail">払うのは、こっちなんだよ。</p>`;
     el.hidden = false;
-    analytics.track("clear_scolded", { count: state.purchases.size, total });
+    if (!restoring) {
+      analytics.track("clear_scolded", { count: state.purchases.size, total });
+    }
   }
 
   function offerFallback() {
@@ -1824,6 +2029,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.recordGuidance.textContent =
       "広告を長押しして外へ払えます。キーボードではDeleteキー。";
     hideResponse();
+    saveProgress(true);
   }
 
   function installManualGesture(card) {
@@ -1999,6 +2205,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
       analytics.track("ad_purchase", { ad: d.code, amount: Number(d.total) || 0 });
     }
     markCtaPurchased(isNew);
+    saveProgress(true);
   }
 
   // CTAを「契約成立」状態に切り替える（購入完了演出）。justNow=true は今このタップで成立した場合。
@@ -2143,13 +2350,17 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
   // マイク操作ボタンは廃止（常時リスニング）。バックグラウンドでは回線を止め、復帰時に取り直す。
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
+      saveProgress(true);
       stopListen();
       releaseMic();
     } else {
       reopenMic();
     }
   });
-  window.addEventListener("pagehide", () => releaseMic());
+  window.addEventListener("pagehide", () => {
+    saveProgress(true);
+    releaseMic();
+  });
 
   elements.lpLink.addEventListener("click", () => {
     analytics.track("lp_click", { link_target: elements.lpLink.href });
@@ -2275,5 +2486,8 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
         window.gameDebug.fallback();
       }
     });
+  }
+  if (savedProgress) {
+    restoreSavedProgress();
   }
 })();

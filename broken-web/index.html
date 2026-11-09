@@ -1837,7 +1837,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="analytics.js"></script>
-    <script src="../shared/completion-record.js"></script>
+    <script src="../shared/completion-record.js?v=20261109-progress"></script>
     <script>
       (async () => {
         const objective = document.querySelector(".objective");
@@ -1914,6 +1914,65 @@
           wrongCount: 0,
           hintCount: 0,
         };
+        const savedProgress = window.AkashicProgress.readProgress(
+          "broken-web",
+          (saved) =>
+            typeof saved.started === "boolean" &&
+            typeof saved.deviceRevealed === "boolean" &&
+            typeof saved.escapeArmed === "boolean" &&
+            typeof saved.ended === "boolean" &&
+            [
+              "kakejikuChecks",
+              "floorCrackChecks",
+              "wrongCount",
+              "hintCount",
+              "puzzleHintStep",
+            ].every(
+              (key) => Number.isInteger(saved[key]) && saved[key] >= 0 && saved[key] <= 100
+            ) &&
+            ["browserHintSeen", "puzzleHintShown"].every(
+              (key) => typeof saved[key] === "boolean"
+            ) &&
+            (!saved.escapeArmed || saved.deviceRevealed)
+        );
+        if (savedProgress) {
+          Object.assign(state, {
+            started: savedProgress.started,
+            deviceRevealed: savedProgress.deviceRevealed,
+            escapeArmed: savedProgress.escapeArmed,
+            ended: savedProgress.ended,
+            kakejikuChecks: savedProgress.kakejikuChecks,
+            floorCrackChecks: savedProgress.floorCrackChecks,
+            wrongCount: savedProgress.wrongCount,
+            hintCount: savedProgress.hintCount,
+            browserHintSeen: savedProgress.browserHintSeen,
+            puzzleHintShown: savedProgress.puzzleHintShown,
+            puzzleHintStep: savedProgress.puzzleHintStep,
+          });
+          // Browser history belongs to one tab session. Resume from the stable device checkpoint;
+          // the three-forward/two-back sequence starts again at its defined origin.
+          state.forward = 0;
+          state.back = 0;
+          state.routeDepth = 0;
+          state.phase = "forward";
+          state.routeValid = true;
+          if (state.hintCount > 0) completionAttempt.hint();
+        }
+        function saveProgress() {
+          window.AkashicProgress.writeProgress("broken-web", {
+            started: Boolean(state.started),
+            deviceRevealed: state.deviceRevealed,
+            escapeArmed: state.escapeArmed,
+            ended: state.ended,
+            kakejikuChecks: state.kakejikuChecks,
+            floorCrackChecks: state.floorCrackChecks,
+            wrongCount: state.wrongCount,
+            hintCount: state.hintCount,
+            browserHintSeen: state.browserHintSeen,
+            puzzleHintShown: state.puzzleHintShown,
+            puzzleHintStep: state.puzzleHintStep,
+          });
+        }
         let flavorActionHandler = null;
         let flavorPrevActionHandler = null;
         const analytics = window.AkashicAnalytics || { track: () => {} };
@@ -1922,6 +1981,7 @@
           if (state.started) return;
           state.started = true;
           state.startedAt = Date.now();
+          saveProgress();
           analytics.track("game_start");
           analytics.track("first_action");
         }
@@ -1938,6 +1998,18 @@
         document.addEventListener("pointerdown", markStarted, { once: true, capture: true });
 
         primeBrowserHistory();
+        if (savedProgress?.deviceRevealed) {
+          puzzlePanel.classList.add("is-hidden");
+          devicePanel.classList.remove("is-hidden");
+          threeScene.setDeviceVisible(true);
+          if (savedProgress.escapeArmed) armEscape();
+        }
+        if (savedProgress?.puzzleHintShown) puzzleHintButton.classList.remove("is-hidden");
+        if (savedProgress?.ended) clearStage.classList.add("is-visible", "is-settled");
+        if (savedProgress?.ended) {
+          clearCard.classList.remove("is-hidden");
+          clearCard.classList.add("is-visible");
+        }
         updateHud();
 
         document.querySelectorAll(".word-bank button").forEach((button) => {
@@ -1979,6 +2051,7 @@
             state.puzzleHintShown = true;
             state.puzzleHintStep = 0;
             puzzleHintButton.classList.remove("is-hidden");
+            saveProgress();
           }
           puzzleInput.select();
         });
@@ -2045,6 +2118,7 @@
         floorCrackHotspot.addEventListener("click", (event) => {
           event.stopPropagation();
           state.floorCrackChecks += 1;
+          saveProgress();
           // 掛け軸のヒント（＝ブラウザの進む/戻る, browserHintSeen）を見た後は、
           // ヒビを「初めて調べた時点」からメモ（スワイプ操作のヒント）導線を出す。
           // 掛け軸ヒント未読の段階では従来どおりフレーバーのみ＝無条件開放にはせず、
@@ -2103,6 +2177,7 @@
 
         titleReturn.addEventListener("click", () => {
           completionAttempt.reset();
+          window.AkashicProgress.removeProgress("broken-web");
           location.href = `${location.pathname}?_pstep=0#step-0`;
         });
 
@@ -2259,6 +2334,7 @@
         function revealDevice() {
           if (state.deviceRevealed) return;
           state.deviceRevealed = true;
+          saveProgress();
           state.forward = 0;
           state.back = 0;
           state.phase = "forward";
@@ -2312,6 +2388,7 @@
         }
 
         function updateHud() {
+          saveProgress();
           if (!state.deviceRevealed) {
             objective.textContent = "脱出経路：未確定";
           } else if (state.escapeArmed) {
@@ -2386,6 +2463,7 @@
         function showPuzzleHint() {
           state.hintCount += 1;
           completionAttempt.hint();
+          saveProgress();
           state.puzzleHintView = 0;
           renderPuzzleHint();
         }
@@ -2420,6 +2498,7 @@
           state.browserHintSeen = true;
           state.hintCount += 1;
           completionAttempt.hint();
+          saveProgress();
           showFlavor("進む / 戻る は、ブラウザの進む / 戻る。", {
             title: "ヒント",
           });
@@ -2428,6 +2507,7 @@
         function showSwipeHint() {
           state.hintCount += 1;
           completionAttempt.hint();
+          saveProgress();
           showFlavor(
             "画面の右端もしくは左端から中央に向かってスワイプすると、ブラウザの進む / 戻るが使える。",
             {
@@ -2450,6 +2530,7 @@
         function clear() {
           completionAttempt.complete();
           state.ended = true;
+          saveProgress();
           clearStage.classList.add("is-visible");
           explosionVideo.pause();
           const clearTimeSec = state.startedAt
