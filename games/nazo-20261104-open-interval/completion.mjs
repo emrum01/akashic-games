@@ -85,6 +85,62 @@ const akashicCompletionCreateCompletionAttempt = (id, revision) => {
     },
   };
 };
+const akashicProgressKey = (id) =>
+  akashicCompletionValid(id) ? "akashic:progress:" + id + ":v1" : "";
+const akashicProgressRead = (id, validate) => {
+  const key = akashicProgressKey(id);
+  if (!key) {
+    return null;
+  }
+  const raw = akashicCompletionRead(key);
+  if (raw === null || raw.length > 32768) {
+    return null;
+  }
+  try {
+    const envelope = JSON.parse(raw);
+    if (
+      !envelope ||
+      envelope.version !== 1 ||
+      !envelope.data ||
+      typeof envelope.data !== "object" ||
+      Array.isArray(envelope.data)
+    ) {
+      return null;
+    }
+    return typeof validate !== "function" || validate(envelope.data) ? envelope.data : null;
+  } catch {
+    return null;
+  }
+};
+const akashicProgressWrite = (id, value) => {
+  const key = akashicProgressKey(id);
+  if (!key || !value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  try {
+    const raw = JSON.stringify({ version: 1, data: value });
+    return raw.length <= 32768 && akashicCompletionWrite(key, raw);
+  } catch {
+    return false;
+  }
+};
+const akashicProgressRemove = (id) => {
+  const key = akashicProgressKey(id);
+  if (!key) {
+    return false;
+  }
+  try {
+    globalThis.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+};
+globalThis.AkashicProgress = {
+  readProgress: akashicProgressRead,
+  writeProgress: akashicProgressWrite,
+  removeProgress: akashicProgressRemove,
+};
 globalThis.AkashicCompletion = {
   createCompletionAttempt: akashicCompletionCreateCompletionAttempt,
   readNoHintCleared: akashicCompletionReadNoHintCleared,
@@ -97,6 +153,45 @@ const publicUrl = "https://games.escape-safari.com/games/nazo-20261104-open-inte
 const attempt = globalThis.AkashicCompletion.createCompletionAttempt(gameId);
 let hasObservedUnsolvedPlay = false;
 let previousWonState = null;
+const draftKey = `akashic:progress:${gameId}:answer:v1`;
+let draftRestored = false;
+let restoringDraft = false;
+function restoreDraft() {
+  const input = document.querySelector("input#answer");
+  if (draftRestored || !input) {
+    return;
+  }
+  draftRestored = true;
+  try {
+    const saved = JSON.parse(localStorage.getItem(draftKey) || "null");
+    if (saved?.version !== 1 || typeof saved.value !== "string" || saved.value.length > 2048) {
+      return;
+    }
+    // Synchronize just the controlled answer field. Do not submit or replay play actions.
+    restoringDraft = true;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(
+      input,
+      saved.value
+    );
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  } catch {
+    /* Corrupt or unavailable storage leaves the ordinary field usable. */
+  } finally {
+    restoringDraft = false;
+  }
+}
+document.addEventListener("input", (event) => {
+  if (!restoringDraft && event.target instanceof HTMLInputElement && event.target.id === "answer") {
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({ version: 1, value: event.target.value.slice(0, 2048) })
+      );
+    } catch {
+      /* Play in memory. */
+    }
+  }
+});
 
 function shareHref() {
   const text = `「${title}」を${attempt.noHints ? "ノーヒントでクリアしました！" : "クリアしました！"} #Web謎`;
@@ -139,6 +234,11 @@ function observeDisplayedHint() {
 
 function resetAttempt() {
   attempt.reset();
+  try {
+    localStorage.removeItem(draftKey);
+  } catch {
+    /* Play in memory. */
+  }
   hasObservedUnsolvedPlay = true;
   updateShareLinks();
 }
@@ -171,6 +271,7 @@ document.addEventListener(
 );
 
 const observer = new MutationObserver(() => {
+  restoreDraft();
   observeClearState();
   observeDisplayedHint();
 });
@@ -182,3 +283,4 @@ observer.observe(document.documentElement, {
 });
 observeClearState();
 observeDisplayedHint();
+restoreDraft();
