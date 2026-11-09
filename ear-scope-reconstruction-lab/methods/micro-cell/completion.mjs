@@ -1,4 +1,4 @@
-import "../../../shared/completion-record.js";
+import "../../../shared/completion-record.js?v=20261110-share-newlines";
 
 export const MICRO_CELL_ID = "ear-scope-micro-cell";
 export const MICRO_CELL_URL =
@@ -26,13 +26,11 @@ export function createMicroCellCompletion({ open = globalThis.open?.bind(globalT
       if (!cleared || typeof open !== "function") {
         return false;
       }
-      const intent = new URL("https://twitter.com/intent/tweet");
-      intent.searchParams.set(
-        "text",
-        attempt.noHints ? "ノーヒントでクリアしました！" : "クリアしました！"
+      const intent = globalThis.AkashicCompletion.createShareIntent(
+        attempt.noHints ? "ノーヒントでクリアしました！" : "クリアしました！",
+        MICRO_CELL_URL
       );
-      intent.searchParams.set("url", MICRO_CELL_URL);
-      open(intent.href, "_blank", "noopener,noreferrer");
+      open(intent, "_blank", "noopener,noreferrer");
       return true;
     },
   });
