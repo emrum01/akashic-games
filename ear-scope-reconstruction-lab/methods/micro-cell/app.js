@@ -4,6 +4,7 @@ import { createSpaceArcRuntime } from "./space-arc-runtime.mjs";
 import { HOTSPOT_MANIFEST } from "./hotspot-manifest.mjs";
 import { createHotspotRuntime } from "./hotspot-runtime.mjs";
 import { createWorldItemRuntime } from "./world-item-runtime.mjs";
+import { createMicroCellProgressStore } from "./micro-cell-progress.mjs";
 
 (() => {
   "use strict";
@@ -146,6 +147,10 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
   let bossInspectionActive = false;
   let bossInspectionVisibilityRaf = 0;
   let bossInspectionPointerStart = null;
+  const progressStore = createMicroCellProgressStore();
+  let progressReady = false;
+  let restoringProgress = false;
+  let resettingProgress = false;
 
   const BOSS_INSPECTION_FOCUS_X = Object.freeze([290, 768, 1228]);
   const BOSS_INSPECTION_PAN_NAMES = Object.freeze(["left", "center", "right"]);
@@ -198,6 +203,8 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
     validOwners: [...new Set(STATES.map(({ owner }) => owner))],
     isExternalModalOpen: () => !encounterDialog.hidden || !spaceDialog.hidden
   });
+
+  window.addEventListener("micro-cell:hotspot-opened", () => updateDiagnostics());
 
   const worldItems = createWorldItemRuntime({
     layer: worldItemLayer,
@@ -334,6 +341,10 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
 
   function syncEncounterForNode() {
     const storyState = grandmaEncounter.getState();
+    if (restoringProgress) {
+      renderEncounter(storyState);
+      return;
+    }
     if (currentIndex === ENCOUNTER_INDEX && !transitionActive && !assetPreparing && !storyState.encounterResolved) {
       spaceArc.suppressAmbient();
       if (storyState.screen === "hidden") grandmaEncounter.open();
@@ -516,6 +527,24 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
     return activePlate === "a" ? "b" : "a";
   }
 
+  function persistProgress() {
+    if (!progressReady || restoringProgress || resettingProgress || !ready || assetPreparing) return false;
+    const zoomNode = STATES[currentIndex]?.id;
+    const arcState = spaceArc.getState();
+    if (!zoomNode || !arcState || !Number.isInteger(arcState.routeIndex)) return false;
+    if (currentIndex <= CLEARED_INDEX && arcState.nodeId !== "z011") return false;
+    if (currentIndex > CLEARED_INDEX && arcState.nodeId !== zoomNode) return false;
+    return progressStore.write({
+      schema: "micro-cell-progress-v1",
+      version: 1,
+      zoomNode,
+      grandma: grandmaEncounter.getState(),
+      spaceArcStarted,
+      spaceArc: spaceArc.serialize(),
+      discoveredHotspotIds: hotspots.serializeDiscoveries()
+    });
+  }
+
   function updateDiagnostics() {
     const state = STATES[currentIndex];
     const storyState = grandmaEncounter.getState();
@@ -559,6 +588,7 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
     }
     syncHotspots();
     syncWorldItems();
+    persistProgress();
   }
 
   function clearTransitionTimer() {
@@ -606,14 +636,14 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
   function syncNarrativeForNode() {
     const state = STATES[currentIndex];
     if (currentIndex <= CLEARED_INDEX) {
-      spaceArc.syncRoute(state.id, !transitionActive && !assetPreparing);
+      spaceArc.syncRoute(state.id, !transitionActive && !assetPreparing, { resume: restoringProgress });
       syncEncounterForNode();
       return;
     }
-    grandmaEncounter.hide();
+    if (!restoringProgress) grandmaEncounter.hide();
     hideEncounterVisualsImmediately();
     encounterDialog.hidden = true;
-    spaceArc.syncRoute(state.id, !transitionActive && !assetPreparing);
+    spaceArc.syncRoute(state.id, !transitionActive && !assetPreparing, { resume: restoringProgress });
     syncHotspots();
     syncWorldItems();
   }
@@ -1071,6 +1101,8 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
   }
 
   function reset() {
+    resettingProgress = true;
+    progressStore.clear();
     assetRequestToken += 1;
     assetPreparing = false;
     spaceArcStarted = false;
@@ -1078,7 +1110,10 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
     worldItems.reset();
     spaceArc.begin({ grandmaRecruited: false, reset: true });
     grandmaEncounter.reset();
-    return applyIndex(0, { atomic: true });
+    const next = applyIndex(0, { atomic: true });
+    resettingProgress = false;
+    persistProgress();
+    return next;
   }
 
   function setPose(value) {
@@ -1347,6 +1382,23 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
     return freeze(values);
   }
 
+  async function restoreProgress(saved) {
+    restoringProgress = true;
+    const grandma = grandmaEncounter.restore(saved.grandma);
+    if (!grandma) throw new Error("saved grandma state is invalid");
+    spaceArc.begin({ grandmaRecruited: grandma.grandmaRecruited, resumeProgress: saved.spaceArc });
+    spaceArcStarted = saved.spaceArcStarted;
+    if (!hotspots.restoreDiscoveries(saved.discoveredHotspotIds)) throw new Error("saved hotspot discoveries are invalid");
+    const index = NODE_IDS.indexOf(saved.zoomNode);
+    if (index < 0) throw new Error("saved zoom node is invalid");
+    await ensureResidentsForIndex(index);
+    currentIndex = index;
+    applyAtomic(index);
+    restoringProgress = false;
+    progressReady = true;
+    updateDiagnostics();
+  }
+
   async function boot() {
     updateCoverScale();
     const response = await fetch(GRAPH_URL, { cache: "no-cache" });
@@ -1379,9 +1431,21 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
     await Promise.all([plates.a.decode(), plates.b.decode()]);
     activePlate = "a";
     ready = true;
-    spaceArc.begin({ grandmaRecruited: false });
-    reset();
+    const saved = progressStore.read();
+    if (saved) {
+      await restoreProgress(saved);
+    } else {
+      spaceArc.begin({ grandmaRecruited: false, reset: true });
+      reset();
+      progressReady = true;
+      updateDiagnostics();
+    }
   }
+
+  window.addEventListener("pagehide", () => persistProgress());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") persistProgress();
+  });
 
   const publicGrandmaEncounter = freeze({
     getState: grandmaEncounter.getState,
@@ -1422,7 +1486,9 @@ import { createWorldItemRuntime } from "./world-item-runtime.mjs";
     hotspots: freeze({
       getState: hotspots.getState,
       inspect: hotspots.inspect,
-      close: hotspots.close
+      close: hotspots.close,
+      serializeDiscoveries: hotspots.serializeDiscoveries,
+      restoreDiscoveries: hotspots.restoreDiscoveries
     })
   });
   Object.defineProperty(globalThis, "MicroCell", {

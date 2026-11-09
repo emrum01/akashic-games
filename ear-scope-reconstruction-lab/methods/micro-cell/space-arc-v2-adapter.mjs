@@ -1,6 +1,6 @@
 import { SPACE_ARC_ENCOUNTERS, SPACE_ARC_ROUTE } from "./space-arc-state.mjs";
 import { BATTLE_V2_ENCOUNTERS, createBattleV2State, selectBattleV2 } from "./battle-system-v2.mjs";
-import { createBattleV2Store } from "./battle-v2-store.mjs";
+import { createBattleV2Store, isValidBattleV2Save } from "./battle-v2-store.mjs";
 
 const START_INDEX = SPACE_ARC_ROUTE.indexOf("z011");
 const BOSS_INDEX = SPACE_ARC_ROUTE.indexOf("b000");
@@ -14,17 +14,34 @@ const freeze = (value) => {
   return value;
 };
 
+export function isValidSpaceArcProgress(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (Object.keys(value).length !== 3 || !["schema", "routeIndex", "battle"].every((key) => Object.hasOwn(value, key))) return false;
+  if (value.schema !== "micro-cell-space-arc-progress-v1") return false;
+  if (!Number.isInteger(value.routeIndex) || value.routeIndex < START_INDEX || value.routeIndex > BOSS_INDEX) return false;
+  if (!isValidBattleV2Save(value.battle)) return false;
+  const state = value.battle.state;
+  const currentNode = SPACE_ARC_ROUTE[value.routeIndex];
+  if (state.active?.mode === "encounter" && SPACE_ARC_ENCOUNTERS[state.active.id]?.nodeId !== currentNode) return false;
+  if (state.active?.mode === "boss" && currentNode !== "b000") return false;
+  if ((state.boss.entered || state.victory || state.gameOver && state.checkpoint?.id === "boss") && currentNode !== "b000") return false;
+  return true;
+}
+
 export function createSpaceArcV2Adapter({
   grandmaRecruited = false,
   onChange = () => {},
   onEvent = () => {},
   runEffect = () => {},
   seed = 46081,
-  initialBrainIntegrity = 100
+  initialBrainIntegrity = 100,
+  resumeProgress = null
 } = {}) {
-  let routeIndex = START_INDEX;
+  const resume = isValidSpaceArcProgress(resumeProgress) ? resumeProgress : null;
+  let routeIndex = resume?.routeIndex ?? START_INDEX;
   const store = createBattleV2Store({
     initialState: createBattleV2State({ seed, grandmaObserver: grandmaRecruited, brainIntegrity: initialBrainIntegrity }),
+    savedSnapshot: resume?.battle ?? null,
     onChange: () => onChange(snapshot()),
     onEvent: (event) => onEvent(event, snapshot()),
     runEffect
@@ -187,7 +204,7 @@ export function createSpaceArcV2Adapter({
     getBattleState: battle,
     getTranscript: store.getTranscript,
     getTranscriptHash: store.getTranscriptHash,
-    serialize: store.serialize,
+    serialize: () => ({ schema: "micro-cell-space-arc-progress-v1", routeIndex, battle: JSON.parse(store.serialize()) }),
     forward,
     back,
     retreat: back,

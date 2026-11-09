@@ -41,6 +41,55 @@ function freeze(value) {
   return value;
 }
 
+const STATE_KEYS = Object.freeze([
+  "screen", "message", "answerId", "encounterResolved", "grandmaRecruited", "pathUnlocked",
+  "spriteVisible", "earwaxVisible", "battleStage", "nextBattleStage", "grandmaTurnIndex", "companionTurnIndex"
+]);
+const QUESTION_IDS = new Set(Object.keys(QUESTIONS));
+const MESSAGE_TEXTS = new Set([
+  GRANDMA_COPY.recruit,
+  ...Object.values(QUESTIONS).map(({ answer }) => answer),
+  ...Object.values(BATTLE_RESULTS),
+  ...GRANDMA_TURNS
+]);
+const SCREENS = new Set([
+  "hidden", "action", "questions", "answer", "recruit-result", "battle-player",
+  "battle-result", "battle-grandma", "victory"
+]);
+
+export function isValidGrandmaEncounterState(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (Object.keys(value).length !== STATE_KEYS.length || STATE_KEYS.some((key) => !Object.hasOwn(value, key))) return false;
+  if (!SCREENS.has(value.screen)) return false;
+  if (value.message !== null && !MESSAGE_TEXTS.has(value.message)) return false;
+  if (value.answerId !== null && !QUESTION_IDS.has(value.answerId)) return false;
+  for (const key of ["encounterResolved", "grandmaRecruited", "pathUnlocked", "spriteVisible", "earwaxVisible"]) {
+    if (typeof value[key] !== "boolean") return false;
+  }
+  for (const key of ["battleStage", "nextBattleStage"]) {
+    if (!Number.isInteger(value[key]) || value[key] < 0 || value[key] > 2) return false;
+  }
+  for (const key of ["grandmaTurnIndex", "companionTurnIndex"]) {
+    if (!Number.isInteger(value[key]) || value[key] < 0 || value[key] > 100000) return false;
+  }
+  if (value.pathUnlocked !== value.encounterResolved || value.grandmaRecruited && !value.encounterResolved) return false;
+  const visibleSpriteScreens = new Set(["action", "questions", "answer", "battle-player", "battle-result", "battle-grandma"]);
+  if (value.spriteVisible !== visibleSpriteScreens.has(value.screen)) return false;
+  if (value.earwaxVisible !== (value.screen === "victory")) return false;
+  if (value.screen === "hidden" && (value.message !== null || value.answerId !== null)) return false;
+  if (value.screen === "answer") {
+    if (!value.answerId || value.message !== QUESTIONS[value.answerId].answer) return false;
+  } else if (value.screen !== "hidden" && value.screen !== "battle-result" && value.screen !== "battle-grandma" && value.screen !== "recruit-result" && value.screen !== "victory" && value.answerId !== null) {
+    return false;
+  }
+  if (["action", "questions", "battle-player"].includes(value.screen) && value.message !== null) return false;
+  if (value.screen === "recruit-result" && (value.message !== GRANDMA_COPY.recruit || !value.grandmaRecruited || !value.pathUnlocked)) return false;
+  if (value.screen === "victory" && (value.message !== BATTLE_RESULTS.tweezers || value.grandmaRecruited || !value.pathUnlocked)) return false;
+  if (value.screen === "battle-result" && ![BATTLE_RESULTS.surface, BATTLE_RESULTS.edge, BATTLE_RESULTS.loosen].includes(value.message)) return false;
+  if (value.screen === "battle-grandma" && !GRANDMA_TURNS.includes(value.message)) return false;
+  return true;
+}
+
 function freshState() {
   return {
     screen: "hidden",
@@ -68,6 +117,12 @@ export function createGrandmaEncounter({ onChange = () => {}, onCompanionTurn = 
     onChange(next);
     return next;
   };
+
+  function restore(saved) {
+    if (!isValidGrandmaEncounterState(saved)) return false;
+    state = { ...saved };
+    return snapshot();
+  }
 
   function reset() {
     state = freshState();
@@ -201,6 +256,7 @@ export function createGrandmaEncounter({ onChange = () => {}, onCompanionTurn = 
 
   return freeze({
     getState: snapshot,
+    restore,
     reset,
     open,
     hide,

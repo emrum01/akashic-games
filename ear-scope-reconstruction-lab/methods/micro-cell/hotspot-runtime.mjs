@@ -80,6 +80,8 @@ export function createHotspotRuntime({
   let renderSignature = "";
   let focusBeforeInspector = null;
   let selectedId = null;
+  let discoveredIds = new Set();
+  const knownIds = new Set(manifest.objects.map(({ id }) => id));
 
   function updateDataset() {
     viewport.dataset.hotspotCount = String(activeEntries.length);
@@ -113,6 +115,7 @@ export function createHotspotRuntime({
     if (!entry || !buttons.some((button) => button.dataset.liveVisible !== "false") || layer.hidden) return false;
     focusBeforeInspector = document.activeElement;
     selectedId = id;
+    discoveredIds.add(id);
     title.textContent = entry.name;
     observation.textContent = entry.observation;
     inspector.hidden = false;
@@ -284,6 +287,24 @@ export function createHotspotRuntime({
     return false;
   }
 
+  function reset() {
+    discoveredIds = new Set();
+    clear({ restoreFocus: false });
+  }
+
+  function serializeDiscoveries() {
+    return [...discoveredIds].sort();
+  }
+
+  function restoreDiscoveries(ids) {
+    if (!Array.isArray(ids) || ids.length > knownIds.size) return false;
+    const next = new Set(ids);
+    if (next.size !== ids.length || ids.some((id) => typeof id !== "string" || !knownIds.has(id))) return false;
+    discoveredIds = next;
+    updateDataset();
+    return true;
+  }
+
   function getState() {
     const overlapPairs = [];
     for (let left = 0; left < regionRecords.length; left += 1) {
@@ -297,6 +318,7 @@ export function createHotspotRuntime({
       manifestVersion: manifest.version, manifestValid: validation.valid, manifestCount: validation.count,
       rawAssetReferences: validation.rawAssetReferences, nodeId: context.nodeId, owner: context.owner,
       visible: !layer.hidden, inspectorOpen: !inspector.hidden, selectedId,
+      discoveredIds: serializeDiscoveries(),
       activeIds: activeEntries.map(({ id }) => id),
       liveVisibleIds: [...activeButtons.entries()].filter(([, buttons]) => buttons.some((button) => button.dataset.liveVisible !== "false")).map(([id]) => id),
       hitBoxes: regionRecords.map(({ id, regionIndex, entry, visual, hit, projectedVisual, projectedHit, visibleRatio: ratio }) => {
@@ -317,5 +339,5 @@ export function createHotspotRuntime({
   closeButton.addEventListener("click", () => closeInspector());
   title.tabIndex = -1;
   clear({ restoreFocus: false });
-  return deepFreeze({ sync, clear, reset: () => clear({ restoreFocus: false }), refreshLiveVisibility, inspect: openInspector, close: () => closeInspector(), handleKeyDown, isOpen: () => !inspector.hidden, getState });
+  return deepFreeze({ sync, clear, reset, refreshLiveVisibility, inspect: openInspector, close: () => closeInspector(), handleKeyDown, isOpen: () => !inspector.hidden, getState, serializeDiscoveries, restoreDiscoveries });
 }

@@ -48,13 +48,16 @@ export function createSpaceArcRuntime({
   let ambientTimer = 0;
   let renderedAmbientId = null;
   let itemToastActive = false;
+  let pausedReaction = false;
+  let pausedAmbient = false;
 
   const emit = (type, detail) => window.dispatchEvent(new CustomEvent(type, { detail }));
 
-  function createState(grandmaRecruited) {
-    completion.start();
+  function createState(grandmaRecruited, resumeProgress = null) {
+    if (!resumeProgress) completion.start();
     api = createSpaceArcV2Adapter({
       grandmaRecruited,
+      resumeProgress,
       onChange: () => { render(); onDiagnostics(); },
       onEvent: (event, state) => {
         completion.record(event.type);
@@ -130,11 +133,24 @@ export function createSpaceArcRuntime({
       renderedAmbientId = null;
       ambientToast.textContent = "";
       ambientToast.hidden = true;
+      ambientToast.removeAttribute("role");
+      ambientToast.removeAttribute("tabindex");
+      delete ambientToast.dataset.resumePending;
       return;
     }
     const ambientId = battle.ambientQueue[0];
     ambientToast.textContent = ambient.text;
     ambientToast.hidden = false;
+    if (pausedAmbient) {
+      ambientToast.dataset.resumePending = "true";
+      ambientToast.setAttribute("role", "button");
+      ambientToast.setAttribute("tabindex", "0");
+      ambientToast.setAttribute("aria-label", "続けるにはここを選びます");
+      return;
+    }
+    ambientToast.removeAttribute("role");
+    ambientToast.removeAttribute("tabindex");
+    delete ambientToast.dataset.resumePending;
     if (renderedAmbientId === ambientId) return;
     clearTimeout(ambientTimer);
     renderedAmbientId = ambientId;
@@ -268,7 +284,7 @@ export function createSpaceArcRuntime({
 
   function scheduleReaction(battle) {
     clearTimeout(reactionTimer);
-    if (battle.active?.phase !== "reaction" || !battle.reaction) return;
+    if (pausedReaction || battle.active?.phase !== "reaction" || !battle.reaction) return;
     const expectedStep = battle.reaction.step;
     reactionTimer = window.setTimeout(() => {
       const current = api.getBattleState();
@@ -314,7 +330,9 @@ export function createSpaceArcRuntime({
       ...visibleResolvedDrops(state).map(resolvedDropButton),
       button("先へ進む", forward)
     ];
-    if (active.phase === "reaction") return [];
+    if (active.phase === "reaction") return pausedReaction
+      ? [button("続ける", () => { pausedReaction = false; api.acknowledgeReaction(); render(); }, { primary: true })]
+      : [];
     if (active.phase === "game-over") return [button("チェックポイントから再開", () => { api.retry(); render(); }, { primary: true }), button("最初から", onResetRequested)];
     if (active.phase === "victory") return [button("周囲を調べる", beginBossInspection, { primary: true }), button("Xで共有する", () => completion.share()), button("最初から", onResetRequested)];
     const ids = selectBattleV2.availableActions(battle);
@@ -389,8 +407,10 @@ export function createSpaceArcRuntime({
     closeDialog();
   }
 
-  function begin({ grandmaRecruited = false, reset = false } = {}) {
+  function begin({ grandmaRecruited = false, reset = false, resumeProgress = null } = {}) {
     if (reset) {
+      pausedReaction = false;
+      pausedAmbient = false;
       clearTimeout(toastTimer);
       clearTimeout(ambientTimer);
       itemToastActive = false;
@@ -400,10 +420,14 @@ export function createSpaceArcRuntime({
       ambientToast.hidden = true;
       renderedAmbientId = null;
     }
-    if (reset || !api) createState(grandmaRecruited);
-    else api.setGrandmaObserver(grandmaRecruited);
-    currentNodeId = "z011";
+    if (resumeProgress) createState(grandmaRecruited, resumeProgress);
+    else if (reset || !api) createState(grandmaRecruited);
+    else if (api.getBattleState().grandmaObserver !== grandmaRecruited) api.setGrandmaObserver(grandmaRecruited);
+    currentNodeId = api.getState().nodeId || "z011";
     settled = true;
+    pausedReaction = Boolean(resumeProgress && api.getBattleState().active?.phase === "reaction");
+    pausedAmbient = Boolean(resumeProgress && api.getBattleState().ambientQueue.length);
+    if (resumeProgress?.battle?.state?.victory) completion.restoreVictory();
     bossInspectionMode = false;
     viewport.dataset.bossInspection = "false";
     brainOverlay.hidden = true;
@@ -413,11 +437,11 @@ export function createSpaceArcRuntime({
     return api.getState();
   }
 
-  function syncRoute(nodeId, isSettled) {
+  function syncRoute(nodeId, isSettled, { resume = false } = {}) {
     if (nodeId !== "b000") bossInspectionMode = false;
     currentNodeId = nodeId;
     settled = Boolean(isSettled);
-    if (settled) {
+    if (settled && !resume) {
       const ambient = Object.entries(NARRATIVE_AMBIENT_EVENTS).find(([, event]) => event.nodeId === nodeId);
       if (ambient) api.triggerAmbient(ambient[0]);
     }
@@ -474,6 +498,22 @@ export function createSpaceArcRuntime({
     }
     return false;
   }
+
+  function continuePausedAmbient() {
+    if (!pausedAmbient || !api.getBattleState().ambientQueue.length) return;
+    pausedAmbient = false;
+    clearTimeout(ambientTimer);
+    api.dismissAmbient();
+    render();
+  }
+
+  ambientToast.addEventListener("click", continuePausedAmbient);
+  ambientToast.addEventListener("keydown", (event) => {
+    if (pausedAmbient && ["Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      continuePausedAmbient();
+    }
+  });
 
   characterVideo.addEventListener("error", () => {
     const id = api.getState().activeEncounterId;

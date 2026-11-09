@@ -13,6 +13,9 @@ export function createMicroCellCompletion({ open = globalThis.open?.bind(globalT
       cleared = false;
       attempt.reset();
     },
+    restoreVictory() {
+      cleared = true;
+    },
     record(type) {
       if (type === "battle:victory") {
         attempt.complete();
