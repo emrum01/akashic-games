@@ -1632,7 +1632,7 @@
 
     <output id="debug-hud" hidden></output>
 
-    <script src="../shared/completion-record.js?v=20261109-progress"></script>
+    <script src="../shared/completion-record.js?v=20261110-share-newlines"></script>
     <script src="./analytics.js"></script>
     <script>
       (function () {
@@ -2734,10 +2734,15 @@
           var text = details.text;
           var url = details.url;
           if (navigator.share) {
-            navigator.share({ title: "流れないスレ", text: text, url: url }).catch(function () {});
+            navigator
+              .share({
+                title: "流れないスレ",
+                text: globalThis.AkashicCompletion.formatShareText(text, url),
+              })
+              .catch(function () {});
           } else if (navigator.clipboard) {
             navigator.clipboard
-              .writeText(text + " " + url)
+              .writeText(globalThis.AkashicCompletion.formatShareText(text, url))
               .then(function () {
                 el.shareBtn.textContent = "コピーしました";
                 setTimeout(function () {
@@ -2746,13 +2751,7 @@
               })
               .catch(function () {});
           } else {
-            window.open(
-              "https://twitter.com/intent/tweet?text=" +
-                encodeURIComponent(text) +
-                "&url=" +
-                encodeURIComponent(url),
-              "_blank"
-            );
+            window.open(globalThis.AkashicCompletion.createShareIntent(text, url), "_blank");
           }
         }
 
@@ -2760,18 +2759,17 @@
           return {
             text:
               "「流れないスレ」を留まってクリアした。流れるものは偽物で、留まるものだけが本物だった。" +
-              (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
             url: "https://games.escape-safari.com/still-thread/",
           };
         }
 
         function updateXShareLink() {
           var details = shareDetails();
-          el.xShareLink.href =
-            "https://twitter.com/intent/tweet?text=" +
-            encodeURIComponent(details.text) +
-            "&url=" +
-            encodeURIComponent(details.url);
+          el.xShareLink.href = globalThis.AkashicCompletion.createShareIntent(
+            details.text,
+            details.url
+          );
         }
 
         /* ---------------- メインループ ---------------- */

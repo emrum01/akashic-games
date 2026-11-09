@@ -1678,7 +1678,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="../shared/completion-record.js?v=20261109-progress"></script>
+    <script src="../shared/completion-record.js?v=20261110-share-newlines"></script>
     <script>
       (() => {
         const objective = document.querySelector(".objective");
@@ -1735,7 +1735,10 @@
           puzzleHintStep: 0,
           hintUsed: false,
           ended: false,
+          puzzleDraft: "",
         };
+        const isValidPuzzleDraft = (draft) =>
+          typeof draft === "string" && draft.length <= 5 && /^[→←]*$/.test(draft);
         const savedProgress = window.AkashicProgress.readProgress(
           "three-forward-two-back",
           (saved) =>
@@ -1765,6 +1768,12 @@
             puzzleHintStep: savedProgress.puzzleHintStep,
             hintUsed: savedProgress.hintUsed,
             browserHintSeen: savedProgress.browserHintSeen,
+            puzzleDraft:
+              savedProgress.deviceRevealed ||
+              savedProgress.ended ||
+              !isValidPuzzleDraft(savedProgress.puzzleDraft)
+                ? ""
+                : savedProgress.puzzleDraft,
           });
           if (state.hintUsed) completionAttempt.hint();
           // Browser history is session-scoped. Resume from the stable device checkpoint
@@ -1775,6 +1784,7 @@
           state.phase = "forward";
           state.routeValid = true;
         }
+        puzzleInput.value = state.puzzleDraft;
         function saveProgress() {
           window.AkashicProgress.writeProgress("three-forward-two-back", {
             started: Boolean(state.started),
@@ -1786,6 +1796,7 @@
             puzzleHintStep: state.puzzleHintStep,
             hintUsed: state.hintUsed,
             browserHintSeen: state.browserHintSeen,
+            puzzleDraft: state.puzzleDraft,
           });
         }
         let flavorActionHandler = null;
@@ -1810,14 +1821,11 @@
         if (savedProgress?.ended) {
           clearStage.classList.add("is-visible", "is-settled");
           const share = document.getElementById("clear-share");
-          share.href =
-            "https://twitter.com/intent/tweet?text=" +
-            encodeURIComponent(
-              "脱出に成功した。「三歩進んで二歩戻る」" +
-                (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
-            ) +
-            "&url=" +
-            encodeURIComponent("https://games.escape-safari.com/three-forward-two-back/");
+          share.href = globalThis.AkashicCompletion.createShareIntent(
+            "脱出に成功した。「三歩進んで二歩戻る」" +
+              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
+            "https://games.escape-safari.com/three-forward-two-back/"
+          );
         }
         updateHud();
 
@@ -1836,7 +1844,14 @@
               item.classList.remove("is-selected");
             });
             if (button.dataset.answer) button.classList.add("is-selected");
+            state.puzzleDraft = puzzleInput.value;
+            saveProgress();
           });
+        });
+
+        puzzleInput.addEventListener("input", () => {
+          state.puzzleDraft = puzzleInput.value.slice(0, 5);
+          saveProgress();
         });
 
         puzzleForm.addEventListener("submit", (event) => {
@@ -2073,6 +2088,8 @@
         function revealDevice() {
           if (state.deviceRevealed) return;
           state.deviceRevealed = true;
+          state.puzzleDraft = "";
+          puzzleInput.value = "";
           state.forward = 0;
           state.back = 0;
           state.phase = "forward";
@@ -2236,14 +2253,11 @@
         function clear() {
           completionAttempt.complete();
           const share = document.getElementById("clear-share");
-          share.href =
-            "https://twitter.com/intent/tweet?text=" +
-            encodeURIComponent(
-              "脱出に成功した。「三歩進んで二歩戻る」" +
-                (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
-            ) +
-            "&url=" +
-            encodeURIComponent("https://games.escape-safari.com/three-forward-two-back/");
+          share.href = globalThis.AkashicCompletion.createShareIntent(
+            "脱出に成功した。「三歩進んで二歩戻る」" +
+              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
+            "https://games.escape-safari.com/three-forward-two-back/"
+          );
           state.ended = true;
           saveProgress();
           clearStage.classList.add("is-visible");

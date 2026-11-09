@@ -833,7 +833,7 @@
     </div>
 
     <script src="analytics.js"></script>
-    <script src="../shared/completion-record.js?v=20261109-progress"></script>
+    <script src="../shared/completion-record.js?v=20261110-share-newlines"></script>
     <script>
       (function () {
         "use strict";
@@ -2157,14 +2157,11 @@
           share.textContent = "Xでシェア";
           share.target = "_blank";
           share.rel = "noopener";
-          share.href =
-            "https://twitter.com/intent/tweet?text=" +
-            encodeURIComponent(
-              "動物園から脱出した。" +
-                (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
-            ) +
-            "&url=" +
-            encodeURIComponent("https://games.escape-safari.com/zoo-escape/");
+          share.href = globalThis.AkashicCompletion.createShareIntent(
+            "動物園から脱出した。" +
+              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
+            "https://games.escape-safari.com/zoo-escape/"
+          );
           el.titleBtns.appendChild(share);
           addTitleBtn("もういちど、招かれる", true, function () {
             state = defaultState();

@@ -1841,7 +1841,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="analytics.js"></script>
-    <script src="../shared/completion-record.js?v=20261109-progress"></script>
+    <script src="../shared/completion-record.js?v=20261110-share-newlines"></script>
     <script>
       (async () => {
         const objective = document.querySelector(".objective");
@@ -2217,11 +2217,12 @@
               shareType = "native";
               await navigator.share({
                 title: "三歩進んで二歩戻る",
-                text: shareText,
-                url: shareUrl,
+                text: globalThis.AkashicCompletion.formatShareText(shareText, shareUrl),
               });
             } else if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+              await navigator.clipboard.writeText(
+                globalThis.AkashicCompletion.formatShareText(shareText, shareUrl)
+              );
               shareButton.textContent = "コピーしました";
               window.setTimeout(() => {
                 shareButton.textContent = "シェア";
@@ -2237,18 +2238,14 @@
           return {
             text:
               "壊れたWeb空間から脱出した。「三歩進んで二歩戻る」" +
-              (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
             url: "https://games.escape-safari.com/broken-web/",
           };
         }
 
         function updateXShareLink() {
           const { text: shareText, url: shareUrl } = shareDetails();
-          xShareLink.href =
-            "https://twitter.com/intent/tweet?text=" +
-            encodeURIComponent(shareText) +
-            "&url=" +
-            encodeURIComponent(shareUrl);
+          xShareLink.href = globalThis.AkashicCompletion.createShareIntent(shareText, shareUrl);
         }
 
         window.addEventListener("popstate", (event) => {

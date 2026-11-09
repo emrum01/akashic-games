@@ -1678,7 +1678,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="../shared/completion-record.js?v=20261109-progress"></script>
+    <script src="../shared/completion-record.js?v=20261110-share-newlines"></script>
     <script>
       (() => {
         const objective = document.querySelector(".objective");
@@ -1821,14 +1821,11 @@
         if (savedProgress?.ended) {
           clearStage.classList.add("is-visible", "is-settled");
           const share = document.getElementById("clear-share");
-          share.href =
-            "https://twitter.com/intent/tweet?text=" +
-            encodeURIComponent(
-              "脱出に成功した。「三歩進んで二歩戻る」" +
-                (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
-            ) +
-            "&url=" +
-            encodeURIComponent("https://games.escape-safari.com/three-forward-two-back/");
+          share.href = globalThis.AkashicCompletion.createShareIntent(
+            "脱出に成功した。「三歩進んで二歩戻る」" +
+              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
+            "https://games.escape-safari.com/three-forward-two-back/"
+          );
         }
         updateHud();
 
@@ -2256,14 +2253,11 @@
         function clear() {
           completionAttempt.complete();
           const share = document.getElementById("clear-share");
-          share.href =
-            "https://twitter.com/intent/tweet?text=" +
-            encodeURIComponent(
-              "脱出に成功した。「三歩進んで二歩戻る」" +
-                (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
-            ) +
-            "&url=" +
-            encodeURIComponent("https://games.escape-safari.com/three-forward-two-back/");
+          share.href = globalThis.AkashicCompletion.createShareIntent(
+            "脱出に成功した。「三歩進んで二歩戻る」" +
+              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
+            "https://games.escape-safari.com/three-forward-two-back/"
+          );
           state.ended = true;
           saveProgress();
           clearStage.classList.add("is-visible");

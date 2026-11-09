@@ -141,7 +141,18 @@ globalThis.AkashicProgress = {
   writeProgress: akashicProgressWrite,
   removeProgress: akashicProgressRemove,
 };
+const akashicCompletionFormatShareText = (text, publicUrl, hashtags = "") =>
+  [text, publicUrl, hashtags].filter(Boolean).join("\n");
 globalThis.AkashicCompletion = {
   createCompletionAttempt: akashicCompletionCreateCompletionAttempt,
   readNoHintCleared: akashicCompletionReadNoHintCleared,
+  formatShareText: akashicCompletionFormatShareText,
+  createShareIntent(text, publicUrl, hashtags = "") {
+    return (
+      "https://twitter.com/intent/tweet?" +
+      new URLSearchParams({
+        text: akashicCompletionFormatShareText(text, publicUrl, hashtags),
+      })
+    );
+  },
 };

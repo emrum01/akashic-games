@@ -1881,11 +1881,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
 
   function updateXShareLink() {
     const { text: shareText, url: shareUrl } = shareDetails();
-    elements.xShare.href =
-      "https://twitter.com/intent/tweet?text=" +
-      encodeURIComponent(shareText) +
-      "&url=" +
-      encodeURIComponent(shareUrl);
+    elements.xShare.href = globalThis.AkashicCompletion.createShareIntent(shareText, shareUrl);
   }
 
   function restoreSavedProgress() {
@@ -2383,10 +2379,15 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     try {
       if (navigator.share) {
         shareType = "native";
-        await navigator.share({ title: "未来からの記録", text: shareText, url: shareUrl });
+        await navigator.share({
+          title: "未来からの記録",
+          text: globalThis.AkashicCompletion.formatShareText(shareText, shareUrl),
+        });
       } else if (navigator.clipboard && navigator.clipboard.writeText) {
         shareType = "clipboard";
-        await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+        await navigator.clipboard.writeText(
+          globalThis.AkashicCompletion.formatShareText(shareText, shareUrl)
+        );
         elements.share.textContent = "コピーしました";
         window.setTimeout(() => {
           elements.share.textContent = "結果をシェア";
@@ -2402,7 +2403,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     return {
       text:
         "未来の自分から届いた記録を、広告スパムの下から取り戻した。「未来からの記録」" +
-        (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+        (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
       url: "https://games.escape-safari.com/notification-gale/",
     };
   }

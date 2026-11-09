@@ -982,10 +982,15 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
   function shareResult() {
     const { text, url } = shareDetails();
     if (navigator.share) {
-      navigator.share({ title: "さいごのひとめ", text: text, url: url }).catch(function () {});
+      navigator
+        .share({
+          title: "さいごのひとめ",
+          text: globalThis.AkashicCompletion.formatShareText(text, url),
+        })
+        .catch(function () {});
     } else if (navigator.clipboard) {
       navigator.clipboard
-        .writeText(text + " " + url)
+        .writeText(globalThis.AkashicCompletion.formatShareText(text, url))
         .then(function () {
           el.shareButton.textContent = "コピーしました";
           setTimeout(function () {
@@ -994,13 +999,7 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
         })
         .catch(function () {});
     } else {
-      window.open(
-        "https://twitter.com/intent/tweet?text=" +
-          encodeURIComponent(text) +
-          "&url=" +
-          encodeURIComponent(url),
-        "_blank"
-      );
+      window.open(globalThis.AkashicCompletion.createShareIntent(text, url), "_blank");
     }
     analytics.track("share_click", {
       share_type: navigator.share ? "web_share" : "clipboard_or_intent",
@@ -1011,18 +1010,14 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
     return {
       text:
         "「さいごのひとめ」をほどいた。" +
-        (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+        (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
       url: "https://games.escape-safari.com/last-stitch/",
     };
   }
 
   function updateXShareLink() {
     const { text, url } = shareDetails();
-    el.xShareLink.href =
-      "https://twitter.com/intent/tweet?text=" +
-      encodeURIComponent(text) +
-      "&url=" +
-      encodeURIComponent(url);
+    el.xShareLink.href = globalThis.AkashicCompletion.createShareIntent(text, url);
   }
 
   /* ---------------- X アプリ内ブラウザ対応: --vvh 追従＋高さゲート ---------------- */

@@ -1974,14 +1974,11 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
       const share = document.createElement("a");
       share.className = "primary completion-share";
       share.textContent = "Xでシェア";
-      share.href =
-        "https://twitter.com/intent/tweet?text=" +
-        encodeURIComponent(
-          "祝福は通過しました。「緊急祝福警報」" +
-            (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "")
-        ) +
-        "&url=" +
-        encodeURIComponent("https://games.escape-safari.com/blessing-alert/");
+      share.href = globalThis.AkashicCompletion.createShareIntent(
+        "祝福は通過しました。「緊急祝福警報」" +
+          (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
+        "https://games.escape-safari.com/blessing-alert/"
+      );
       share.target = "_blank";
       share.rel = "noopener";
       E.result.appendChild(share);
