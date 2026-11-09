@@ -84,6 +84,7 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
     badendRestartButton: document.getElementById("badend-restart-button"),
     pullEdgeButton: document.getElementById("pull-edge-button"),
     shareButton: document.getElementById("share-button"),
+    xShareLink: document.getElementById("x-share-link"),
     lpLink: document.getElementById("lp-link"),
     hintWhisper: document.getElementById("hint-whisper"),
     debugPanel: document.getElementById("debug-panel"),
@@ -787,6 +788,9 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
     el.gameScreen.hidden = !(state.phase === "room" || state.phase === "epilogue");
     el.epilogueScreen.hidden = state.phase !== "epilogue";
     el.clearScreen.hidden = state.phase !== "goodEnd";
+    if (state.phase === "goodEnd") {
+      updateXShareLink();
+    }
     el.badendScreen.hidden = state.phase !== "badEnd";
     el.scissors.hidden = !(state.phase === "room" || state.phase === "epilogue");
     if (el.phaseLabel) {
@@ -976,10 +980,7 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
   });
 
   function shareResult() {
-    const text =
-      "「さいごのひとめ」をほどいた。" +
-      (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "");
-    const url = "https://games.escape-safari.com/last-stitch/";
+    const { text, url } = shareDetails();
     if (navigator.share) {
       navigator.share({ title: "さいごのひとめ", text: text, url: url }).catch(function () {});
     } else if (navigator.clipboard) {
@@ -1004,6 +1005,24 @@ const completionAttempt = globalThis.AkashicCompletion.createCompletionAttempt("
     analytics.track("share_click", {
       share_type: navigator.share ? "web_share" : "clipboard_or_intent",
     });
+  }
+
+  function shareDetails() {
+    return {
+      text:
+        "「さいごのひとめ」をほどいた。" +
+        (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+      url: "https://games.escape-safari.com/last-stitch/",
+    };
+  }
+
+  function updateXShareLink() {
+    const { text, url } = shareDetails();
+    el.xShareLink.href =
+      "https://twitter.com/intent/tweet?text=" +
+      encodeURIComponent(text) +
+      "&url=" +
+      encodeURIComponent(url);
   }
 
   /* ---------------- X アプリ内ブラウザ対応: --vvh 追従＋高さゲート ---------------- */

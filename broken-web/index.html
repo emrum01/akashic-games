@@ -1336,6 +1336,7 @@
 
       .lp-card-actions {
         display: flex;
+        flex-wrap: wrap;
         justify-content: center;
         gap: 10px;
       }
@@ -1345,7 +1346,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 34px;
+        min-height: 44px;
         padding: 0 14px;
         border: 1px solid rgba(245, 234, 208, 0.34);
         border-radius: 2px;
@@ -1829,6 +1830,9 @@
           <button class="lp-card-share" id="shareButton" type="button" aria-label="シェア">
             シェア
           </button>
+          <a class="lp-card-share" id="xShareLink" target="_blank" rel="noopener noreferrer"
+            >Xで共有</a
+          >
         </div>
         <button class="title-return" id="titleReturn" type="button">タイトルに戻る</button>
       </div>
@@ -1871,6 +1875,7 @@
         const clearCard = document.getElementById("clearCard");
         const lpCardLink = document.getElementById("lpCardLink");
         const shareButton = document.getElementById("shareButton");
+        const xShareLink = document.getElementById("xShareLink");
         const threeMount = document.getElementById("threeMount");
         const lamps = [
           document.getElementById("lamp0"),
@@ -2020,6 +2025,7 @@
         if (savedProgress?.ended) {
           clearCard.classList.remove("is-hidden");
           clearCard.classList.add("is-visible");
+          updateXShareLink();
         }
         updateHud();
 
@@ -2204,10 +2210,7 @@
         });
 
         shareButton.addEventListener("click", async () => {
-          const shareUrl = "https://games.escape-safari.com/broken-web/";
-          const shareText =
-            "壊れたWeb空間から脱出した。「三歩進んで二歩戻る」" +
-            (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "");
+          const { text: shareText, url: shareUrl } = shareDetails();
           let shareType = "clipboard";
           try {
             if (navigator.share) {
@@ -2229,6 +2232,24 @@
           }
           analytics.track("share_click", { share_type: shareType });
         });
+
+        function shareDetails() {
+          return {
+            text:
+              "壊れたWeb空間から脱出した。「三歩進んで二歩戻る」" +
+              (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+            url: "https://games.escape-safari.com/broken-web/",
+          };
+        }
+
+        function updateXShareLink() {
+          const { text: shareText, url: shareUrl } = shareDetails();
+          xShareLink.href =
+            "https://twitter.com/intent/tweet?text=" +
+            encodeURIComponent(shareText) +
+            "&url=" +
+            encodeURIComponent(shareUrl);
+        }
 
         window.addEventListener("popstate", (event) => {
           handleRouteChange(event.state);
@@ -2565,6 +2586,7 @@
           window.setTimeout(() => {
             clearStage.classList.add("is-settled");
             clearCard.classList.remove("is-hidden");
+            updateXShareLink();
             // 1フレーム待ってから is-visible を付与し、CSS transition でフェードインさせる
             requestAnimationFrame(() => {
               clearCard.classList.add("is-visible");

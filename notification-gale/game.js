@@ -768,6 +768,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     clearScold: $("#clear-scold"),
     lpLink: $("#lp-link"),
     share: $("#share-button"),
+    xShare: $("#x-share-link"),
     debug: $("#debug-panel"),
   };
 
@@ -1867,6 +1868,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     elements.app.dataset.phase = "clear";
     elements.game.hidden = true;
     elements.clear.hidden = false;
+    updateXShareLink();
     const elapsed = Math.max(1, Math.round((performance.now() - state.startedAt) / 1000));
     elements.clearDetail.textContent = `RELAY 0x07 / ${formatDuration(elapsed)} / 不達 ${state.failures}回`;
     renderScolding(restoring);
@@ -1875,6 +1877,15 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
       analytics.track("game_clear", { elapsed_sec: elapsed, failures: state.failures });
     }
     saveProgress(true);
+  }
+
+  function updateXShareLink() {
+    const { text: shareText, url: shareUrl } = shareDetails();
+    elements.xShare.href =
+      "https://twitter.com/intent/tweet?text=" +
+      encodeURIComponent(shareText) +
+      "&url=" +
+      encodeURIComponent(shareUrl);
   }
 
   function restoreSavedProgress() {
@@ -2367,10 +2378,7 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
   });
 
   elements.share.addEventListener("click", async () => {
-    const shareUrl = "https://games.escape-safari.com/notification-gale/";
-    const shareText =
-      "未来の自分から届いた記録を、広告スパムの下から取り戻した。「未来からの記録」" +
-      (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "");
+    const { text: shareText, url: shareUrl } = shareDetails();
     let shareType = "unsupported";
     try {
       if (navigator.share) {
@@ -2389,6 +2397,15 @@ const formatDebugFlag = (value) => (value === undefined ? "?" : value ? "on" : "
     }
     analytics.track("share_click", { share_type: shareType });
   });
+
+  function shareDetails() {
+    return {
+      text:
+        "未来の自分から届いた記録を、広告スパムの下から取り戻した。「未来からの記録」" +
+        (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+      url: "https://games.escape-safari.com/notification-gale/",
+    };
+  }
 
   // --vvh 追従（Xアプリ内ブラウザ対策）＋高さゲートのクラス付与＋モバイル判定の再計算。
   function applyViewport() {

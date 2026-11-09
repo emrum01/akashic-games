@@ -1593,6 +1593,7 @@
           >公演情報を見る</a
         >
         <button id="share-btn" class="btn" type="button">結果をシェア</button>
+        <a id="x-share-link" class="btn" target="_blank" rel="noopener noreferrer">Xで共有</a>
         <button id="restart-btn" class="btn btn--ghost" type="button">もう一度ひらく</button>
       </div>
     </section>
@@ -1677,6 +1678,7 @@
           startBtn: document.getElementById("start-btn"),
           restartBtn: document.getElementById("restart-btn"),
           shareBtn: document.getElementById("share-btn"),
+          xShareLink: document.getElementById("x-share-link"),
           threadHead: document.querySelector(".thread-head"),
           horrorVeil: document.getElementById("horror-veil"),
           badend: document.getElementById("badend-screen"),
@@ -2268,6 +2270,7 @@
           el.thread.style.transition = "opacity 1.1s ease";
           el.thread.style.opacity = "0.06";
           setTimeout(function () {
+            updateXShareLink();
             showOverlay(el.clear);
             revealClearSequence();
           }, 1100);
@@ -2727,10 +2730,9 @@
         el.badendRetry.addEventListener("click", restart);
 
         function shareResult() {
-          var text =
-            "「流れないスレ」を留まってクリアした。流れるものは偽物で、留まるものだけが本物だった。" +
-            (completionAttempt.noHints ? " ノーヒントでクリアしました！" : "");
-          var url = "https://games.escape-safari.com/still-thread/";
+          var details = shareDetails();
+          var text = details.text;
+          var url = details.url;
           if (navigator.share) {
             navigator.share({ title: "流れないスレ", text: text, url: url }).catch(function () {});
           } else if (navigator.clipboard) {
@@ -2752,6 +2754,24 @@
               "_blank"
             );
           }
+        }
+
+        function shareDetails() {
+          return {
+            text:
+              "「流れないスレ」を留まってクリアした。流れるものは偽物で、留まるものだけが本物だった。" +
+              (completionAttempt.noHints ? " ノーヒントでクリアしました！" : ""),
+            url: "https://games.escape-safari.com/still-thread/",
+          };
+        }
+
+        function updateXShareLink() {
+          var details = shareDetails();
+          el.xShareLink.href =
+            "https://twitter.com/intent/tweet?text=" +
+            encodeURIComponent(details.text) +
+            "&url=" +
+            encodeURIComponent(details.url);
         }
 
         /* ---------------- メインループ ---------------- */
