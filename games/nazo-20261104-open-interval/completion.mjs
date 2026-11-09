@@ -141,9 +141,20 @@ globalThis.AkashicProgress = {
   writeProgress: akashicProgressWrite,
   removeProgress: akashicProgressRemove,
 };
+const akashicCompletionFormatShareText = (text, publicUrl, hashtags = "") =>
+  [text, publicUrl, hashtags].filter(Boolean).join("\n");
 globalThis.AkashicCompletion = {
   createCompletionAttempt: akashicCompletionCreateCompletionAttempt,
   readNoHintCleared: akashicCompletionReadNoHintCleared,
+  formatShareText: akashicCompletionFormatShareText,
+  createShareIntent(text, publicUrl, hashtags = "") {
+    return (
+      "https://twitter.com/intent/tweet?" +
+      new URLSearchParams({
+        text: akashicCompletionFormatShareText(text, publicUrl, hashtags),
+      })
+    );
+  },
 };
 
 
@@ -194,8 +205,8 @@ document.addEventListener("input", (event) => {
 });
 
 function shareHref() {
-  const text = `「${title}」を${attempt.noHints ? "ノーヒントでクリアしました！" : "クリアしました！"} #Web謎`;
-  return `https://twitter.com/intent/tweet?${new URLSearchParams({ text, url: publicUrl })}`;
+  const text = `「${title}」を${attempt.noHints ? "ノーヒントでクリアしました！" : "クリアしました！"}`;
+  return globalThis.AkashicCompletion.createShareIntent(text, publicUrl, "#Web謎");
 }
 
 function updateShareLinks() {
