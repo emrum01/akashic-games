@@ -100,15 +100,49 @@ globalThis.AkashicProgress = {
 };
 const akashicCompletionFormatShareText = (text, publicUrl, hashtags = "") =>
   [text, publicUrl, hashtags].filter(Boolean).join("\n");
+// Public projection only: game URLs and verified official X posts, never draft IDs.
+const akashicCompletionSharePosts = /* BEGIN VERIFIED X POSTS */ {
+  "https://games.escape-safari.com/kobako/":
+    "https://x.com/nazotoki_cafe/status/2117889641483489451",
+  "https://games.escape-safari.com/last-bridge/":
+    "https://x.com/nazotoki_cafe/status/2118251997342437577",
+  "https://games.escape-safari.com/symbol-rule/":
+    "https://x.com/nazotoki_cafe/status/2119701536263807206",
+  "https://games.escape-safari.com/three-pictures/":
+    "https://x.com/nazotoki_cafe/status/2118614376290930847",
+  "https://games.escape-safari.com/turtle-soup/play/empty-music-room/":
+    "https://x.com/nazotoki_cafe/status/2120063925060510010",
+  "https://games.escape-safari.com/turtle-soup/play/nazo-20261101-bedtime-story/":
+    "https://x.com/nazotoki_cafe/status/2118976777016180885",
+  "https://games.escape-safari.com/two-exits/":
+    "https://x.com/nazotoki_cafe/status/2119339142056415708",
+}; /* END VERIFIED X POSTS */
+const akashicCompletionShareUrl = (publicUrl) => {
+  if (typeof publicUrl !== "string") {
+    return publicUrl;
+  }
+  const canonical = publicUrl
+    .replace(/[?#].*$/, "")
+    .replace(/\/index\.html$/, "/")
+    .replace(/\/?$/, "/");
+  return Object.hasOwn(akashicCompletionSharePosts, canonical)
+    ? akashicCompletionSharePosts[canonical]
+    : publicUrl;
+};
 globalThis.AkashicCompletion = {
   createCompletionAttempt: akashicCompletionCreateCompletionAttempt,
   readNoHintCleared: akashicCompletionReadNoHintCleared,
   formatShareText: akashicCompletionFormatShareText,
+  shareUrl: akashicCompletionShareUrl,
   createShareIntent(text, publicUrl, hashtags = "") {
     return (
       "https://twitter.com/intent/tweet?" +
       new URLSearchParams({
-        text: akashicCompletionFormatShareText(text, publicUrl, hashtags),
+        text: akashicCompletionFormatShareText(
+          text,
+          akashicCompletionShareUrl(publicUrl),
+          hashtags
+        ),
       })
     );
   },
