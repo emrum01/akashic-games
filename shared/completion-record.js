@@ -134,15 +134,14 @@ globalThis.AkashicCompletion = {
   readNoHintCleared: akashicCompletionReadNoHintCleared,
   formatShareText: akashicCompletionFormatShareText,
   shareUrl: akashicCompletionShareUrl,
-  createShareIntent(text, publicUrl, hashtags = "") {
+  createShareIntent(text, publicUrl, hashtags = "#Web謎") {
+    const postUrl = (globalThis.AkashicCompletion.shareUrl?.(publicUrl) ?? publicUrl);
     return (
       "https://twitter.com/intent/tweet?" +
       new URLSearchParams({
-        text: akashicCompletionFormatShareText(
-          text,
-          akashicCompletionShareUrl(publicUrl),
-          hashtags
-        ),
+        text: [text, publicUrl, postUrl !== publicUrl ? postUrl : "", hashtags]
+          .filter(Boolean)
+          .join("\n\n"),
       })
     );
   },
