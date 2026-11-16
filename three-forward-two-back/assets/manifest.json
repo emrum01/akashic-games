@@ -7,5 +7,72 @@
       "author": "TomaszCGB",
       "license": "Personal Use License"
     }
+  ],
+  "textures": [
+    {
+      "path": "assets/textures/cracked-concrete-color.jpg",
+      "sha256": "2a23ab1f2462d42b138f3f77dce4e8ad144f007ae03915ef8e26db9813c106ff",
+      "source": "https://polyhaven.com/a/concrete_floor_damaged_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "assets/textures/cracked-concrete-height.jpg",
+      "sha256": "c8cfacaf88d7717f03bc67139f45bc748eeca820c7992703bf00e4667196130a",
+      "source": "https://polyhaven.com/a/concrete_floor_damaged_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "assets/textures/cracked-concrete-normal.jpg",
+      "sha256": "9635deadbe135421149ad4b2d34cadbbbb554dcfe2e0f1d6ad9c61b5551566c7",
+      "source": "https://polyhaven.com/a/concrete_floor_damaged_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "assets/textures/cracked-concrete-roughness.jpg",
+      "sha256": "27c45b477b095336614aa678f20c159cb3b9a9b87c2cd118ed54a70860ea6ed8",
+      "source": "https://polyhaven.com/a/concrete_floor_damaged_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0"
+    }
+  ],
+  "images": [
+    {
+      "path": "assets/textures/ogp.jpg",
+      "sha256": "a8a25de6d22936f2dd2bf83087e30e3231c57cf63399662ef6d1bb126df0ef6e",
+      "source": "artwork/ogp-source.png",
+      "author": "OpenAI imagegen",
+      "usage": "social-cover"
+    },
+    {
+      "path": "assets/textures/scene-narrow-device.jpg",
+      "sha256": "c0e2ad9bf6b449e4348ccb43ae75e025eef54cb7ab41bd3ae64afeefe416cf45",
+      "source": "artwork/room-art.json",
+      "author": "OpenAI imagegen; see CREDITS.md",
+      "usage": "pre-rendered-room"
+    },
+    {
+      "path": "assets/textures/scene-narrow-room.jpg",
+      "sha256": "bf93217e5a9b1df42ad1df2400d6c79c4e7c2da6bd7db24a59b3e3b5c88feec4",
+      "source": "artwork/room-art.json",
+      "author": "OpenAI imagegen; see CREDITS.md",
+      "usage": "pre-rendered-room"
+    },
+    {
+      "path": "assets/textures/scene-wide-device.jpg",
+      "sha256": "b5637271f144b7c272a8e0837590f1998f7a4f1d9d2780b4c8e9bf32ef183d7e",
+      "source": "artwork/room-art.json",
+      "author": "OpenAI imagegen; see CREDITS.md",
+      "usage": "pre-rendered-room"
+    },
+    {
+      "path": "assets/textures/scene-wide-room.jpg",
+      "sha256": "e12f4f548fc57727e30e3b095ab34ebf23469aa1ccac6de8c5d3cd2e4f5093dd",
+      "source": "artwork/room-art.json",
+      "author": "OpenAI imagegen; see CREDITS.md",
+      "usage": "pre-rendered-room"
+    }
   ]
 }

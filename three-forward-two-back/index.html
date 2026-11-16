@@ -3,15 +3,35 @@
   <head>
 <!-- akashic-game-telemetry:start -->
 <script src="/shared/game-telemetry-3f1e5258584c25976c8013695ec720f352cd66d9f7b5394071ebf9b16cb659aa.js"></script>
-<script src="/shared/game-telemetry-adapter-913003d4b2657f4f14c17da7f508d29d4d398cb43b2cf1ab3ff56f20020d94ed.js" data-game-route="three-forward-two-back" defer></script>
 <!-- akashic-game-telemetry:end -->
 
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>忘れられた手順</title>
+    <meta name="description" content="壊れた装置を修復し、部屋からの脱出を目指すWeb謎。" />
+    <link rel="canonical" href="https://games.escape-safari.com/three-forward-two-back/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="忘れられた手順" />
+    <meta property="og:description" content="壊れた装置を修復し、部屋からの脱出を目指すWeb謎。" />
+    <meta property="og:url" content="https://games.escape-safari.com/three-forward-two-back/" />
     <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+      property="og:image"
+      content="https://games.escape-safari.com/three-forward-two-back/assets/textures/ogp.jpg"
     />
-    <title>三歩進んで二歩戻る</title>
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="忘れられた手順" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="忘れられた手順" />
+    <meta name="twitter:description" content="壊れた装置を修復し、部屋からの脱出を目指すWeb謎。" />
+    <meta
+      name="twitter:image"
+      content="https://games.escape-safari.com/three-forward-two-back/assets/textures/ogp.jpg"
+    />
+    <link rel="stylesheet" href="build/book-controls.css" />
+    <link rel="stylesheet" href="build/room-scene.css" />
+    <link rel="stylesheet" href="build/game-ui-tokens.css" />
+    <meta name="twitter:image:alt" content="忘れられた手順" />
     <style>
       :root {
         --ink: #e8edf2;
@@ -40,18 +60,6 @@
         initial-value: 0.68;
       }
 
-      @property --kakejiku-opacity {
-        syntax: "<number>";
-        inherits: true;
-        initial-value: 0.4;
-      }
-
-      @property --kakejiku-blur {
-        syntax: "<length>";
-        inherits: true;
-        initial-value: 5px;
-      }
-
       * {
         box-sizing: border-box;
       }
@@ -69,11 +77,11 @@
         overflow: hidden;
         background: #12151a;
         color: var(--ink);
-        font-family:
-          ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic",
-          sans-serif;
+        font-family: var(--font-body);
         letter-spacing: 0;
         overscroll-behavior: none;
+        font-size: var(--game-ui-font-size-md);
+        line-height: var(--game-ui-line-height);
       }
 
       button,
@@ -123,10 +131,9 @@
         min-width: 210px;
         height: min(58vh, 560px);
         transform: translateX(-50%);
-        opacity: var(--kakejiku-opacity);
-        filter: blur(var(--kakejiku-blur)) contrast(1.08);
+        opacity: 1;
+        filter: contrast(1.08);
         pointer-events: none;
-        animation: kakejiku-appear 15s linear forwards;
       }
 
       .kakejiku::before {
@@ -395,7 +402,8 @@
         height: 100dvh;
         display: block;
         padding: clamp(18px, 4vw, 48px);
-        overflow: hidden;
+        /* Prevent focus/scrollIntoView from panning the fixed 3D scene. */
+        overflow: clip;
         background:
           radial-gradient(circle at 50% 38%, rgba(201, 157, 92, 0.24), transparent 38%),
           linear-gradient(180deg, rgba(16, 17, 18, 0.08), rgba(0, 0, 0, 0.46));
@@ -443,43 +451,159 @@
         background: #090a0b;
       }
 
-      .three-mount canvas {
+      .scene-effects {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .scene-frame {
+        position: absolute;
+        inset: 0;
         display: block;
         width: 100%;
         height: 100%;
+        object-fit: cover;
+        pointer-events: none;
       }
-
-      .web-error {
+      .scene-frame.is-entering {
+        animation: scene-appear calc(var(--game-ui-motion-scene) * 3) ease-out both;
+      }
+      .scene-signals {
         position: absolute;
-        left: clamp(18px, 4vw, 56px);
-        top: clamp(20px, 5vw, 62px);
-        z-index: 4;
-        color: rgba(236, 228, 205, 0.9);
-        text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+        inset: 0;
+        display: none;
+        pointer-events: none;
+      }
+      .has-device:not([data-scene-image="fallback"]) .scene-signals {
+        display: block;
+      }
+      .scene-signal,
+      .scene-activation,
+      .scene-arrival {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .scene-signal {
+        border-radius: var(--game-ui-radius-round);
         mix-blend-mode: screen;
       }
-
-      .error-code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: clamp(3.8rem, 10vw, 7rem);
-        font-weight: 800;
-        line-height: 0.9;
+      .scene-signal.is-red {
+        color: var(--game-ui-signal-red);
+      }
+      .scene-signal.is-blue {
+        color: var(--game-ui-signal-blue);
+      }
+      .scene-signal.is-red,
+      .scene-signal.is-blue {
+        opacity: 0.96;
+        background:
+          radial-gradient(
+            ellipse at 36% 26%,
+            color-mix(in srgb, var(--game-ui-text-bright) 60%, transparent) 0 7%,
+            transparent 19%
+          ),
+          radial-gradient(
+            ellipse at 50% 55%,
+            color-mix(in srgb, var(--game-ui-text-bright) 50%, transparent) 0 5%,
+            currentColor 30%,
+            var(--game-ui-deep) 95%
+          );
+        border: 2px solid var(--game-ui-deep);
+        transform: scale(0.78, 0.82);
+        box-shadow: 0 0 var(--game-ui-space-9) currentColor;
+      }
+      .scene-activation.is-ready {
+        opacity: 0.8;
+        border-radius: 50%;
+        background: var(--game-ui-focus);
+        box-shadow: 0 0 var(--game-ui-space-9) var(--game-ui-focus);
+        mix-blend-mode: screen;
+      }
+      .scene-arrival {
+        border-radius: 50%;
+        border: 2px solid var(--game-ui-signal-blue);
+        box-shadow: 0 0 var(--game-ui-space-10) var(--game-ui-signal-blue);
+      }
+      .is-arriving .scene-arrival {
+        animation: scene-arrive calc(var(--game-ui-motion-scene) * 3) ease-out both;
+      }
+      @keyframes scene-appear {
+        from {
+          opacity: 0;
+          filter: brightness(2.2) saturate(0.2);
+          clip-path: inset(75% 0 0);
+        }
+        55% {
+          opacity: 0.75;
+        }
+        to {
+          opacity: 1;
+          filter: none;
+          clip-path: inset(0);
+        }
+      }
+      @keyframes scene-arrive {
+        0% {
+          opacity: 0;
+          transform: scale(0.6);
+        }
+        30% {
+          opacity: 0.7;
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.4);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .scene-frame.is-entering,
+        .is-arriving .scene-arrival {
+          animation: none;
+        }
       }
 
-      .error-label {
-        margin-top: 8px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: clamp(1rem, 2vw, 1.35rem);
-        letter-spacing: 0;
+      .three-mount[data-scene-image="fallback"] {
+        background: transparent;
       }
-
-      .error-copy {
-        max-width: 24ch;
-        margin-top: 22px;
-        color: rgba(236, 228, 205, 0.74);
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-size: 0.92rem;
-        line-height: 1.85;
+      .control-room:has([data-scene-image="fallback"]) .scene-hotspot:not(.is-hidden),
+      .control-room:has([data-scene-image="fallback"]) .display-hotspot {
+        border: 1px solid var(--game-ui-line);
+        background: var(--game-ui-panel);
+        color: var(--game-ui-ink);
+        left: 6% !important;
+        top: 42% !important;
+        width: 42% !important;
+        height: auto !important;
+        min-height: var(--game-ui-touch-target);
+        padding: var(--game-ui-space-3);
+        transform: none;
+      }
+      .control-room:has([data-scene-image="fallback"]) #kakejikuHotspot,
+      .control-room:has([data-scene-image="fallback"]) #floorHotspot,
+      .control-room:has([data-scene-image="fallback"]) #deviceHotspot {
+        left: 52% !important;
+      }
+      .control-room:has([data-scene-image="fallback"]) #wallHotspot,
+      .control-room:has([data-scene-image="fallback"]) #floorHotspot {
+        top: calc(42% + var(--game-ui-touch-target) + var(--game-ui-space-8)) !important;
+      }
+      .control-room:has([data-scene-image="fallback"]) #floorCrackHotspot,
+      .control-room:has([data-scene-image="fallback"]) #deviceHotspot {
+        top: calc(42% + 2 * (var(--game-ui-touch-target) + var(--game-ui-space-8))) !important;
+      }
+      .display-hotspot,
+      .scene-hotspot,
+      .activation-button {
+        -webkit-tap-highlight-color: transparent;
+      }
+      .control-room:has([data-scene-image="fallback"]) .scene-hotspot::after,
+      .control-room:has([data-scene-image="fallback"]) .display-hotspot::after {
+        content: attr(aria-label);
+        font-size: var(--game-ui-font-size-xs);
+        line-height: var(--game-ui-line-height-short);
       }
 
       .display-hotspot,
@@ -527,36 +651,94 @@
       .control-room > .objective {
         position: absolute;
         right: clamp(16px, 3vw, 38px);
-        top: clamp(14px, 3vw, 32px);
+        top: calc(max(14px, env(safe-area-inset-top)) + 52px);
         z-index: 3;
         color: rgba(236, 228, 205, 0.82);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 0.9rem;
+        font-family: var(--font-body);
+        font-size: var(--game-ui-font-size-sm);
       }
 
-      .puzzle-panel {
+      .game-menu-toggle {
         position: absolute;
-        left: 50%;
-        top: 50%;
-        z-index: 11;
-        width: min(560px, 92vw);
-        transform: translate(-50%, -50%);
-        padding: 28px clamp(18px, 4vw, 34px) 24px;
-        border: 1px solid rgba(188, 164, 126, 0.58);
-        border-radius: 2px;
-        background:
-          linear-gradient(180deg, rgba(65, 55, 41, 0.9), rgba(16, 13, 10, 0.94)),
-          repeating-linear-gradient(
-            0deg,
-            rgba(255, 238, 203, 0.04),
-            rgba(255, 238, 203, 0.04) 1px,
-            transparent 1px,
-            transparent 10px
-          );
-        color: rgba(242, 231, 209, 0.94);
-        box-shadow:
-          inset 0 0 24px rgba(0, 0, 0, 0.5),
-          0 24px 80px rgba(0, 0, 0, 0.56);
+        top: max(14px, env(safe-area-inset-top));
+        right: max(16px, env(safe-area-inset-right));
+        z-index: 12;
+        min-height: var(--game-ui-touch-target);
+        padding: 0 var(--game-ui-space-8);
+        border: 1px solid var(--game-ui-menu-toggle-border);
+        border-radius: var(--game-ui-radius-sm);
+        background: var(--game-ui-menu-toggle-surface);
+        color: var(--game-ui-text-control);
+        font-family: var(--font-body);
+        font-size: var(--game-ui-font-size-sm);
+        cursor: pointer;
+      }
+
+      .game-menu-card {
+        width: min(86vw, 360px);
+      }
+
+      .game-menu-actions {
+        display: grid;
+        gap: var(--game-ui-space-4);
+      }
+
+      .game-menu-actions button {
+        width: 100%;
+        text-align: left;
+      }
+
+      .game-menu-actions .is-hidden {
+        display: none;
+      }
+
+      .repair-record-card,
+      .game-menu-card {
+        max-height: calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      .repair-answer {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: var(--game-ui-space-3);
+        margin: var(--game-ui-space-4) 0 var(--game-ui-space-10);
+      }
+
+      .repair-record-caption {
+        margin: 0;
+        color: var(--game-ui-muted);
+        font-size: var(--game-ui-font-size-sm);
+      }
+
+      .app[inert] .game-menu-toggle {
+        opacity: 0;
+      }
+
+      .scene-dialog-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 17;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--game-ui-deep) 46%, transparent);
+        overscroll-behavior: contain;
+      }
+
+      .puzzle-card {
+        position: relative;
+        width: min(calc(var(--spacing) * 112), calc(100vw - var(--spacing) * 8));
+        max-height: calc(100% - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: calc(var(--spacing) * 6);
+        border: 1px solid var(--game-ui-dialog-border);
+        border-radius: var(--game-ui-radius-sm);
+        background: linear-gradient(180deg, var(--game-ui-surface-raised), var(--game-ui-deep));
+        color: var(--game-ui-ink);
+        box-shadow: var(--game-ui-elevation-dialog);
         backdrop-filter: blur(2px);
       }
 
@@ -566,21 +748,21 @@
       }
 
       .puzzle-title {
-        margin-bottom: 24px;
+        margin-bottom: calc(var(--spacing) * 2);
         color: rgba(229, 184, 127, 0.9);
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-size: clamp(1.55rem, 5vw, 2.05rem);
-        font-weight: 700;
-        text-align: center;
+        font-family: var(--font-display);
+        font-size: var(--game-ui-font-size-heading);
+        font-weight: normal;
+        text-align: left;
       }
 
       .puzzle-lines {
         display: grid;
-        gap: 10px;
-        margin-bottom: 24px;
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-size: clamp(1.35rem, 4.8vw, 1.8rem);
-        line-height: 1.4;
+        gap: calc(var(--spacing) * 2);
+        margin-bottom: calc(var(--spacing) * 5);
+        font-family: var(--font-body);
+        font-size: var(--game-ui-font-size-md);
+        line-height: var(--game-ui-line-height-compact);
         text-align: center;
       }
 
@@ -596,21 +778,21 @@
         display: grid;
         grid-template-columns: 3em minmax(0, 1fr);
         align-items: center;
-        gap: 12px;
-        padding: 8px 0;
+        gap: calc(var(--spacing) * 4);
+        padding: calc(var(--spacing) * 2) 0;
       }
 
       .trace-row.is-question {
         margin-top: 0;
-        padding: 8px 0;
+        padding: calc(var(--spacing) * 2) 0;
         border: 0;
         background: transparent;
       }
 
       .trace-input {
         color: rgba(242, 231, 209, 0.92);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-weight: 800;
+        font-family: var(--font-body);
+        font-weight: normal;
         text-align: right;
         white-space: nowrap;
       }
@@ -618,21 +800,21 @@
       .trace-output {
         display: flex;
         justify-content: center;
-        gap: 8px;
+        gap: calc(var(--spacing) * 2);
         min-width: 0;
       }
 
       .chip {
         display: inline-grid;
         place-items: center;
-        min-width: 2.35em;
-        min-height: 1.9em;
+        min-width: 2.5em;
+        min-height: 2.5em;
         margin: 0;
         border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 2px;
         color: #fff7e8;
-        font-size: 0.82em;
-        font-weight: 800;
+        font-size: var(--game-ui-font-size-md);
+        font-weight: normal;
       }
 
       .chip.red {
@@ -656,15 +838,17 @@
       }
 
       .chip.mark1 {
-        background: rgba(143, 101, 46, 0.84);
-        color: #fff1d2;
-        box-shadow: 0 0 12px rgba(217, 154, 65, 0.22);
+        background: var(--game-ui-deep);
+        color: var(--game-ui-signal-red);
+        border-color: currentColor;
+        box-shadow: none;
       }
 
       .chip.mark2 {
-        background: rgba(50, 101, 124, 0.86);
-        color: #e9fbff;
-        box-shadow: 0 0 12px rgba(75, 168, 201, 0.22);
+        background: var(--game-ui-deep);
+        color: var(--game-ui-signal-blue);
+        border-color: currentColor;
+        box-shadow: none;
       }
 
       .target-row {
@@ -690,33 +874,37 @@
       }
 
       .puzzle-form input {
-        min-height: 52px;
-        font-size: 1.6rem;
+        min-height: var(--game-ui-touch-target);
+        padding: 0 calc(var(--spacing) * 3);
+        font-size: var(--game-ui-font-size-lg);
+        line-height: var(--game-ui-line-height-compact);
         text-align: center;
       }
 
       .puzzle-form .send-btn {
         width: auto;
-        min-width: 86px;
+        min-width: calc(var(--spacing) * 18);
         padding: 0 16px;
-        font-size: 1.18rem;
+        font-size: var(--game-ui-font-size-md);
         white-space: nowrap;
       }
 
       .word-bank {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: calc(var(--spacing) * 3);
         margin-top: 12px;
       }
 
       .word-bank button {
-        min-height: 54px;
+        min-height: var(--game-ui-touch-target);
+        padding: 0 calc(var(--spacing) * 3);
+        line-height: var(--game-ui-line-height-compact);
         border: 1px solid rgba(188, 164, 126, 0.36);
         border-radius: 2px;
         background: rgba(28, 22, 17, 0.7);
         color: rgba(242, 231, 209, 0.86);
-        font-size: 1.08rem;
+        font-size: var(--game-ui-font-size-md);
         cursor: pointer;
       }
 
@@ -729,8 +917,8 @@
 
       .word-bank button[data-answer] {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 2.05rem;
-        font-weight: 800;
+        font-size: var(--game-ui-font-size-lg);
+        font-weight: normal;
       }
 
       .word-bank button.is-hidden {
@@ -739,33 +927,10 @@
 
       .puzzle-status {
         min-height: 1.35em;
-        margin-top: 14px;
+        margin-top: calc(var(--spacing) * 3);
         color: rgba(255, 176, 135, 0.92);
-        font-size: 0.9rem;
+        font-size: var(--game-ui-font-size-md);
         text-align: center;
-      }
-
-      .device-panel {
-        position: absolute;
-        left: 50%;
-        bottom: clamp(22px, 6vh, 62px);
-        z-index: 5;
-        width: min(620px, 86vw);
-        display: grid;
-        grid-template-rows: 1fr auto;
-        gap: 12px;
-        padding: 0;
-        border: 0;
-        border-radius: 2px;
-        background: linear-gradient(180deg, rgba(10, 8, 7, 0.1), rgba(10, 8, 7, 0.24));
-        box-shadow: none;
-        transform: translateX(-50%);
-        pointer-events: none;
-      }
-
-      .device-panel.is-available {
-        cursor: pointer;
-        pointer-events: auto;
       }
 
       .device-panel::before,
@@ -828,10 +993,14 @@
       }
 
       .device-plate {
+        width: min(calc(var(--spacing) * 112), calc(100vw - var(--spacing) * 8));
+        max-height: calc(100dvh - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         position: relative;
         z-index: 1;
-        min-height: 154px;
-        padding: 22px clamp(22px, 4vw, 36px);
+        min-height: 0;
+        padding: calc(var(--spacing) * 5);
         border: 1px solid rgba(188, 164, 126, 0.52);
         border-radius: 2px;
         background:
@@ -851,12 +1020,34 @@
         backdrop-filter: blur(2px);
       }
 
+      .device-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: calc(var(--spacing) * 3);
+        margin-bottom: calc(var(--spacing) * 2);
+      }
+
+      .device-heading .device-title {
+        margin: 0;
+      }
+      .device-close.book-button {
+        width: var(--game-ui-touch-target);
+        min-height: var(--game-ui-touch-target);
+        padding: 0;
+        font-size: var(--game-ui-font-size-close);
+        background: transparent;
+        color: inherit;
+        border-color: transparent;
+      }
+
       .device-title {
-        margin-bottom: 16px;
+        margin-bottom: calc(var(--spacing) * 2);
         color: rgba(229, 184, 127, 0.88);
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-weight: 700;
-        text-align: center;
+        font-family: var(--font-display);
+        font-weight: normal;
+        text-align: left;
+        font-size: var(--game-ui-font-size-heading);
       }
 
       .device-panel .log,
@@ -864,17 +1055,17 @@
         max-height: 160px;
         padding: 0;
         color: rgba(241, 232, 214, 0.94);
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-size: clamp(0.96rem, 2vw, 1.1rem);
-        line-height: 1.7;
-        text-align: center;
+        font-family: var(--font-body);
+        font-size: var(--game-ui-font-size-md);
+        line-height: var(--game-ui-line-height);
+        text-align: left;
         white-space: pre-line;
       }
 
       .activation-button {
         display: block;
         min-width: 104px;
-        min-height: 42px;
+        min-height: var(--game-ui-touch-target);
         margin: 20px auto 0;
         padding: 0 20px;
         border: 1px solid rgba(188, 164, 126, 0.46);
@@ -883,14 +1074,16 @@
           radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.16), transparent 26%),
           linear-gradient(180deg, #2b2520, #0b0a09);
         color: rgba(241, 232, 214, 0.7);
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-weight: 800;
+        font-family: var(--font-body);
+        font-weight: normal;
         letter-spacing: 0;
         cursor: pointer;
         box-shadow:
           inset 0 2px 0 rgba(255, 255, 255, 0.08),
           inset 0 -8px 14px rgba(0, 0, 0, 0.52),
           0 5px 0 #060504;
+        font-size: var(--game-ui-font-size-md);
+        margin-top: calc(var(--spacing) * 4);
       }
 
       .device-panel.is-available .activation-button {
@@ -961,74 +1154,15 @@
         background: rgba(82, 55, 32, 0.82);
       }
 
-      .memo-layer {
-        position: fixed;
-        inset: 0;
-        z-index: 18;
-        display: grid;
-        place-items: center;
-        padding: 20px;
-        background: rgba(3, 3, 3, 0.74);
-        cursor: pointer;
-      }
-
-      .memo-layer.is-hidden {
-        display: none;
-      }
-
-      .memo-card {
-        width: min(88vw, 480px);
-        padding: 24px 24px 18px;
-        border: 1px solid rgba(129, 99, 63, 0.72);
-        border-radius: 2px;
-        background:
-          linear-gradient(
-            90deg,
-            rgba(89, 65, 42, 0.22),
-            transparent 14% 86%,
-            rgba(89, 65, 42, 0.2)
-          ),
-          repeating-linear-gradient(
-            0deg,
-            rgba(42, 31, 20, 0.08),
-            rgba(42, 31, 20, 0.08) 1px,
-            transparent 1px,
-            transparent 18px
-          ),
-          #d0b989;
-        color: #23180f;
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        text-align: center;
-        box-shadow: 0 26px 80px rgba(0, 0, 0, 0.62);
-        cursor: default;
-      }
-
-      .memo-warning {
-        margin-bottom: 18px;
-        color: #7d1616;
-        font-weight: 800;
-      }
-
-      .memo-title {
-        margin-bottom: 16px;
-        font-weight: 800;
-      }
-
-      .memo-arrows {
-        margin-bottom: 14px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: clamp(1.9rem, 8vw, 3.2rem);
-        font-weight: 800;
-        line-height: 1;
-      }
-
       .memo-text {
-        line-height: 1.75;
+        white-space: pre-line;
+        line-height: var(--game-ui-line-height);
+        font-size: var(--game-ui-font-size-md);
       }
 
       .memo-close,
       .title-return {
-        min-height: 38px;
+        min-height: var(--game-ui-touch-target);
         margin-top: 18px;
         padding: 0 18px;
         border: 1px solid rgba(35, 24, 15, 0.44);
@@ -1055,22 +1189,25 @@
 
       .flavor-card {
         width: min(86vw, 520px);
-        padding: 22px 24px 18px;
+        padding: calc(var(--spacing) * 6);
         border: 1px solid rgba(184, 159, 113, 0.54);
         border-radius: 2px;
         background: linear-gradient(180deg, rgba(41, 35, 27, 0.96), rgba(13, 12, 11, 0.98));
         color: rgba(242, 231, 209, 0.94);
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        line-height: 1.78;
+        font-family: var(--font-body);
+        line-height: var(--game-ui-line-height);
         text-align: left;
         box-shadow: 0 24px 82px rgba(0, 0, 0, 0.62);
         cursor: default;
+        font-size: var(--game-ui-font-size-md);
       }
 
       .flavor-title {
         margin-bottom: 10px;
         color: rgba(229, 184, 127, 0.94);
-        font-weight: 800;
+        font-weight: normal;
+        font-family: var(--font-display);
+        font-size: var(--game-ui-font-size-heading);
       }
 
       .flavor-title.is-hidden {
@@ -1085,7 +1222,7 @@
       }
 
       .flavor-action {
-        min-height: 36px;
+        min-height: var(--game-ui-touch-target);
         padding: 0 16px;
         border: 1px solid rgba(224, 188, 131, 0.52);
         border-radius: 2px;
@@ -1099,7 +1236,7 @@
       }
 
       .flavor-close {
-        min-height: 36px;
+        min-height: var(--game-ui-touch-target);
         padding: 0 16px;
         border: 1px solid rgba(184, 159, 113, 0.38);
         border-radius: 2px;
@@ -1226,43 +1363,57 @@
         position: relative;
         z-index: 2;
         margin: 0;
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-size: clamp(3.6rem, 14vw, 10rem);
-        line-height: 1;
+        font-family: var(--font-display);
+        font-size: calc(var(--game-ui-font-size-heading) * 2);
+        line-height: var(--game-ui-line-height-compact);
         letter-spacing: 0;
         color: #f5ead0;
         text-shadow: 0 3px 16px rgba(0, 0, 0, 0.8);
       }
 
       .clear-caption {
-        position: absolute;
-        left: 50%;
-        bottom: max(7vh, env(safe-area-inset-bottom));
+        margin: calc(var(--spacing) * 2) 0 calc(var(--spacing) * 5);
+        font-family: var(--font-body);
+        font-size: var(--game-ui-font-size-md);
+        line-height: var(--game-ui-line-height);
+      }
+
+      .clear-summary {
+        position: relative;
         z-index: 3;
-        width: min(90vw, 760px);
-        transform: translateX(-50%);
-        padding: 14px 18px;
-        border: 1px solid rgba(245, 234, 208, 0.42);
-        border-radius: 2px;
-        background: rgba(5, 4, 3, 0.78);
-        color: #f5ead0;
+        width: min(calc(var(--spacing) * 112), calc(100vw - var(--spacing) * 8));
+        max-height: calc(100dvh - var(--spacing) * 8);
+        overflow-y: auto;
+        padding: calc(var(--spacing) * 6);
+        border-radius: var(--radius-panel);
+        background: var(--game-ui-deep);
+        color: var(--game-ui-ink);
         text-align: center;
-        font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
-        font-size: clamp(1rem, 2.4vw, 1.6rem);
-        font-weight: 700;
-        line-height: 1.42;
-        text-shadow: none;
+      }
+
+      .clear-actions {
+        display: grid;
+        gap: calc(var(--spacing) * 3);
+      }
+
+      .clear-actions .book-button {
+        display: grid;
+        place-items: center;
+        margin: 0;
+        padding: calc(var(--spacing) * 2) calc(var(--spacing) * 4);
+        min-height: var(--game-ui-touch-target);
+        font-family: var(--font-body);
+        font-size: var(--game-ui-font-size-md);
+        line-height: var(--game-ui-line-height-compact);
+        color: inherit;
+        background: transparent;
+        border-color: currentColor;
+        text-decoration: none;
       }
 
       .title-return {
-        position: absolute;
-        left: 50%;
-        bottom: max(2.8vh, env(safe-area-inset-bottom));
-        z-index: 4;
-        transform: translateX(-50%);
-        margin-top: 0;
-        border-color: rgba(245, 234, 208, 0.42);
-        background: rgba(5, 4, 3, 0.78);
+        position: static;
+        transform: none;
       }
 
       @keyframes doom {
@@ -1274,17 +1425,6 @@
         50% {
           filter: contrast(1.8);
           transform: translate(3px, -2px);
-        }
-      }
-
-      @keyframes kakejiku-appear {
-        from {
-          --kakejiku-opacity: 0.4;
-          --kakejiku-blur: 5px;
-        }
-        to {
-          --kakejiku-opacity: 0.7;
-          --kakejiku-blur: 0px;
         }
       }
 
@@ -1355,6 +1495,33 @@
         }
       }
 
+      .puzzle-description {
+        margin: 0 0 calc(var(--spacing) * 5);
+        font-family: var(--font-body);
+        font-size: var(--game-ui-font-size-md);
+        line-height: var(--game-ui-line-height);
+      }
+
+      .word-bank #puzzleHintButton:not(.is-hidden) {
+        grid-column: 1 / -1;
+      }
+
+      .device-panel.is-revealing .device-plate {
+        animation: device-plate-enter var(--game-ui-motion-scene) ease-out both;
+        animation-delay: calc(var(--game-ui-motion-scene) * 2);
+      }
+
+      @keyframes device-plate-enter {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
       @media (max-width: 680px) {
         .app {
           height: 100dvh;
@@ -1366,68 +1533,20 @@
           padding: 0;
         }
 
-        .web-error {
-          left: 16px;
-          top: max(14px, env(safe-area-inset-top));
-        }
-
-        .error-code {
-          font-size: clamp(3.2rem, 18vw, 4.9rem);
-        }
-
-        .error-copy {
-          max-width: 18ch;
-          margin-top: 14px;
-          font-size: 0.82rem;
-          line-height: 1.72;
-        }
-
         .control-room > .objective {
           right: 12px;
-          top: max(12px, env(safe-area-inset-top));
+          top: calc(max(14px, env(safe-area-inset-top)) + 52px);
           max-width: 42vw;
-          font-size: 0.78rem;
+
           text-align: right;
         }
 
-        .puzzle-panel {
-          top: 50%;
-          width: calc(100vw - 24px);
+        .puzzle-card {
           max-height: calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-          padding: 24px 18px 18px;
-          overflow-y: auto;
-        }
-
-        .puzzle-title {
-          margin-bottom: 18px;
-          font-size: clamp(1.45rem, 6vw, 1.9rem);
-        }
-
-        .puzzle-lines {
-          gap: 10px;
-          margin-bottom: 20px;
-          font-size: clamp(1.28rem, 5.3vw, 1.7rem);
         }
 
         .trace-caption {
           display: none;
-        }
-
-        .trace-row {
-          grid-template-columns: 3em minmax(0, 1fr);
-          gap: 10px;
-          padding: 7px 0;
-        }
-
-        .trace-row.is-question {
-          padding: 7px 0;
-        }
-
-        .chip {
-          min-width: 2.08em;
-          min-height: 1.72em;
-          margin: 0;
-          font-size: 0.9em;
         }
 
         .target-row {
@@ -1438,63 +1557,16 @@
           gap: 8px;
         }
 
-        .puzzle-form input {
-          min-height: 50px;
-          font-size: 1.45rem;
-        }
-
-        .puzzle-form .send-btn {
-          min-width: 70px;
-          font-size: 1.02rem;
-        }
-
-        .word-bank {
-          gap: 8px;
-        }
-
-        .word-bank button {
-          min-height: 52px;
-          font-size: 1rem;
-        }
-
-        .word-bank button[data-answer] {
-          font-size: 1.86rem;
-        }
-
-        .device-panel {
-          width: calc(100vw - 20px);
-          bottom: max(10px, env(safe-area-inset-bottom));
-        }
-
-        .device-plate {
-          min-height: 0;
-          padding: 16px 14px;
-        }
-
-        .device-title {
-          margin-bottom: 10px;
-        }
-
         .device-panel .device-copy {
           max-height: 132px;
-          font-size: 0.9rem;
-          line-height: 1.58;
         }
 
         .activation-button {
           min-width: 96px;
-          min-height: 40px;
-          margin-top: 14px;
         }
 
-        .memo-card,
         .flavor-card {
           width: min(92vw, 480px);
-          padding: 20px 18px 16px;
-        }
-
-        .clear-word {
-          font-size: clamp(3.2rem, 20vw, 6rem);
         }
       }
 
@@ -1517,6 +1589,10 @@
           transform: none;
         }
 
+        .device-panel.is-revealing .device-plate {
+          animation: none;
+        }
+
         * {
           scroll-behavior: auto !important;
           transition-duration: 1ms !important;
@@ -1524,142 +1600,256 @@
       }
     </style>
   </head>
-  <body>
+  <body class="game-ui">
     <div class="room" aria-hidden="true">
       <div class="kakejiku">
-        <div class="scroll-text">三歩進んで<br />二歩戻る</div>
+        <div class="scroll-text">読み直すべし</div>
       </div>
     </div>
 
     <main class="app" id="app">
-      <section class="control-room" aria-label="閉じ込められたWeb空間">
+      <section class="control-room" aria-label="部屋">
         <div class="three-mount" id="threeMount" aria-hidden="true"></div>
-        <div class="web-error" aria-hidden="true">
-          <div class="error-code">404</div>
-          <div class="error-label">NOT FOUND</div>
-          <div class="error-copy">
-            壊れたWeb空間。<br />部屋を<span style="font-weight: bold; color: var(--accent)"
-              >タップ</span
-            >して探索し、脱出せよ。
-          </div>
-        </div>
         <button
-          class="display-hotspot"
+          class="display-hotspot book-button"
           id="displayHotspot"
           type="button"
           aria-label="壊れたディスプレイを調べる"
         ></button>
         <button
-          class="scene-hotspot"
+          class="scene-hotspot book-button"
           id="kakejikuHotspot"
           type="button"
           aria-label="掛け軸を調べる"
         ></button>
         <button
-          class="scene-hotspot"
+          class="scene-hotspot book-button"
           id="wallHotspot"
           type="button"
           aria-label="壁を調べる"
         ></button>
         <button
-          class="scene-hotspot"
+          class="scene-hotspot book-button"
           id="floorHotspot"
           type="button"
           aria-label="床を調べる"
         ></button>
         <button
-          class="scene-hotspot"
+          class="scene-hotspot book-button"
           id="floorCrackHotspot"
           type="button"
           aria-label="床のひび割れを調べる"
         ></button>
         <button
-          class="scene-hotspot is-hidden"
+          class="scene-hotspot is-hidden book-button"
           id="deviceHotspot"
           type="button"
           aria-label="制御装置を調べる"
         ></button>
 
         <div class="objective" aria-live="polite">脱出経路：未確定</div>
-
-        <section class="puzzle-panel is-hidden" id="puzzlePanel" aria-label="壊れたデータ">
-          <div class="puzzle-title">
-            壊れたデータを見つけた。<br />起点から終端までの操作を入力し、修復せよ。
-          </div>
-          <div class="puzzle-lines" aria-label="矢印の謎">
-            <div class="trace-caption">ログ</div>
-            <div class="trace-row">
-              <span class="trace-input">起点</span
-              ><span class="trace-output"
-                ><span class="chip mark0">未</span><span class="chip mark0">未</span
-                ><span class="chip mark0">未</span></span
-              >
-            </div>
-            <div class="trace-row">
-              <span class="trace-input">中間</span
-              ><span class="trace-output"
-                ><span class="chip mark1">刻</span><span class="chip mark1">刻</span
-                ><span class="chip mark1">刻</span></span
-              >
-            </div>
-            <div class="trace-row is-question">
-              <span class="trace-input">終端</span
-              ><span class="trace-output"
-                ><span class="chip mark1">刻</span><span class="chip mark2">反</span
-                ><span class="chip mark2">反</span></span
-              >
-            </div>
-            <div class="target-row">修復</div>
-          </div>
-          <form class="puzzle-form" id="puzzleForm">
-            <input id="puzzleInput" name="answer" autocomplete="off" aria-label="答え" readonly />
-            <button class="send-btn" type="submit">送信</button>
-          </form>
-          <div class="word-bank" aria-label="語群">
-            <button type="button" data-answer="→">→</button>
-            <button type="button" data-answer="←">←</button>
-            <button type="button" data-action="backspace">戻す</button>
-            <button type="button" data-action="hint" id="puzzleHintButton" class="is-hidden">
-              ヒント
-            </button>
-          </div>
-          <div class="puzzle-status" id="puzzleStatus" aria-live="polite"></div>
-        </section>
-
-        <section class="device-panel is-hidden" id="devicePanel" aria-label="制御装置">
-          <div class="lamp-row" aria-hidden="true">
-            <span class="lamp" id="lamp0"></span>
-            <span class="lamp" id="lamp1"></span>
-            <span class="lamp" id="lamp2"></span>
-          </div>
-          <div class="device-plate">
-            <div class="device-title">制御装置</div>
-            <div class="device-copy" id="deviceCopy" aria-live="polite">
-              制御装置が現れた。<br />「赤青青で脱出」と裏面に書いてあった。
-            </div>
-            <button class="activation-button" id="activationButton" type="button" aria-label="起動">
-              起動
-            </button>
-          </div>
-        </section>
+        <button
+          class="game-menu-toggle book-button"
+          id="gameMenuButton"
+          type="button"
+          aria-label="メニューを開く"
+          aria-haspopup="dialog"
+          aria-controls="gameMenuLayer"
+        >
+          メニュー
+        </button>
       </section>
     </main>
 
-    <div class="memo-layer is-hidden" id="memoLayer">
-      <div class="memo-card" role="status" aria-live="polite">
-        <div class="memo-warning">起動に失敗しました</div>
-        <div class="memo-arrows">→ → → ← ←</div>
-        <div class="memo-text">この順で。<br />必ず戻れ。</div>
-        <button class="memo-close" id="memoClose" type="button">閉じる</button>
+    <section
+      class="puzzle-panel scene-dialog-layer is-hidden"
+      id="puzzlePanel"
+      aria-label="壊れた装置"
+    >
+      <div class="puzzle-card" aria-modal="true" aria-label="壊れた装置">
+        <div class="device-heading">
+          <div class="puzzle-title">壊れた装置</div>
+          <button
+            class="book-button device-close"
+            id="puzzleClose"
+            data-inspection-close
+            type="button"
+            aria-label="壊れた装置を閉じる"
+          >
+            ×
+          </button>
+        </div>
+        <p class="puzzle-description">起点から終端までの操作を入力し、修復せよ。</p>
+        <div class="puzzle-lines" aria-label="修復手順の記録">
+          <div class="trace-caption">ログ</div>
+          <div class="trace-row">
+            <span class="trace-input">起点</span
+            ><span class="trace-output"
+              ><span class="chip mark0">未</span><span class="chip mark0">未</span
+              ><span class="chip mark0">未</span></span
+            >
+          </div>
+          <div class="trace-row">
+            <span class="trace-input">中間</span
+            ><span class="trace-output"
+              ><span class="chip mark1">再</span><span class="chip mark1">再</span
+              ><span class="chip mark1">再</span></span
+            >
+          </div>
+          <div class="trace-row is-question">
+            <span class="trace-input">終端</span
+            ><span class="trace-output"
+              ><span class="chip mark1">再</span><span class="chip mark2">逆</span
+              ><span class="chip mark2">逆</span></span
+            >
+          </div>
+          <div class="target-row">修復</div>
+        </div>
+        <form class="puzzle-form" id="puzzleForm">
+          <input id="puzzleInput" name="answer" autocomplete="off" aria-label="答え" readonly />
+          <button class="send-btn book-button" type="submit">送信</button>
+        </form>
+        <div class="word-bank" aria-label="語群">
+          <button type="button" data-answer="再" class="book-button">再</button>
+          <button type="button" data-answer="逆" class="book-button">逆</button>
+          <button type="button" data-action="backspace" class="book-button">戻す</button>
+          <button
+            type="button"
+            data-action="hint"
+            id="puzzleHintButton"
+            class="is-hidden book-button"
+          >
+            ヒント
+          </button>
+        </div>
+        <div class="puzzle-status" id="puzzleStatus" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section
+      class="device-panel scene-dialog-layer is-hidden"
+      id="devicePanel"
+      aria-label="制御装置"
+    >
+      <div class="device-plate" aria-modal="true" aria-label="制御装置">
+        <div class="lamp-row" aria-hidden="true">
+          <span class="lamp" id="lamp0"></span>
+          <span class="lamp" id="lamp1"></span>
+          <span class="lamp" id="lamp2"></span>
+        </div>
+        <div class="device-heading">
+          <div class="device-title">制御装置</div>
+          <button
+            class="book-button device-close"
+            id="deviceClose"
+            type="button"
+            aria-label="制御装置を閉じる"
+          >
+            ×
+          </button>
+        </div>
+        <div class="device-copy" id="deviceCopy" aria-live="polite">
+          修復した記録の色に、灯りをそろえよ。
+        </div>
+        <button
+          class="activation-button book-button"
+          id="activationButton"
+          type="button"
+          aria-label="起動"
+        >
+          起動
+        </button>
+      </div>
+    </section>
+
+    <div class="flavor-layer is-hidden" id="gameMenuLayer">
+      <div class="flavor-card game-menu-card" aria-modal="true" aria-labelledby="gameMenuTitle">
+        <div class="flavor-title" id="gameMenuTitle">メニュー</div>
+        <div class="game-menu-actions">
+          <button class="flavor-close book-button is-hidden" id="repairRecordButton" type="button">
+            修復の答えを見る
+          </button>
+          <button class="flavor-close book-button" id="restartButton" type="button">
+            最初からやる
+          </button>
+          <button
+            class="flavor-close book-button"
+            data-inspection-close
+            id="gameMenuClose"
+            type="button"
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="flavor-layer is-hidden" id="repairRecordLayer">
+      <div
+        class="flavor-card repair-record-card"
+        aria-modal="true"
+        aria-labelledby="repairRecordTitle"
+      >
+        <div class="flavor-title" id="repairRecordTitle">修復の答え</div>
+        <p class="repair-record-caption">入力した答え</p>
+        <div class="repair-answer" id="repairAnswer" aria-label="修復時に入力した答え"></div>
+        <div id="repairTrace"></div>
+        <div class="flavor-actions">
+          <button
+            class="flavor-close book-button"
+            data-inspection-close
+            id="repairRecordClose"
+            type="button"
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flavor-layer is-hidden" id="memoLayer">
+      <div
+        class="flavor-card"
+        aria-modal="true"
+        aria-labelledby="memoTitle"
+        aria-describedby="memoText"
+      >
+        <div class="flavor-title" id="memoTitle">起動に失敗しました</div>
+        <div class="memo-text" id="memoText"></div>
+        <div class="flavor-actions">
+          <button
+            class="flavor-close book-button"
+            data-inspection-close
+            id="memoClose"
+            type="button"
+          >
+            閉じる
+          </button>
+        </div>
       </div>
     </div>
     <div class="flavor-layer is-hidden" id="flavorLayer">
-      <div class="flavor-card" role="status" aria-live="polite">
+      <div
+        class="flavor-card"
+        aria-modal="true"
+        aria-label="調べたもの"
+        aria-describedby="flavorText"
+      >
         <div class="flavor-title is-hidden" id="flavorTitle"></div>
         <div id="flavorText"></div>
         <div class="flavor-actions">
-          <button class="flavor-action is-hidden" id="flavorAction" type="button"></button>
-          <button class="flavor-close" id="flavorClose" type="button">閉じる</button>
+          <button
+            class="flavor-action is-hidden book-button"
+            id="flavorAction"
+            type="button"
+          ></button>
+          <button
+            class="flavor-close book-button"
+            data-inspection-close
+            id="flavorClose"
+            type="button"
+          >
+            閉じる
+          </button>
         </div>
       </div>
     </div>
@@ -1669,24 +1859,38 @@
         class="explosion-video"
         id="explosionVideo"
         src="assets/explosion.webm"
-        preload="auto"
+        preload="none"
         muted
         playsinline
         loop
       ></video>
       <div class="server" aria-hidden="true"></div>
-      <h1 class="clear-word">脱出成功</h1>
-      <div class="clear-caption">脱出に成功した。</div>
-      <a id="clear-share" class="clear-caption" target="_blank" rel="noopener">Xでシェア</a>
-      <button class="title-return" id="titleReturn" type="button">タイトルに戻る</button>
+      <div class="clear-summary">
+        <h1 class="clear-word">脱出成功</h1>
+        <p class="clear-caption">脱出に成功した。</p>
+        <div class="clear-actions">
+          <a id="clear-share" class="book-button" target="_blank" rel="noopener">Xでシェア</a>
+          <button class="title-return book-button" id="titleReturn" type="button">
+            最初からやる
+          </button>
+        </div>
+      </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="../shared/completion-record.js?v=20261110-share-newlines"></script>
+    <script src="build/inspection-dialog.js"></script>
+    <script src="build/room-scene.js"></script>
     <script>
       (() => {
         const objective = document.querySelector(".objective");
+        const gameMenuButton = document.getElementById("gameMenuButton");
+        const gameMenuLayer = document.getElementById("gameMenuLayer");
+        const gameMenuClose = document.getElementById("gameMenuClose");
+        const restartButton = document.getElementById("restartButton");
+        const repairRecordButton = document.getElementById("repairRecordButton");
+        const repairRecordLayer = document.getElementById("repairRecordLayer");
+        const repairRecordClose = document.getElementById("repairRecordClose");
+        const repairAnswer = "再再再逆逆";
         const puzzlePanel = document.getElementById("puzzlePanel");
         const puzzleForm = document.getElementById("puzzleForm");
         const puzzleInput = document.getElementById("puzzleInput");
@@ -1694,6 +1898,8 @@
         const puzzleHintButton = document.getElementById("puzzleHintButton");
         const devicePanel = document.getElementById("devicePanel");
         const deviceCopy = document.getElementById("deviceCopy");
+        const deviceColorClue = "修復した記録の色に、灯りをそろえよ。";
+        const deviceClose = document.getElementById("deviceClose");
         const activationButton = document.getElementById("activationButton");
         const displayHotspot = document.getElementById("displayHotspot");
         const kakejikuHotspot = document.getElementById("kakejikuHotspot");
@@ -1706,6 +1912,7 @@
         const clearStage = document.getElementById("clearStage");
         const explosionVideo = document.getElementById("explosionVideo");
         const memoLayer = document.getElementById("memoLayer");
+        const memoText = document.getElementById("memoText");
         const memoClose = document.getElementById("memoClose");
         const flavorLayer = document.getElementById("flavorLayer");
         const flavorTitle = document.getElementById("flavorTitle");
@@ -1714,24 +1921,32 @@
         const flavorClose = document.getElementById("flavorClose");
         const titleReturn = document.getElementById("titleReturn");
         const threeMount = document.getElementById("threeMount");
+        const app = document.getElementById("app");
         const lamps = [
           document.getElementById("lamp0"),
           document.getElementById("lamp1"),
           document.getElementById("lamp2"),
         ];
-        const threeScene = initThreeScene();
-        const maxRouteDepth = 3;
-        const runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const motionToken = getComputedStyle(threeMount)
+          .getPropertyValue("--game-ui-motion-scene")
+          .trim();
+        const deviceRevealDuration =
+          (Number.parseFloat(motionToken) || 0) * (motionToken.endsWith("ms") ? 1 : 1000) * 3;
+        let deviceRevealTimer = null;
+        const minRouteDepth = -3;
+        const maxRouteDepth = 0;
+        const routeStorageKey = "akashic.three-forward.reload-route.v1";
+        let historyFailed = false;
+        let runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
         const state = {
           forward: 0,
           back: 0,
           routeDepth: 0,
-          phase: "forward",
           routeValid: true,
-          primingHistory: true,
-          primingBackSteps: 0,
-          primingTargetDepth: 0,
+          started: false,
+          historyReady: false,
           deviceRevealed: false,
           escapeArmed: false,
           kakejikuChecks: 0,
@@ -1743,53 +1958,73 @@
           puzzleDraft: "",
         };
         const isValidPuzzleDraft = (draft) =>
-          typeof draft === "string" && draft.length <= 5 && /^[→←]*$/.test(draft);
-        const savedProgress = window.AkashicProgress.readProgress(
-          "three-forward-two-back",
-          (saved) =>
-            typeof saved.started === "boolean" &&
-            typeof saved.deviceRevealed === "boolean" &&
-            typeof saved.escapeArmed === "boolean" &&
-            typeof saved.ended === "boolean" &&
-            typeof saved.puzzleHintShown === "boolean" &&
-            typeof saved.hintUsed === "boolean" &&
-            typeof saved.browserHintSeen === "boolean" &&
-            Number.isInteger(saved.kakejikuChecks) &&
-            saved.kakejikuChecks >= 0 &&
-            saved.kakejikuChecks <= 20 &&
-            Number.isInteger(saved.puzzleHintStep) &&
-            saved.puzzleHintStep >= 0 &&
-            saved.puzzleHintStep <= 2 &&
-            (!saved.escapeArmed || saved.deviceRevealed)
-        );
-        if (savedProgress) {
+          typeof draft === "string" && draft.length <= 5 && /^[再逆]*$/.test(draft);
+        const readCheckpoint = AkashicRoomScene.readCheckpoint;
+        const initialCheckpoint = { ...state };
+        function applyCheckpoint(saved) {
+          Object.assign(state, initialCheckpoint);
+          if (!saved) return;
           Object.assign(state, {
-            started: savedProgress.started,
-            deviceRevealed: savedProgress.deviceRevealed,
-            escapeArmed: savedProgress.escapeArmed,
-            ended: savedProgress.ended,
-            kakejikuChecks: savedProgress.kakejikuChecks,
-            puzzleHintShown: savedProgress.puzzleHintShown,
-            puzzleHintStep: savedProgress.puzzleHintStep,
-            hintUsed: savedProgress.hintUsed,
-            browserHintSeen: savedProgress.browserHintSeen,
+            started: saved.started,
+            deviceRevealed: saved.deviceRevealed,
+            escapeArmed: saved.escapeArmed,
+            ended: saved.ended,
+            kakejikuChecks: saved.kakejikuChecks,
+            puzzleHintShown: saved.puzzleHintShown,
+            puzzleHintStep: saved.puzzleHintStep,
+            hintUsed: saved.hintUsed,
+            browserHintSeen: saved.browserHintSeen,
             puzzleDraft:
-              savedProgress.deviceRevealed ||
-              savedProgress.ended ||
-              !isValidPuzzleDraft(savedProgress.puzzleDraft)
+              saved.deviceRevealed || saved.ended || !isValidPuzzleDraft(saved.puzzleDraft)
                 ? ""
-                : savedProgress.puzzleDraft,
+                : saved.puzzleDraft,
           });
           if (state.hintUsed) completionAttempt.hint();
-          // Browser history is session-scoped. Resume from the stable device checkpoint
-          // and restart the three-forward/two-back sequence at its defined origin.
-          state.forward = 0;
-          state.back = 0;
+          // Restore the durable checkpoint; the tab ledger restores navigation below.
+          state.forward = state.escapeArmed ? 3 : 0;
+          state.back = state.escapeArmed ? 2 : 0;
           state.routeDepth = 0;
-          state.phase = "forward";
           state.routeValid = true;
         }
+        const savedProgress = readCheckpoint();
+        applyCheckpoint(savedProgress);
+        globalThis.AkashicTelemetrySemanticGame = "three-forward-two-back";
+        const telemetry = (() => {
+          try {
+            return globalThis.AkashicTelemetry?.init({ gameId: "three-forward-two-back" });
+          } catch {
+            return null;
+          }
+        })();
+        function telemetryPosition() {
+          if (state.ended) return { stage: "escaped", step: 3 };
+          if (state.escapeArmed) return { stage: "escape-ready", step: 2 };
+          if (state.deviceRevealed) return { stage: "device-repaired", step: 1 };
+          return { stage: "exploring", step: 0 };
+        }
+        function trackTelemetry(event) {
+          const { stage, step } = telemetryPosition();
+          try {
+            telemetry?.[event]?.(stage, step);
+          } catch {
+            // Optional measurement must not interrupt gameplay.
+          }
+        }
+        let lastTelemetryMilestone = telemetryPosition().stage;
         puzzleInput.value = state.puzzleDraft;
+        const roomScene = AkashicRoomScene.create({
+          mount: threeMount,
+          reducedMotion,
+          initialVisible: state.deviceRevealed,
+          hotspots: {
+            display: displayHotspot,
+            kakejiku: kakejikuHotspot,
+            wall: wallHotspot,
+            floor: floorHotspot,
+            crack: floorCrackHotspot,
+            device: deviceHotspot,
+          },
+        });
         function saveProgress() {
           window.AkashicProgress.writeProgress("three-forward-two-back", {
             started: Boolean(state.started),
@@ -1803,35 +2038,97 @@
             browserHintSeen: state.browserHintSeen,
             puzzleDraft: state.puzzleDraft,
           });
+          saveRouteLedger();
+          const milestone = telemetryPosition().stage;
+          if (state.started && !state.ended && milestone !== lastTelemetryMilestone) {
+            trackTelemetry("progress");
+            lastTelemetryMilestone = milestone;
+          }
         }
         let flavorActionHandler = null;
+        const blockRevealInput = (event) => {
+          if (deviceRevealTimer === null) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        };
+        // Register before the dialog's focus helper; pointerdown also owns focus.
+        app.addEventListener("pointerdown", blockRevealInput, { capture: true });
+        app.addEventListener("click", blockRevealInput, { capture: true });
+        let returnSceneDialog = null;
+        const inspection = AkashicInspection.create({
+          root: document.getElementById("app"),
+          layers: [
+            memoLayer,
+            flavorLayer,
+            gameMenuLayer,
+            repairRecordLayer,
+            puzzlePanel,
+            devicePanel,
+          ],
+          onClose() {
+            const resume = returnSceneDialog;
+            returnSceneDialog = null;
+            if (!resume || state.ended) return;
+            inspection.open(resume.layer);
+            if (resume.opener?.isConnected) resume.opener.focus({ preventScroll: true });
+          },
+        });
         const puzzleHints = [
-          "中間は、起点から3回同じ操作をした状態。",
-          "終端は、中間から右側の2つだけが反転した状態。",
-          "入力できる記号は → と ← だけ。",
+          "中間は、起点から同じ操作を3回受けた状態。",
+          "終端は、中間から右側の2つだけが「逆」に変わった状態。",
+          "入力できる文字は「再」と「逆」だけ。",
         ];
 
         explosionVideo.addEventListener("error", () => {
           clearStage.classList.add("video-failed");
         });
 
-        primeBrowserHistory();
-        if (savedProgress?.deviceRevealed) {
+        app.inert = state.ended;
+        app.addEventListener("click", (event) => {
+          if (event.target.closest("#gameMenuButton")) return;
+          if (state.ended) return;
+          trackTelemetry("start");
+          if (!state.started) {
+            state.started = true;
+            saveProgress();
+          }
+        });
+        app.addEventListener("click", prepareHistoryOnInteraction, { capture: true });
+        function renderCheckpoint() {
+          returnSceneDialog = null;
+          closeLayer(puzzlePanel);
+          closeLayer(devicePanel);
+          closeLayer(memoLayer);
+          closeLayer(flavorLayer);
+          closeLayer(gameMenuLayer);
+          closeLayer(repairRecordLayer);
+          puzzleInput.value = state.puzzleDraft;
           puzzlePanel.classList.add("is-hidden");
-          devicePanel.classList.remove("is-hidden");
-          threeScene.setDeviceVisible(true);
-          if (savedProgress.escapeArmed) armEscape();
+          devicePanel.classList.add("is-hidden");
+          clearStage.classList.remove("is-visible", "is-settled");
+          app.inert = state.ended;
+          puzzleHintButton.classList.toggle("is-hidden", !state.puzzleHintShown);
+          if (state.deviceRevealed) {
+            presentDevice(false);
+            if (state.escapeArmed) armEscape();
+          }
+          if (state.ended) {
+            clearStage.classList.add("is-visible", "is-settled");
+            app.inert = true;
+            titleReturn.focus({ preventScroll: true });
+            const share = document.getElementById("clear-share");
+            share.href = globalThis.AkashicCompletion.createShareIntent(
+              "脱出に成功した。「忘れられた手順」" +
+                (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
+              "https://games.escape-safari.com/three-forward-two-back/"
+            );
+          }
+          if (!state.deviceRevealed) {
+            roomScene.setDeviceVisible(false);
+            threeMount.dataset.deviceState = "hidden";
+          }
         }
-        if (savedProgress?.puzzleHintShown) puzzleHintButton.classList.remove("is-hidden");
-        if (savedProgress?.ended) {
-          clearStage.classList.add("is-visible", "is-settled");
-          const share = document.getElementById("clear-share");
-          share.href = globalThis.AkashicCompletion.createShareIntent(
-            "脱出に成功した。「三歩進んで二歩戻る」" +
-              (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
-            "https://games.escape-safari.com/three-forward-two-back/"
-          );
-        }
+        renderCheckpoint();
         updateHud();
 
         document.querySelectorAll(".word-bank button").forEach((button) => {
@@ -1863,22 +2160,21 @@
           event.preventDefault();
           if (state.ended) return;
           const answer = puzzleInput.value.trim().replace(/\s+/g, "");
-          if (answer === "→→→←←") {
+          if (answer === repairAnswer) {
             revealDevice();
             return;
           }
           puzzleStatus.textContent = "不一致";
+          trackTelemetry("wrong");
           if (!state.puzzleHintShown) {
             state.puzzleHintShown = true;
             state.puzzleHintStep = 0;
             puzzleHintButton.classList.remove("is-hidden");
           }
+          saveProgress();
           puzzleInput.select();
         });
 
-        activationButton.addEventListener("pointerdown", handleActivation);
-        activationButton.addEventListener("mousedown", handleActivation);
-        activationButton.addEventListener("touchstart", handleActivation);
         activationButton.addEventListener("click", handleActivation);
         displayHotspot.addEventListener("click", () => {
           if (state.deviceRevealed) {
@@ -1889,10 +2185,11 @@
         });
         kakejikuHotspot.addEventListener("click", () => {
           if (!state.deviceRevealed) {
-            showFlavor("端に小さく「ブラウザの全てを使え」。墨はかすれている。");
+            showFlavor("「読み直すべし」と記されている。端に小さな書き込みがある。");
             return;
           }
-          state.kakejikuChecks += 1;
+          state.kakejikuChecks = Math.min(20, state.kakejikuChecks + 1);
+          saveProgress();
           if (state.kakejikuChecks >= 2 && !state.browserHintSeen) {
             showFlavor("よく見ると端をめくれそうだ。", {
               actionLabel: "ヒントを見る",
@@ -1900,7 +2197,7 @@
             });
             return;
           }
-          showFlavor("端に小さく「ブラウザの全てを使え」。墨はかすれている。");
+          showFlavor("「読み直すべし」と記されている。端に小さな書き込みがある。");
         });
         wallHotspot.addEventListener("click", () => {
           showFlavor("煤けた壁。触れると黒い粉が指につく。");
@@ -1913,173 +2210,280 @@
             showFlavor("亀裂にメモが挟まっている。", {
               title: "メモ",
               actionLabel: "読む",
-              onAction: showSwipeHint,
+              onAction: showNavigationHint,
             });
             return;
           }
           showFlavor("深い亀裂。奥は暗く、底が見えない。");
         });
-        deviceHotspot.addEventListener("click", () => {
-          if (!state.deviceRevealed) return;
-          showFlavor(
-            state.escapeArmed
-              ? "ロック解除。起動ボタンだけが淡く光る。"
-              : "古い制御装置。前面のランプが沈黙している。"
-          );
-        });
-        devicePanel.addEventListener("click", (event) => {
-          if (event.target === activationButton) return;
+        function openDevicePanel(event) {
+          if (!state.routeValid && event?.isTrusted) {
+            try {
+              primeBrowserHistory();
+            } catch {
+              failHistory();
+              return;
+            }
+          }
           if (!state.deviceRevealed || state.ended) return;
-          showFlavor(
-            state.escapeArmed
-              ? "ロック解除。起動ボタンだけが淡く光る。"
-              : "古い制御装置。前面のランプが沈黙している。"
-          );
-        });
+          openLayer(devicePanel);
+          if (!devicePanel.inert) activationButton.focus({ preventScroll: true });
+        }
 
-        memoLayer.addEventListener("click", () => {
-          if (memoLayer.dataset.ready !== "true") return;
-          memoLayer.classList.add("is-hidden");
-        });
+        function closeDevicePanel() {
+          closeLayer(devicePanel);
+        }
 
-        memoLayer.querySelector(".memo-card").addEventListener("click", (event) => {
-          event.stopPropagation();
-        });
+        deviceHotspot.addEventListener("click", openDevicePanel);
+        deviceClose.addEventListener("click", closeDevicePanel);
+        document
+          .getElementById("puzzleClose")
+          .addEventListener("click", () => closeLayer(puzzlePanel));
+        for (const layer of [
+          puzzlePanel,
+          devicePanel,
+          memoLayer,
+          flavorLayer,
+          gameMenuLayer,
+          repairRecordLayer,
+        ]) {
+          let startedOutside = false;
+          layer.addEventListener("pointerdown", (event) => {
+            startedOutside = event.target === layer;
+          });
+          layer.addEventListener("pointercancel", () => {
+            startedOutside = false;
+          });
+          layer.addEventListener("click", (event) => {
+            if (event.target === layer && startedOutside) closeLayer(layer);
+            startedOutside = false;
+            event.stopPropagation();
+          });
+        }
 
-        memoClose.addEventListener("click", () => {
-          memoLayer.classList.add("is-hidden");
-        });
-
-        flavorLayer.addEventListener("click", () => {
-          flavorLayer.classList.add("is-hidden");
-        });
-
-        flavorLayer.querySelector(".flavor-card").addEventListener("click", (event) => {
-          event.stopPropagation();
-        });
-
-        flavorClose.addEventListener("click", () => {
-          flavorLayer.classList.add("is-hidden");
-        });
+        memoClose.addEventListener("click", () => closeLayer(memoLayer));
+        flavorClose.addEventListener("click", () => closeLayer(flavorLayer));
 
         flavorAction.addEventListener("click", () => {
           if (flavorActionHandler) flavorActionHandler();
         });
 
-        titleReturn.addEventListener("click", () => {
+        gameMenuButton.addEventListener("click", () => {
+          repairRecordButton.classList.toggle("is-hidden", !state.deviceRevealed);
+          openLayer(gameMenuLayer);
+        });
+        for (const [layer, closeButton] of [
+          [gameMenuLayer, gameMenuClose],
+          [repairRecordLayer, repairRecordClose],
+        ]) {
+          closeButton.addEventListener("click", () => closeLayer(layer));
+        }
+        repairRecordButton.addEventListener("click", () => {
+          if (!state.deviceRevealed) return;
+          const answer = document.getElementById("repairAnswer");
+          answer.replaceChildren(
+            ...[...repairAnswer].map((character) => {
+              const chip = document.createElement("span");
+              chip.className = `chip ${character === "再" ? "mark1" : "mark2"}`;
+              chip.textContent = character;
+              return chip;
+            })
+          );
+          const trace = puzzlePanel.querySelector(".puzzle-lines").cloneNode(true);
+          document.getElementById("repairTrace").replaceChildren(trace);
+          openLayer(repairRecordLayer);
+        });
+        restartButton.addEventListener("click", () => {
+          showFlavor("修復した装置と、ここまでの進行をリセットします。", {
+            title: "最初からやり直しますか？",
+            actionLabel: "やり直す",
+            onAction: restartGame,
+            closeLabel: "キャンセル",
+          });
+        });
+
+        async function restartGame() {
+          trackTelemetry("reset");
           completionAttempt.reset();
-          location.href = `${location.pathname}?_pstep=0#step-0`;
-        });
+          window.AkashicProgress.removeProgress("three-forward-two-back");
+          try {
+            sessionStorage.removeItem(routeStorageKey);
+          } catch {}
+          try {
+            const url = new URL(location.href);
+            url.searchParams.delete("_pstep");
+            url.hash = "";
+            history.replaceState(null, "", `${url.pathname}${url.search}`);
+          } catch {}
+          try {
+            await telemetry?.flush();
+          } catch {
+            // A storage or analytics failure must not prevent restarting.
+          }
+          location.reload();
+        }
+        titleReturn.addEventListener("click", restartGame);
 
-        window.addEventListener("popstate", (event) => {
-          handleRouteChange(event.state);
-        });
-
-        window.addEventListener("hashchange", () => {
-          handleRouteChange(history.state);
-        });
-
-        function handleRouteChange(routeState) {
-          if (state.ended) return;
-          if (!isCurrentRun(routeState)) {
-            state.routeValid = false;
-            state.routeDepth = 0;
-            state.primingHistory = false;
-            updateHud();
-            return;
-          }
-          const nextDepth = getDepth(routeState);
-          if (!state.primingHistory && nextDepth === state.routeDepth) return;
-          if (state.primingHistory) {
-            state.routeDepth = nextDepth;
-            if (nextDepth <= 0) {
-              state.primingHistory = false;
-              state.routeDepth = 0;
-            }
-            updateHud();
-            return;
-          }
-          if (!state.deviceRevealed) {
-            state.routeDepth = nextDepth;
-            updateHud();
-            return;
-          }
-          if (nextDepth < state.routeDepth) {
-            const steps = state.routeDepth - nextDepth;
-            state.routeDepth = nextDepth;
-            handleBackStep(steps);
-          } else {
-            const steps = nextDepth - state.routeDepth;
-            state.routeDepth = nextDepth;
-            handleForwardStep(steps);
-          }
+        window.addEventListener("popstate", () => restoreRoute());
+        window.addEventListener("hashchange", () => restoreRoute());
+        // Count this real navigation before load/pageshow; images must not gate feedback.
+        const restoredRoute = restoreRoute();
+        if (
+          performance.getEntriesByType("navigation")[0]?.type === "reload" &&
+          restoredRoute &&
+          state.deviceRevealed &&
+          !state.ended &&
+          state.routeValid &&
+          state.routeDepth === 0 &&
+          state.back === 0 &&
+          state.forward < 3
+        ) {
+          state.forward += 1;
           updateHud();
+        }
+        window.addEventListener("pageshow", (event) => {
+          document.querySelector(".control-room").dataset.pageRestore = event.persisted
+            ? "cache"
+            : "document";
+          if (event.persisted) {
+            applyCheckpoint(readCheckpoint());
+            renderCheckpoint();
+            restoreRoute();
+          }
+        });
+
+        function routeRecord(value) {
+          return (
+            value?.puzzle === "reload-back-v1" &&
+            typeof value.puzzleRun === "string" &&
+            value.puzzleRun.length <= 100 &&
+            Number.isInteger(value.puzzleDepth) &&
+            value.puzzleDepth >= minRouteDepth &&
+            value.puzzleDepth <= maxRouteDepth
+          );
+        }
+
+        function readRouteLedger() {
+          try {
+            const value = JSON.parse(sessionStorage.getItem(routeStorageKey));
+            if (
+              typeof value?.run !== "string" ||
+              !Number.isInteger(value.depth) ||
+              value.depth < minRouteDepth ||
+              value.depth > maxRouteDepth ||
+              !Number.isInteger(value.forward) ||
+              value.forward < 0 ||
+              value.forward > 3 ||
+              !Number.isInteger(value.back) ||
+              value.back < 0 ||
+              value.back > 2 ||
+              (value.back > 0 && value.forward !== 3) ||
+              typeof value.valid !== "boolean"
+            )
+              return null;
+            return value;
+          } catch {
+            return null;
+          }
+        }
+
+        function saveRouteLedger() {
+          if (!state.historyReady) return false;
+          try {
+            sessionStorage.setItem(
+              routeStorageKey,
+              JSON.stringify({
+                run: runId,
+                depth: state.routeDepth,
+                forward: state.forward,
+                back: state.back,
+                valid: state.routeValid,
+              })
+            );
+            return true;
+          } catch {
+            return false;
+          }
+        }
+
+        function restoreRoute() {
+          const current = history.state;
+          const ledger = readRouteLedger();
+          if (!routeRecord(current) || !ledger || current.puzzleRun !== ledger.run) {
+            state.historyReady = false;
+            return false;
+          }
+          runId = ledger.run;
+          state.historyReady = true;
+          state.forward = state.escapeArmed ? 3 : ledger.forward;
+          state.back = state.escapeArmed ? 2 : ledger.back;
+          state.routeValid = ledger.valid;
+          const depth = current.puzzleDepth;
+          if (depth !== ledger.depth && state.deviceRevealed && !state.escapeArmed) {
+            if (depth === 0) {
+              state.forward = 0;
+              state.back = 0;
+              state.routeValid = true;
+            } else if (depth < ledger.depth && state.forward === 3 && state.routeValid) {
+              state.back = Math.min(2, state.back + ledger.depth - depth);
+              if (state.back === 2) armEscape();
+            } else {
+              state.routeValid = false;
+            }
+          }
+          state.routeDepth = depth;
+          updateHud();
+          return true;
+        }
+
+        function prepareHistoryOnInteraction(event) {
+          if (event.target.closest("#gameMenuButton")) return;
+          if (!event.isTrusted || state.ended || state.historyReady || historyFailed) return;
+          // Controls can be used before image loading finishes and pageshow runs.
+          // Resume this tab's existing route before preparing a new history run.
+          if (restoreRoute()) return;
+          try {
+            primeBrowserHistory();
+          } catch {
+            failHistory();
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
         }
 
         function primeBrowserHistory() {
-          history.replaceState({ puzzle: true, puzzleRun: runId, puzzleDepth: 0 }, "", stepUrl(0));
-          state.routeDepth = 0;
-          state.primingBackSteps = 0;
-          state.primingTargetDepth = 0;
-          for (let depth = 1; depth <= maxRouteDepth; depth += 1) {
+          // Prepare only Back checkpoints while this document has trusted activation.
+          // Reloads keep the current entry; they never append or traverse history.
+          runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          history.replaceState(
+            { puzzle: "reload-back-v1", puzzleRun: runId, puzzleDepth: minRouteDepth },
+            "",
+            stepUrl(minRouteDepth)
+          );
+          for (let depth = minRouteDepth + 1; depth <= maxRouteDepth; depth += 1) {
             history.pushState(
-              { puzzle: true, puzzleRun: runId, puzzleDepth: depth },
+              { puzzle: "reload-back-v1", puzzleRun: runId, puzzleDepth: depth },
               "",
               stepUrl(depth)
             );
           }
-          state.routeDepth = maxRouteDepth;
-          // 起点(step-0)へは "1回の history.go" で戻す。こうすると進む用の
-          // フォワード履歴 [1..N] が確実に残り、プレイヤーが後で「進む」を押せる。
-          // 旧実装は setInterval で history.back() を繰り返していたため、答えを
-          // 素早く入力したプレイヤーの back/forward 操作と衝突し、履歴スタックを
-          // 底(step-0)より下へ突き抜けて about:blank へ離脱する事故が起きていた
-          // （＝「→→→←← が通らない」の主因）。単発の go に置き換えて競合を無くす。
-          window.setTimeout(() => settlePrimingHome(), 60);
+          state.historyReady = true;
+          state.routeDepth = 0;
+          state.forward = state.escapeArmed ? 3 : 0;
+          state.back = state.escapeArmed ? 2 : 0;
+          state.routeValid = true;
+          if (!saveRouteLedger()) throw Error("Route storage is unavailable");
+          updateHud();
         }
 
-        function settlePrimingHome(attempt = 0) {
-          if (!state.primingHistory) return;
-          const depth = getDepth(history.state);
-          if (depth <= 0) {
-            state.routeDepth = 0;
-            state.primingHistory = false;
-            history.replaceState(
-              { puzzle: true, puzzleRun: runId, puzzleDepth: 0 },
-              "",
-              stepUrl(0)
-            );
-            updateHud();
-            return;
-          }
-          if (attempt >= 6) {
-            // popstate が戻ってこない環境向けの最終フォールバック。現在地を起点
-            // として受け入れ、priming を解除してプレイ可能な状態にする。
-            state.routeDepth = 0;
-            state.primingHistory = false;
-            history.replaceState(
-              { puzzle: true, puzzleRun: runId, puzzleDepth: 0 },
-              "",
-              stepUrl(0)
-            );
-            updateHud();
-            return;
-          }
-          history.go(-depth);
-          window.setTimeout(() => settlePrimingHome(attempt + 1), 320);
-        }
-
-        function getDepth(historyState) {
-          const match = location.hash.match(/step-(\d+)/);
-          if (match) return Number(match[1]);
-          return historyState && Number.isFinite(historyState.puzzleDepth)
-            ? historyState.puzzleDepth
-            : 0;
-        }
-
-        function isCurrentRun(historyState) {
-          return Boolean(
-            historyState && historyState.puzzle === true && historyState.puzzleRun === runId
+        function failHistory() {
+          historyFailed = true;
+          state.historyReady = false;
+          showFlavor(
+            "このブラウザでは手順を保存できませんでした。Chrome・Safariなどのブラウザで開き直してください。",
+            {
+              title: "操作できません",
+            }
           );
         }
 
@@ -2090,6 +2494,50 @@
           return `${url.pathname}${url.search}${url.hash}`;
         }
 
+        // Presentation is transient; the repaired checkpoint is saved immediately.
+        function finishDeviceAppearance(restoreFocus = false) {
+          window.clearTimeout(deviceRevealTimer);
+          deviceRevealTimer = null;
+          devicePanel.classList.remove("is-revealing");
+          devicePanel.inert = false;
+          threeMount.dataset.deviceState = state.deviceRevealed ? "ready" : "hidden";
+          roomScene.setDeviceVisible(state.deviceRevealed);
+          if (
+            restoreFocus &&
+            state.deviceRevealed &&
+            !state.ended &&
+            !app.inert &&
+            memoLayer.classList.contains("is-hidden") &&
+            flavorLayer.classList.contains("is-hidden") &&
+            (puzzlePanel.contains(document.activeElement) ||
+              document.activeElement === displayHotspot ||
+              document.activeElement === document.body)
+          )
+            (devicePanel.classList.contains("is-hidden") ? deviceHotspot : activationButton).focus({
+              preventScroll: true,
+            });
+        }
+
+        function presentDevice(animate) {
+          window.clearTimeout(deviceRevealTimer);
+          const moving = animate && !reducedMotion.matches && deviceRevealDuration > 0;
+          devicePanel.classList.toggle("is-revealing", moving);
+          devicePanel.inert = moving;
+          threeMount.dataset.deviceState = moving ? "revealing" : "ready";
+          roomScene.setDeviceVisible(true, moving, deviceRevealDuration);
+          if (moving)
+            deviceRevealTimer = window.setTimeout(
+              () => finishDeviceAppearance(true),
+              deviceRevealDuration
+            );
+          else finishDeviceAppearance(animate);
+        }
+
+        reducedMotion.addEventListener("change", () => {
+          if (reducedMotion.matches && deviceRevealTimer !== null) finishDeviceAppearance(true);
+        });
+        window.addEventListener("pagehide", () => finishDeviceAppearance());
+
         function revealDevice() {
           if (state.deviceRevealed) return;
           state.deviceRevealed = true;
@@ -2097,59 +2545,42 @@
           puzzleInput.value = "";
           state.forward = 0;
           state.back = 0;
-          state.phase = "forward";
+          state.routeDepth = 0;
           state.routeValid = true;
           state.escapeArmed = false;
-          puzzlePanel.classList.add("is-hidden");
-          devicePanel.classList.remove("is-hidden", "is-available");
-          deviceCopy.textContent = "制御装置が現れた。\n「赤青青で脱出」と裏面に書いてあった。";
-          objective.textContent = "目標：赤青青";
-          threeScene.setDeviceVisible(true);
-          threeScene.setActivationReady(false);
+          returnSceneDialog = null;
+          closeLayer(puzzlePanel);
+          closeLayer(devicePanel);
+          devicePanel.classList.remove("is-available");
+          presentDevice(true);
+          roomScene.setActivationReady(false);
           updateHud();
+          if (state.historyReady && history.state.puzzleDepth !== 0) {
+            try {
+              primeBrowserHistory();
+            } catch {
+              failHistory();
+            }
+          }
         }
 
         function revealPuzzle() {
           if (state.deviceRevealed || state.ended) return;
-          puzzlePanel.classList.remove("is-hidden");
-        }
-
-        function handleForwardStep(steps) {
-          for (let i = 0; i < steps; i += 1) {
-            if (!state.routeValid || state.phase !== "forward") {
-              state.routeValid = false;
-              continue;
-            }
-            state.forward += 1;
-            if (state.forward === 3) {
-              state.phase = "back";
-            } else if (state.forward > 3) {
-              state.routeValid = false;
-            }
-          }
-        }
-
-        function handleBackStep(steps) {
-          for (let i = 0; i < steps; i += 1) {
-            if (state.phase === "back" && state.forward === 3 && state.routeValid) {
-              state.back += 1;
-              if (state.back === 2) {
-                armEscape();
-              } else if (state.back > 2) {
-                state.routeValid = false;
-              }
-            } else {
-              state.routeValid = false;
-            }
-          }
+          openLayer(puzzlePanel);
         }
 
         function updateHud() {
           saveProgress();
           if (!state.deviceRevealed) {
             objective.textContent = "脱出経路：未確定";
-          } else if (state.escapeArmed) {
-            objective.textContent = "脱出経路：開放";
+          } else {
+            objective.textContent = state.escapeArmed ? "脱出経路：開放" : "目標：装置を起動";
+          }
+          document.querySelector(".control-room").dataset.routeDepth = String(state.routeDepth);
+          if (state.deviceRevealed && !state.escapeArmed) {
+            deviceCopy.textContent = !state.routeValid
+              ? "手順が途切れた。\n装置を調べ直せ。"
+              : deviceColorClue;
           }
           updateLamps();
         }
@@ -2171,7 +2602,7 @@
               lamps[2 - i].classList.add("is-blue");
             }
           }
-          threeScene.setLamps(
+          roomScene.setLamps(
             lamps.map((lamp) => {
               if (lamp.classList.contains("is-blue")) return "blue";
               if (lamp.classList.contains("is-red")) return "red";
@@ -2185,15 +2616,27 @@
           devicePanel.classList.add("is-available");
           deviceCopy.textContent = "脱出可能\n起動せよ";
           objective.textContent = "脱出経路：開放";
-          threeScene.setActivationReady(true);
+          roomScene.setActivationReady(true);
         }
 
         function showMemo() {
-          memoLayer.dataset.ready = "false";
-          memoLayer.classList.remove("is-hidden");
-          window.setTimeout(() => {
-            memoLayer.dataset.ready = "true";
-          }, 180);
+          memoText.textContent = deviceCopy.textContent;
+          openLayer(memoLayer);
+        }
+
+        function openLayer(layer) {
+          if (layer !== puzzlePanel && layer !== devicePanel && !returnSceneDialog) {
+            const sceneLayer = [puzzlePanel, devicePanel].find(
+              (item) => !item.classList.contains("is-hidden")
+            );
+            if (sceneLayer)
+              returnSceneDialog = { layer: sceneLayer, opener: document.activeElement };
+          }
+          inspection.open(layer);
+        }
+
+        function closeLayer(layer) {
+          inspection.close(layer);
         }
 
         function showFlavor(text, options = {}) {
@@ -2204,10 +2647,12 @@
           flavorActionHandler = typeof options.onAction === "function" ? options.onAction : null;
           flavorAction.textContent = options.actionLabel || "";
           flavorAction.classList.toggle("is-hidden", !flavorActionHandler);
-          flavorLayer.classList.remove("is-hidden");
+          flavorClose.textContent = options.closeLabel || "閉じる";
+          openLayer(flavorLayer);
         }
 
         function showPuzzleHint() {
+          trackTelemetry("hint");
           state.hintUsed = true;
           saveProgress();
           completionAttempt.hint();
@@ -2226,22 +2671,27 @@
         }
 
         function showBrowserHint() {
+          trackTelemetry("hint");
           state.hintUsed = true;
           completionAttempt.hint();
           state.browserHintSeen = true;
           saveProgress();
-          showFlavor("進む / 戻る は、ブラウザの進む / 戻る。", {
+          showFlavor("読み直すとは、このページの再読み込み。戻るのは、ブラウザの戻る。", {
             title: "ヒント",
           });
         }
 
-        function showSwipeHint() {
+        function showNavigationHint() {
+          trackTelemetry("hint");
           state.hintUsed = true;
           saveProgress();
           completionAttempt.hint();
-          showFlavor("画面の端をスワイプしても、ブラウザの進む / 戻るが使える。", {
-            title: "メモ",
-          });
+          showFlavor(
+            "再読み込みと戻るが見当たらなければ、ブラウザのメニューを探せ。手順を外したら、装置を調べ直せ。",
+            {
+              title: "メモ",
+            }
+          );
         }
 
         function handleActivation(event) {
@@ -2259,503 +2709,23 @@
           completionAttempt.complete();
           const share = document.getElementById("clear-share");
           share.href = globalThis.AkashicCompletion.createShareIntent(
-            "脱出に成功した。「三歩進んで二歩戻る」" +
+            "脱出に成功した。「忘れられた手順」" +
               (completionAttempt.noHints ? "\nノーヒントでクリアしました！" : ""),
             "https://games.escape-safari.com/three-forward-two-back/"
           );
+          returnSceneDialog = null;
+          closeLayer(devicePanel);
           state.ended = true;
+          trackTelemetry("clear");
+          finishDeviceAppearance();
           saveProgress();
           clearStage.classList.add("is-visible");
+          app.inert = true;
+          titleReturn.focus({ preventScroll: true });
           explosionVideo.pause();
           window.setTimeout(() => {
             clearStage.classList.add("is-settled");
           }, 3000);
-        }
-
-        function initThreeScene() {
-          if (!window.THREE || !threeMount) {
-            return { setDeviceVisible() {}, setActivationReady() {}, setLamps() {} };
-          }
-
-          const scene = new THREE.Scene();
-          scene.background = new THREE.Color(0x090a0b);
-          scene.fog = new THREE.Fog(0x090a0b, 7.2, 20);
-
-          const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 80);
-          camera.position.set(0, 2.55, 8.8);
-          camera.lookAt(0, 1.08, -0.2);
-
-          const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
-          renderer.shadowMap.enabled = true;
-          renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-          threeMount.append(renderer.domElement);
-
-          const hemi = new THREE.HemisphereLight(0xb8c4c8, 0x21170f, 0.82);
-          scene.add(hemi);
-
-          const key = new THREE.SpotLight(0xe6c58d, 2.2, 15, Math.PI / 4.9, 0.68, 1.35);
-          key.position.set(-3.4, 5.6, 4.2);
-          key.target.position.set(0, 0.75, 0);
-          key.castShadow = true;
-          key.shadow.mapSize.width = 1024;
-          key.shadow.mapSize.height = 1024;
-          scene.add(key, key.target);
-
-          const backLight = new THREE.PointLight(0x4c7d9b, 1.25, 10.5, 2.1);
-          backLight.position.set(2.8, 2.4, -4.1);
-          scene.add(backLight);
-
-          const lampObjects = [];
-          const activationObject = {};
-          const clock = new THREE.Clock();
-          const materials = createThreeMaterials();
-          const terminal = buildBrokenTerminal(scene, materials);
-          const wallProbe = new THREE.Object3D();
-          wallProbe.position.set(0.05, 2.7, -4.94);
-          const tileFloorProbe = new THREE.Object3D();
-          tileFloorProbe.position.set(0.05, 0.04, 1.18);
-          const floorProbe = new THREE.Object3D();
-          floorProbe.position.set(0.1, 0.05, 2.82);
-
-          buildRoom(scene, materials);
-          const kakejiku3d = buildKakejiku(scene, materials);
-          const device3d = buildControlDevice(scene, materials, lampObjects, activationObject);
-          scene.add(wallProbe);
-          scene.add(tileFloorProbe);
-          scene.add(floorProbe);
-          loadLampModels(lampObjects);
-          if (device3d) device3d.visible = false;
-
-          function resize() {
-            const rect = threeMount.getBoundingClientRect();
-            const width = Math.max(1, rect.width);
-            const height = Math.max(1, rect.height);
-            camera.aspect = width / height;
-            camera.position.z = width < 720 ? 9.8 : 8.8;
-            camera.position.y = width < 720 ? 2.85 : 2.55;
-            camera.lookAt(0, 1.08, -0.2);
-            camera.updateProjectionMatrix();
-            if (terminal && terminal.monitor) {
-              const compact = width < 520;
-              terminal.monitor.position.set(compact ? 1.72 : 3.55, 0.62, compact ? -3.28 : -3.55);
-              terminal.monitor.rotation.y = compact ? -0.24 : -0.36;
-              if (terminal.light)
-                terminal.light.position.set(compact ? 1.52 : 3.3, 0.82, compact ? -2.9 : -3.1);
-            }
-            renderer.setSize(width, height, false);
-          }
-
-          function animate() {
-            requestAnimationFrame(animate);
-            try {
-              const elapsed = clock.getElapsedTime();
-              const reveal = Math.min(1, elapsed / 15);
-              if (kakejiku3d) {
-                kakejiku3d.paper.opacity = 0.46 + reveal * 0.28;
-                kakejiku3d.text.opacity = 0.2 + reveal * 0.54;
-              }
-              lampObjects.forEach((lamp, index) => {
-                if (lamp.modelAnchor) {
-                  lamp.modelAnchor.position.y =
-                    lamp.modelAnchor.userData.baseY + Math.sin(elapsed * 1.7 + index) * 0.006;
-                }
-                if (lamp.light.userData.baseIntensity > 0) {
-                  lamp.light.intensity =
-                    lamp.light.userData.baseIntensity + Math.sin(elapsed * 7 + index) * 0.035;
-                }
-              });
-              projectHotspot(displayHotspot, terminal && terminal.screen, 0.078, 0.052);
-              projectHotspot(kakejikuHotspot, kakejiku3d && kakejiku3d.target, 0.16, 0.24);
-              projectHotspot(wallHotspot, wallProbe, 0.56, 0.34, 520, 260);
-              projectHotspot(floorHotspot, tileFloorProbe, 0.9, 0.34, 780, 260);
-              projectHotspot(floorCrackHotspot, floorProbe, 0.88, 0.18, 760, 180);
-              projectHotspot(
-                deviceHotspot,
-                device3d && device3d.visible ? device3d : null,
-                0.46,
-                0.2
-              );
-              renderer.render(scene, camera);
-            } catch (error) {
-              console.error("Three.js frame error:", error);
-            }
-          }
-
-          function projectHotspot(
-            hotspot,
-            target,
-            widthScale,
-            heightScale,
-            maxWidth = 180,
-            maxHeight = 150
-          ) {
-            if (!hotspot) return;
-            if (!target) {
-              hotspot.classList.add("is-hidden");
-              return;
-            }
-            hotspot.classList.remove("is-hidden");
-            target.updateWorldMatrix(true, false);
-            const center = new THREE.Vector3();
-            target.getWorldPosition(center);
-            center.project(camera);
-            const parentRect = hotspot.offsetParent.getBoundingClientRect();
-            const widthBase = window.innerWidth || parentRect.width;
-            const heightBase = window.innerHeight || parentRect.height;
-            const x = (center.x + 1) * widthBase * 0.5 - parentRect.left;
-            const y = (1 - center.y) * heightBase * 0.5 - parentRect.top;
-            const width = Math.max(44, Math.min(maxWidth, widthBase * widthScale));
-            const height = Math.max(30, Math.min(maxHeight, widthBase * heightScale));
-            hotspot.style.left = `${x}px`;
-            hotspot.style.top = `${y}px`;
-            hotspot.style.width = `${width}px`;
-            hotspot.style.height = `${height}px`;
-          }
-
-          window.addEventListener("resize", resize);
-          resize();
-          animate();
-
-          return {
-            setDeviceVisible(visible) {
-              if (device3d) device3d.visible = visible;
-            },
-            setActivationReady(ready) {
-              if (!activationObject.button || !activationObject.light) return;
-              activationObject.button.material.color.setHex(ready ? 0x4d9a4f : 0x2c2420);
-              activationObject.button.material.emissive.setHex(ready ? 0x1d5f21 : 0x000000);
-              activationObject.light.color.setHex(ready ? 0x74ff6b : 0x000000);
-              activationObject.light.intensity = ready ? 0.72 : 0;
-            },
-            setLamps(colors) {
-              colors.forEach((color, index) => {
-                const lamp = lampObjects[index];
-                if (!lamp) return;
-                const config =
-                  {
-                    off: { glass: 0x3a342e, emissive: 0x000000, light: 0x000000, intensity: 0 },
-                    red: { glass: 0xd72c2c, emissive: 0x8a0f0f, light: 0xff3030, intensity: 1.45 },
-                    blue: { glass: 0x3f72c8, emissive: 0x153d91, light: 0x4388ff, intensity: 1.35 },
-                  }[color] || null;
-                if (!config) return;
-                lamp.modelMaterials.forEach((material) => {
-                  material.color.setHex(config.glass);
-                  if (material.emissive) {
-                    material.emissive.setHex(config.emissive);
-                    material.emissiveIntensity = color === "off" ? 0 : 1.1;
-                  }
-                });
-                lamp.light.color.setHex(config.light);
-                lamp.light.userData.baseIntensity = config.intensity;
-                lamp.light.intensity = config.intensity;
-                lamp.glow.material.opacity = color === "off" ? 0 : 0.36;
-                lamp.glow.material.color.setHex(config.light || 0x000000);
-              });
-            },
-          };
-        }
-
-        function createThreeMaterials() {
-          return {
-            floor: new THREE.MeshStandardMaterial({
-              color: 0x26231d,
-              roughness: 0.86,
-              metalness: 0.04,
-            }),
-            wall: new THREE.MeshStandardMaterial({
-              color: 0x1b1d1e,
-              roughness: 0.92,
-              metalness: 0.08,
-            }),
-            metal: new THREE.MeshStandardMaterial({
-              color: 0x332d25,
-              roughness: 0.6,
-              metalness: 0.68,
-            }),
-            metalEdge: new THREE.MeshStandardMaterial({
-              color: 0x806743,
-              roughness: 0.5,
-              metalness: 0.54,
-            }),
-            plate: new THREE.MeshStandardMaterial({
-              color: 0x5d503f,
-              roughness: 0.72,
-              metalness: 0.2,
-            }),
-            paper: new THREE.MeshStandardMaterial({
-              color: 0x8d7b58,
-              roughness: 0.96,
-              metalness: 0,
-            }),
-            black: new THREE.MeshStandardMaterial({
-              color: 0x060606,
-              roughness: 0.5,
-              metalness: 0.5,
-            }),
-            lampGlass: new THREE.MeshStandardMaterial({
-              color: 0x1a1917,
-              roughness: 0.22,
-              metalness: 0.05,
-              emissive: 0x000000,
-              emissiveIntensity: 1.55,
-            }),
-          };
-        }
-
-        function loadLampModels(lampObjects) {
-          if (!THREE.GLTFLoader) return;
-          const loader = new THREE.GLTFLoader();
-          loader.load(
-            "assets/models/sconce_03/sconce_03.glb",
-            (gltf) => {
-              lampObjects.forEach((lamp) => {
-                if (!lamp || !lamp.modelAnchor) return;
-                const clone = gltf.scene.clone(true);
-                clone.rotation.x = Math.PI / 2;
-                clone.rotation.z = 0;
-                clone.position.set(0, 0, 0);
-                clone.scale.setScalar(2.3);
-                clone.traverse((child) => {
-                  if (!child.isMesh) return;
-                  child.castShadow = true;
-                  child.receiveShadow = true;
-                  child.material = child.material.clone();
-                  child.material.color.setHex(0x3a342e);
-                  if (child.material.emissive) {
-                    child.material.emissive.setHex(0x000000);
-                    child.material.emissiveIntensity = 0;
-                  }
-                  lamp.modelMaterials.push(child.material);
-                });
-                lamp.modelAnchor.add(clone);
-              });
-              updateLamps();
-            },
-            undefined,
-            (error) => {
-              console.warn("Lamp model failed to load:", error);
-            }
-          );
-        }
-
-        function buildRoom(scene, materials) {
-          const floor = new THREE.Mesh(new THREE.PlaneGeometry(18, 18, 24, 24), materials.floor);
-          floor.rotation.x = -Math.PI / 2;
-          floor.position.y = -0.08;
-          floor.receiveShadow = true;
-          scene.add(floor);
-
-          const backWall = new THREE.Mesh(new THREE.BoxGeometry(18, 7, 0.18), materials.wall);
-          backWall.position.set(0, 3.18, -5.1);
-          backWall.receiveShadow = true;
-          scene.add(backWall);
-
-          const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.18, 7, 12), materials.wall);
-          leftWall.position.set(-6.2, 3.18, 0.2);
-          leftWall.receiveShadow = true;
-          scene.add(leftWall);
-
-          const rightWall = leftWall.clone();
-          rightWall.position.x = 6.2;
-          scene.add(rightWall);
-
-          for (let i = -5; i <= 5; i += 1) {
-            const floorLine = new THREE.Mesh(
-              new THREE.BoxGeometry(0.015, 0.01, 18),
-              materials.metalEdge
-            );
-            floorLine.position.set(i * 1.2, -0.065, 0);
-            scene.add(floorLine);
-            const crossLine = new THREE.Mesh(
-              new THREE.BoxGeometry(18, 0.01, 0.015),
-              materials.metalEdge
-            );
-            crossLine.position.set(0, -0.06, i * 1.2);
-            scene.add(crossLine);
-          }
-
-          for (let i = -4; i <= 4; i += 1) {
-            const cable = new THREE.Mesh(
-              new THREE.CylinderGeometry(0.018, 0.018, 3.4, 10),
-              materials.black
-            );
-            cable.rotation.z = Math.PI / 2;
-            cable.rotation.y = i % 2 ? 0.28 : -0.17;
-            cable.position.set(i * 0.78, 0.035, 2.8 + (i % 3) * 0.16);
-            scene.add(cable);
-          }
-        }
-
-        function buildKakejiku(scene, materials) {
-          const scroll = new THREE.Group();
-          const paperMaterial = materials.paper.clone();
-          paperMaterial.transparent = true;
-          paperMaterial.opacity = 0.46;
-          const paper = new THREE.Mesh(new THREE.BoxGeometry(1.55, 2.62, 0.035), paperMaterial);
-          paper.position.y = 2.64;
-          paper.castShadow = true;
-          paper.receiveShadow = true;
-          scroll.add(paper);
-
-          const rodGeo = new THREE.CylinderGeometry(0.055, 0.055, 1.92, 16);
-          const top = new THREE.Mesh(rodGeo, materials.metalEdge);
-          top.rotation.z = Math.PI / 2;
-          top.position.y = 4.0;
-          const bottom = top.clone();
-          bottom.position.y = 1.28;
-          scroll.add(top, bottom);
-
-          const textCanvas = document.createElement("canvas");
-          textCanvas.width = 256;
-          textCanvas.height = 512;
-          const ctx = textCanvas.getContext("2d");
-          ctx.clearRect(0, 0, textCanvas.width, textCanvas.height);
-          ctx.fillStyle = "rgba(26,18,12,0.82)";
-          ctx.font = "700 46px serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          "三歩進んで"
-            .split("")
-            .forEach((char, index) => ctx.fillText(char, 154, 118 + index * 45));
-          "二歩戻る".split("").forEach((char, index) => ctx.fillText(char, 98, 142 + index * 48));
-          const texture = new THREE.CanvasTexture(textCanvas);
-          const textMaterial = new THREE.MeshBasicMaterial({
-            map: texture,
-            transparent: true,
-            opacity: 0.2,
-          });
-          const text = new THREE.Mesh(new THREE.PlaneGeometry(1.32, 2.24), textMaterial);
-          text.position.set(0, 2.64, 0.026);
-          scroll.add(text);
-
-          scroll.position.set(0, 0.14, -4.98);
-          scene.add(scroll);
-          return { paper: paperMaterial, text: textMaterial, target: paper };
-        }
-
-        function buildBrokenTerminal(scene, materials) {
-          const monitor = new THREE.Group();
-          const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.58, 0.22), materials.metal);
-          const screen = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.62, 0.36),
-            new THREE.MeshBasicMaterial({ color: 0x103552, transparent: true, opacity: 0.62 })
-          );
-          screen.position.set(0, 0.04, 0.116);
-          monitor.add(body, screen);
-          monitor.position.set(3.55, 0.62, -3.55);
-          monitor.rotation.y = -0.36;
-          scene.add(monitor);
-
-          const screenLight = new THREE.PointLight(0x3f8dcc, 0.42, 2.4, 2);
-          screenLight.position.set(3.3, 0.82, -3.1);
-          scene.add(screenLight);
-          return { monitor, screen, light: screenLight };
-        }
-
-        function buildControlDevice(scene, materials, lampObjects, activationObject) {
-          const device = new THREE.Group();
-          device.rotation.x = -0.03;
-
-          const base = new THREE.Mesh(new THREE.BoxGeometry(4.9, 1.35, 2.38), materials.metal);
-          base.position.set(0, 0.76, 0);
-          base.castShadow = true;
-          base.receiveShadow = true;
-          device.add(base);
-
-          const top = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.28, 2.68), materials.metalEdge);
-          top.position.set(0, 1.52, 0);
-          top.castShadow = true;
-          top.receiveShadow = true;
-          device.add(top);
-
-          const frontPlate = new THREE.Mesh(
-            new THREE.BoxGeometry(3.95, 0.86, 0.055),
-            materials.plate
-          );
-          frontPlate.position.set(0, 0.71, 1.22);
-          frontPlate.castShadow = true;
-          device.add(frontPlate);
-
-          const activationMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2c2420,
-            roughness: 0.36,
-            metalness: 0.18,
-            emissive: 0x000000,
-            emissiveIntensity: 1.3,
-          });
-          const activationSocket = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.28, 0.32, 0.12, 28),
-            materials.black
-          );
-          activationSocket.position.set(2.05, 0.86, 1.34);
-          activationSocket.rotation.x = Math.PI / 2;
-          activationSocket.castShadow = true;
-          device.add(activationSocket);
-
-          const activationButton = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.22, 0.25, 0.15, 28),
-            activationMaterial
-          );
-          activationButton.position.set(2.05, 0.86, 1.39);
-          activationButton.rotation.x = Math.PI / 2;
-          activationButton.castShadow = true;
-          device.add(activationButton);
-
-          const activationLight = new THREE.PointLight(0x000000, 0, 2.2, 2);
-          activationLight.position.set(2.05, 0.9, 1.62);
-          device.add(activationLight);
-          activationObject.button = activationButton;
-          activationObject.light = activationLight;
-
-          [-1.24, 0, 1.24].forEach((x, index) => {
-            const socket = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.48, 0.08), materials.black);
-            socket.position.set(x, 0.86, 1.285);
-            socket.castShadow = true;
-            device.add(socket);
-
-            const modelAnchor = new THREE.Group();
-            modelAnchor.position.set(x, 0.86, 1.34);
-            modelAnchor.rotation.x = 0;
-            modelAnchor.scale.setScalar(1.55);
-            modelAnchor.userData.baseY = modelAnchor.position.y;
-            device.add(modelAnchor);
-
-            const glow = new THREE.Mesh(
-              new THREE.BoxGeometry(0.78, 0.52, 0.025),
-              new THREE.MeshBasicMaterial({
-                color: 0x000000,
-                transparent: true,
-                opacity: 0,
-                depthWrite: false,
-              })
-            );
-            glow.position.set(x, 0.86, 1.38);
-            device.add(glow);
-
-            const light = new THREE.PointLight(0x000000, 0, 3.2, 1.8);
-            light.userData.baseIntensity = 0;
-            light.position.set(x, 0.9, 1.62);
-            device.add(light);
-            lampObjects[index] = { modelAnchor, modelMaterials: [], glow, light };
-          });
-
-          for (let x = -2.25; x <= 2.25; x += 4.5) {
-            for (let z = -1.05; z <= 1.05; z += 2.1) {
-              const bolt = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.06, 0.06, 0.035, 12),
-                materials.black
-              );
-              bolt.rotation.x = Math.PI / 2;
-              bolt.position.set(x, 1.685, z);
-              device.add(bolt);
-            }
-          }
-
-          device.scale.setScalar(0.82);
-          device.position.set(0, 0.04, -0.42);
-          scene.add(device);
-          return device;
         }
       })();
     </script>
