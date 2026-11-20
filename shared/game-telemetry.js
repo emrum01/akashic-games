@@ -25,6 +25,8 @@
   const OWNER_HEARTBEAT_MS = 5 * 1000;
   const OWNER_LEASE_MS = 15 * 1000;
   const STORAGE_PREFIX = "akashic:game-telemetry:v3:";
+  const DATABASE_NAME = "akashic-game-telemetry-v1";
+  let databasePromise = null;
   const LOCK_PREFIX = "akashic-game-telemetry-v3:";
   // A frozen/throttled visible page should not add hours in one sample. Normal
   // visible thinking is sampled every 30 seconds and is never idle-timed out.
@@ -443,6 +445,7 @@
         const storage = root.localStorage;
         const locks = root.navigator && root.navigator.locks;
         if (
+          !root.indexedDB ||
           !storage ||
           typeof storage.getItem !== "function" ||
           typeof storage.setItem !== "function" ||
@@ -706,8 +709,8 @@
     });
   }
 
-  function writeStoredRecord(instance, record) {
-    instance.storage.setItem(STORAGE_PREFIX + instance.gameId, JSON.stringify(record));
+  function writeStoredRecord(instance, record, storage) {
+    storage.setItem(STORAGE_PREFIX + instance.gameId, JSON.stringify(record));
   }
 
   function renewOrClaimTimeOwner(record, instance, operation) {
@@ -775,8 +778,8 @@
     return { name: eventName, status: status, record: cloneRecord(record) };
   }
 
-  function applyStoredOperation(instance, operation) {
-    const raw = instance.storage.getItem(STORAGE_PREFIX + instance.gameId);
+  function applyStoredOperation(instance, operation, storage) {
+    const raw = storage.getItem(STORAGE_PREFIX + instance.gameId);
     let record = null;
     if (typeof raw === "string") {
       try {
@@ -789,7 +792,7 @@
     if (operation.kind === "initialize") {
       if (!record) {
         record = recordFromState(instance, operation.generation, true);
-        writeStoredRecord(instance, record);
+        writeStoredRecord(instance, record, storage);
         return {
           record: cloneRecord(record),
           cacheGeneration: operation.generation,
@@ -827,7 +830,7 @@
         event = makeOperationEvent(record, "game_reset", "reset");
       }
       const nextRecord = recordFromState(instance, operation.nextGeneration, false);
-      writeStoredRecord(instance, nextRecord);
+      writeStoredRecord(instance, nextRecord, storage);
       return { record: nextRecord, cacheGeneration: operation.nextGeneration, event: event };
     }
 
@@ -855,7 +858,7 @@
           renewOrClaimTimeOwner(record, instance, operation);
         }
         const event = makeOperationEvent(record, "game_start", "playing");
-        writeStoredRecord(instance, record);
+        writeStoredRecord(instance, record, storage);
         return { record: cloneRecord(record), cacheGeneration: operation.generation, event: event };
       }
       if (record.status !== "playing") {
@@ -863,7 +866,7 @@
       }
       const newlyOwned = renewOrClaimTimeOwner(record, instance, operation);
       const event = newlyOwned ? makeOperationEvent(record, "game_resume", "playing") : null;
-      writeStoredRecord(instance, record);
+      writeStoredRecord(instance, record, storage);
       return { record: cloneRecord(record), cacheGeneration: operation.generation, event: event };
     }
 
@@ -877,7 +880,7 @@
       updateOwnedTime(record, instance, true, operation);
       record.time_owner = null;
       const event = makeOperationEvent(record, "game_pause", "playing");
-      writeStoredRecord(instance, record);
+      writeStoredRecord(instance, record, storage);
       return { record: cloneRecord(record), cacheGeneration: operation.generation, event: event };
     }
 
@@ -887,7 +890,7 @@
         return null;
       }
       const event = makeOperationEvent(record, "game_resume", "playing");
-      writeStoredRecord(instance, record);
+      writeStoredRecord(instance, record, storage);
       return { record: cloneRecord(record), cacheGeneration: operation.generation, event: event };
     }
 
@@ -907,7 +910,7 @@
         event = makeOperationEvent(record, "game_checkpoint", "playing");
       }
       if (ownsTime || event) {
-        writeStoredRecord(instance, record);
+        writeStoredRecord(instance, record, storage);
         return { record: cloneRecord(record), cacheGeneration: operation.generation, event: event };
       }
       return null;
@@ -927,7 +930,7 @@
         operation.kind === "clear" ? "game_clear" : "game_fail",
         operation.kind === "clear" ? "cleared" : "failed"
       );
-      writeStoredRecord(instance, record);
+      writeStoredRecord(instance, record, storage);
       return { record: cloneRecord(record), cacheGeneration: operation.generation, event: event };
     }
 
@@ -957,7 +960,7 @@
       return null;
     }
     const event = makeOperationEvent(record, eventName, "playing");
-    writeStoredRecord(instance, record);
+    writeStoredRecord(instance, record, storage);
     return { record: cloneRecord(record), cacheGeneration: operation.generation, event: event };
   }
 
@@ -1000,6 +1003,92 @@
     }, undefined);
   }
 
+  function openDatabase() {
+    if (!databasePromise) {
+      databasePromise = new Promise(function (resolve, reject) {
+        const request = root.indexedDB.open(DATABASE_NAME, 1);
+        request.addEventListener("upgradeneeded", function () {
+          request.result.createObjectStore("records");
+        });
+        request.addEventListener("error", function () {
+          reject(new Error("Telemetry database unavailable"));
+        });
+        request.addEventListener("blocked", function () {
+          reject(new Error("Telemetry database blocked"));
+        });
+        request.addEventListener("success", function () {
+          const database = request.result;
+          database.addEventListener("versionchange", function () {
+            database.close();
+          });
+          resolve(database);
+        });
+      });
+    }
+    return databasePromise;
+  }
+
+  async function commitStoredOperation(instance, operation) {
+    const database = await openDatabase();
+    return new Promise(function (resolve, reject) {
+      // localStorage.setItem has no durable acknowledgement. In particular a
+      // final pause can reach GA while the browser later restores an older
+      // storage value. Only dispatch after a strict transaction has committed.
+      const transaction = database.transaction(["records"], "readwrite", { durability: "strict" });
+      if (transaction.durability !== "strict") {
+        transaction.abort();
+        reject(new Error("Durable telemetry transactions unavailable"));
+        return;
+      }
+      const store = transaction.objectStore("records");
+      const request = store.get(instance.gameId);
+      let result = null;
+      let written = null;
+      request.addEventListener("success", function () {
+        try {
+          const raw =
+            request.result === undefined
+              ? instance.storage.getItem(STORAGE_PREFIX + instance.gameId)
+              : request.result;
+          // The existing saved play is migrated once, without changing its id,
+          // generation, sequence, outcome or active time. Later transactions
+          // read the durable record even if the localStorage mirror rolls back.
+          if (request.result !== undefined && !decodeStoredRecord(raw, instance.gameId)) {
+            throw new Error("Invalid durable telemetry record");
+          }
+          const storage = {
+            getItem: function () {
+              return raw;
+            },
+            setItem: function (_key, value) {
+              written = value;
+              store.put(value, instance.gameId);
+            },
+          };
+          result = applyStoredOperation(instance, operation, storage);
+          if (request.result === undefined && written === null && result && result.record) {
+            storage.setItem(null, JSON.stringify(result.record));
+          }
+        } catch (_) {
+          transaction.abort();
+        }
+      });
+      transaction.addEventListener("abort", function () {
+        reject(new Error("Telemetry transaction aborted"));
+      });
+      transaction.addEventListener("complete", function () {
+        // Retain the legacy mirror for existing game integrations. It is not
+        // the authority for sequence allocation after migration.
+        if (written !== null) {
+          safely(function () {
+            instance.storage.setItem(STORAGE_PREFIX + instance.gameId, written);
+          }, undefined);
+        }
+        resolve(result);
+      });
+    });
+  }
+
   function enqueueStoredOperation(instance, operation) {
     const operationBinding = !instance.generationBound ? instance.initialBinding : null;
     const boundGeneration = operation.generation || instance.generation;
@@ -1024,7 +1113,7 @@
             if (!analyticsAllowed()) {
               return null;
             }
-            return applyStoredOperation(instance, operation);
+            return commitStoredOperation(instance, operation);
           }
         );
       })
@@ -1054,6 +1143,13 @@
           );
         }
         dispatchCanonical(instance, result.event);
+        if (
+          operation.kind === "initialize" &&
+          result.record &&
+          result.record.status === "playing"
+        ) {
+          resumeInstance(instance);
+        }
       });
     instance.queue = queued.catch(function () {
       instance.persistenceEnabled = false;
@@ -1654,8 +1750,12 @@
       snapshot: function () {
         return invoke(instance, snapshotInstance, null);
       },
-      flush: function () {
-        return instance.queue;
+      flush: async function () {
+        let pending;
+        do {
+          pending = instance.queue;
+          await pending;
+        } while (pending !== instance.queue);
       },
     };
     return instance;
@@ -1710,7 +1810,7 @@
         const state = persistence.record ? stateFromRecord(persistence.record) : freshState();
         instance = makeInstance(gameId, revision, state, persistence);
         instanceByGame[gameId] = instance;
-        if (persistence.enabled && !persistence.record) {
+        if (persistence.enabled) {
           enqueueStoredOperation(instance, {
             kind: "initialize",
             generation: state.generation,
