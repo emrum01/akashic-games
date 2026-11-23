@@ -18,14 +18,18 @@
     <meta property="og:image:height" content="631" />
     <meta property="og:image:alt" content="白線外はマグマ。マグマの通学路を走るランドセルの子とトラック。" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="stylesheet" href="./styles.css?v=screen-controls" />
-    <script type="module" src="./game.js?v=white-line-title"></script>
+    <link rel="stylesheet" href="./styles.css?v=asset-loading" />
+    <script type="module" src="./game.js?v=asset-loading"></script>
   </head>
   <body>
     <main class="notebook" aria-label="白線外はマグマ">
       <p id="cue" class="cue" role="status"></p>
       <section class="stage" aria-label="ゲーム画面">
         <canvas id="world" aria-hidden="true"></canvas>
+        <div id="loading" class="loading">
+          <p role="status">素材を読み込んでいます…</p>
+          <progress aria-label="素材の読み込み"></progress>
+        </div>
         <div class="stage-hud">
           <div class="run-hud">
             <span id="mode" class="mode">3D</span>
@@ -36,7 +40,7 @@
           </div>
           <button id="pause" type="button" aria-label="一時停止" hidden>Ⅱ</button>
         </div>
-        <div id="overlay" class="overlay" aria-labelledby="overlay-detail">
+        <div id="overlay" class="overlay" aria-labelledby="overlay-detail" hidden>
           <div class="overlay-content">
             <p id="overlay-detail">白線から落ちずに、どこまで行ける？</p>
             <dl id="result-scores" class="result-scores" hidden>

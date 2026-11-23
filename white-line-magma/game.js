@@ -1,7 +1,7 @@
 import { emitGameTelemetry, initializeGameTelemetry } from "../shared/game-telemetry-client.js";
 import "./completion-record.js";
 import { advance, newRun, restoreRun, signalFor, takeAction } from "./course.js";
-import { createRenderer } from "./render.js?v=screen-controls";
+import { createRenderer } from "./render.js?v=asset-loading";
 
 const GAME_ID = "white-line-magma";
 const qa = new URLSearchParams(location.search).has("qa");
@@ -16,6 +16,7 @@ const END_TEXT = {
 };
 
 const element = (id) => document.getElementById(id);
+const loading = element("loading");
 const overlay = element("overlay");
 const detail = element("overlay-detail");
 const primary = element("primary");
@@ -44,7 +45,7 @@ function applyViewport() {
 window.addEventListener("resize", applyViewport);
 viewport?.addEventListener("resize", applyViewport);
 applyViewport();
-const draw = createRenderer(element("world"), element("controls"));
+const renderer = createRenderer(element("world"), element("controls"));
 
 function readSave() {
   try {
@@ -57,7 +58,8 @@ function readSave() {
 const saved = readSave();
 let run = restoreRun(saved);
 let best = Math.max(0, Number.isSafeInteger(saved?.best) ? saved.best : 0);
-let screen = run ? (run.state === "ended" ? "ended" : "paused") : "ready";
+const initialScreen = run ? (run.state === "ended" ? "ended" : "paused") : "ready";
+let screen = "loading";
 let lastSave = 0;
 let lastCue = "";
 let dogHintIndex = -1;
@@ -140,7 +142,7 @@ function setScreen(next, focus = false) {
 }
 
 function activate() {
-  if (screen === "playing") {
+  if (screen === "loading" || screen === "playing") {
     return;
   }
   if (screen !== "paused") {
@@ -183,7 +185,7 @@ for (const [name, button] of Object.entries(buttons)) {
 
 const keyActions = { Space: "jump", ArrowUp: "jump", KeyF: "parry", KeyV: "switch" };
 window.addEventListener("keydown", (event) => {
-  if (event.ctrlKey || event.altKey || event.metaKey || event.defaultPrevented) {
+  if (screen === "loading" || event.ctrlKey || event.altKey || event.metaKey || event.defaultPrevented) {
     return;
   }
   const focusedButton = event.target instanceof HTMLButtonElement;
@@ -246,9 +248,14 @@ function frame(now) {
       save();
     }
   }
-  draw(run ?? titleRun, now, screen);
+  renderer.draw(run ?? titleRun, now, screen);
   requestAnimationFrame(frame);
 }
 
-setScreen(screen);
-requestAnimationFrame(frame);
+renderer.ready.then(() => {
+  requestAnimationFrame((now) => {
+    setScreen(initialScreen);
+    frame(now);
+    loading.hidden = true;
+  });
+});

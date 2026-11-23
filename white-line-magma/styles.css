@@ -112,6 +112,32 @@ canvas {
   height: 100%;
 }
 
+.loading {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  background: var(--paper);
+  text-align: center;
+}
+.loading p {
+  margin: 0;
+  font-weight: 800;
+}
+.loading progress {
+  width: min(160px, 48vw);
+  height: 6px;
+  accent-color: #eb7154;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading progress {
+    visibility: hidden;
+  }
+}
+
 .stage-hud {
   position: absolute;
   z-index: 2;

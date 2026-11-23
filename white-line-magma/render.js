@@ -1187,32 +1187,51 @@ function drawPlayer(ctx, project, run, unit, screen, reduced, models, rear) {
   }
 }
 
+function loadImage(file, signal) {
+  const image = new Image();
+  const discard = () => image.removeAttribute("src");
+  signal.addEventListener("abort", discard, { once: true });
+  image.src = new URL(`./assets/${file}.webp`, import.meta.url).href;
+  const ready = image.decode().catch(discard).finally(() => {
+    signal.removeEventListener("abort", discard);
+  });
+  return { image, ready };
+}
+
 export function createRenderer(canvas, controls) {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    return () => {};
+    return { ready: Promise.resolve(), draw() {} };
   }
 
+  const assets = new AbortController();
+  const { signal } = assets;
   let models;
-  import("./actor-models.js")
-    .then(({ createActorModels }) => createActorModels())
+  const modelsReady = import("./actor-models.js")
+    .then(({ createActorModels }) => (signal.aborted ? null : createActorModels()))
     .then((loaded) => {
-      models = loaded;
-      canvas.dataset.models = loaded.loaded;
-    })
-    .catch(() => {
-      canvas.dataset.models = "canvas";
+      if (loaded && !signal.aborted) {
+        models = loaded;
+      }
     });
-  const neighborhood = new Image();
-  neighborhood.src = new URL("./assets/neighborhood.webp", import.meta.url).href;
-  const magma = new Image();
-  magma.src = new URL("./assets/magma.webp", import.meta.url).href;
-  const truck = new Image();
-  truck.src = new URL("./assets/truck.webp", import.meta.url).href;
-  const lavaLane = new Image();
-  lavaLane.src = new URL("./assets/magma-lane.webp", import.meta.url).href;
-  const truckFront = new Image();
-  truckFront.src = new URL("./assets/truck-front.webp", import.meta.url).href;
+  const illustrations = ["neighborhood", "magma", "truck", "magma-lane", "truck-front"].map((file) =>
+    loadImage(file, signal),
+  );
+  const [neighborhood, magma, truck, lavaLane, truckFront] = illustrations.map(({ image }) => image);
+  let timeout;
+  const deadline = new Promise((resolve) => {
+    timeout = window.setTimeout(() => {
+      assets.abort();
+      resolve();
+    }, 15000);
+  });
+  const ready = Promise.race([
+    Promise.allSettled([modelsReady, ...illustrations.map((illustration) => illustration.ready)]),
+    deadline,
+  ]).then(() => {
+    window.clearTimeout(timeout);
+    canvas.dataset.models = models?.loaded || "canvas";
+  });
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let width = 0;
   let height = 0;
@@ -1235,7 +1254,7 @@ export function createRenderer(canvas, controls) {
   layout.observe(controls);
   resize();
 
-  return (run, now, screen) => {
+  function draw(run, now, screen) {
     if (width === 0 || height === 0) {
       return;
     }
@@ -1304,5 +1323,6 @@ export function createRenderer(canvas, controls) {
         parryFlash(ctx, impactX, impactY, unit, run.deflectTime);
       }
     }
-  };
+  }
+  return { ready, draw };
 }
