@@ -127,7 +127,11 @@ function setScreen(next, focus = false) {
     primary.textContent = "もう一度走る →";
     resultDistance.textContent = meters(run.distance);
     bestLabel.textContent = meters(Math.max(best, run.distance));
-    const text = `『白線外はマグマ』で ${Math.floor(run.distance)} m 走った！\n\n#白線外はマグマ`;
+    const text = [
+      `『白線外はマグマ』で ${Math.floor(run.distance)} m 走った！`,
+      "https://games.escape-safari.com/white-line-magma/",
+      "#白線外はマグマ",
+    ].join("\n\n");
     shareResult.href = globalThis.AkashicCompletion.createShareIntent(
       text,
       "https://x.com/nazotoki_cafe/status/2124790312040313320",
