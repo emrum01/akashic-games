@@ -1,7 +1,7 @@
 import { emitGameTelemetry, initializeGameTelemetry } from "../shared/game-telemetry-client.js";
 import "./completion-record.js";
 import { advance, newRun, restoreRun, signalFor, takeAction } from "./course.js";
-import { createRenderer } from "./render.js";
+import { createRenderer } from "./render.js?v=screen-controls";
 
 const GAME_ID = "white-line-magma";
 const qa = new URLSearchParams(location.search).has("qa");
