@@ -1,0 +1,324 @@
+:root {
+  color-scheme: dark;
+  --paper: #0a0a0a;
+  --ink: #f2f2f2;
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans CJK JP", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-image:
+    linear-gradient(#ffffff09 1px, transparent 1px),
+    linear-gradient(90deg, #ffffff09 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.notebook {
+  width: min(100%, 1600px);
+  margin: 0 auto;
+  padding: max(10px, env(safe-area-inset-top)) clamp(12px, 2.3vw, 36px) max(10px, env(safe-area-inset-bottom));
+}
+
+.distance-readout,
+.result-scores {
+  margin: 0;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.distance-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #151015eb;
+  border: 1px solid #bfb2b1;
+}
+.distance-readout dt,
+.result-scores dt {
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.distance-readout dd,
+.result-scores dd {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.6vw, 1.74rem);
+  font-weight: 800;
+  line-height: 1;
+}
+.distance-readout small,
+.result-scores small {
+  font-size: 0.64em;
+}
+.result-scores {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 10px 18px;
+  text-align: left;
+}
+
+.stage {
+  position: relative;
+  isolation: isolate;
+  height: clamp(250px, calc(100dvh - 128px - env(safe-area-inset-bottom)), 880px);
+  border: 1px solid #dedede;
+  background: #0a0a0a;
+  box-shadow:
+    1px 1px #e6e6e6,
+    -1px 0 #737373,
+    inset 0 0 0 2px #080808;
+}
+
+.stage::before,
+.stage::after {
+  pointer-events: none;
+  content: "";
+  width: 13px;
+  height: 13px;
+  background:
+    linear-gradient(#eaeaea, #eaeaea) center / 1px 100% no-repeat,
+    linear-gradient(90deg, #eaeaea, #eaeaea) center / 100% 1px no-repeat;
+  z-index: 1;
+  position: absolute;
+}
+.stage::before {
+  top: -7px;
+  left: -7px;
+}
+.stage::after {
+  right: -8px;
+  bottom: -7px;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.stage-hud {
+  position: absolute;
+  z-index: 2;
+  inset: 12px 13px auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.run-hud {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mode {
+  display: block;
+  padding: 2px 10px;
+  width: max-content;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  font:
+    italic 800 clamp(1.35rem, 3vw, 2rem) / 1.1 Georgia,
+    serif;
+  transform: rotate(-2deg);
+}
+
+button {
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid #d9d9d9;
+  border-radius: 2px 1px 3px 1px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:focus-visible,
+.share-result:focus-visible {
+  outline: 2px dashed #fff;
+  outline-offset: 4px;
+}
+button:not(:disabled):hover {
+  background: #272727;
+}
+button:not(:disabled):active {
+  background: #303030;
+}
+button:disabled {
+  color: #a4a4a4;
+  cursor: default;
+  border-color: #737373;
+}
+#pause {
+  pointer-events: auto;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 14px 16px 22px;
+  pointer-events: none;
+  background: linear-gradient(transparent 54%, #000b 99%);
+}
+.overlay[data-state="paused"],
+.overlay[data-state="ended"] {
+  background: #0009;
+}
+.overlay[data-state="ended"] {
+  align-items: center;
+}
+.overlay[data-state="ended"] .overlay-content {
+  padding: 16px clamp(14px, 4vw, 26px) 20px;
+  background: #171016f9;
+  border: 1px solid #ca9e8b;
+}
+.overlay-content {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.overlay-content p {
+  margin: 0;
+  padding: 5px 9px;
+  color: #fff;
+  background: #0a0a0af2;
+  font-size: clamp(0.8rem, 2.5vw, 1.02rem);
+  font-weight: 700;
+}
+.overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 9px;
+}
+.share-result {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 9px 14px;
+  border: 1px solid #bfb2b1;
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.share-result:hover {
+  background: #272727;
+}
+.primary {
+  pointer-events: auto;
+  padding: 10px 19px;
+  min-height: 46px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow:
+    3px 3px #0a0a0a,
+    4px 4px #aaa;
+}
+.primary:not(:disabled):hover {
+  background: #d6d6d6;
+}
+.primary:not(:disabled):active {
+  background: #c7c7c7;
+}
+.primary span {
+  padding-left: 6px;
+}
+.cue {
+  display: grid;
+  align-content: center;
+  min-height: 30px;
+  margin: 0 0 6px;
+  padding: 4px 10px;
+  border-inline: 2px solid transparent;
+  color: #fff6e5;
+  font-size: clamp(0.875rem, 1.3vw, 0.99rem);
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+.cue:not(:empty) {
+  background: #1b1c1d;
+  border-inline-start-color: #b9b6ad;
+}
+.cue[data-now] {
+  background: #30231a;
+  border-inline-start-color: #ffc277;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(7px, 2.3vw, 25px);
+  max-width: 1140px;
+  margin: clamp(8px, 1.2vw, 14px) auto 0;
+}
+.controls button {
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px;
+  padding: 9px 6px;
+  font-size: clamp(0.72rem, 2.15vw, 1.48rem);
+  box-shadow:
+    1px 1px #a2a2a2,
+    inset 1px 1px #454545;
+}
+.controls kbd {
+  margin-left: 0.45em;
+  font-size: 0.68em;
+  font-weight: 500;
+}
+.controls kbd::before {
+  content: "[";
+}
+.controls kbd::after {
+  content: "]";
+}
+
+@media (max-width: 620px) {
+  .stage {
+    height: clamp(225px, calc(100dvh - 122px - env(safe-area-inset-bottom)), 690px);
+  }
+  .stage-hud {
+    inset: 9px 9px auto;
+  }
+  .run-hud {
+    gap: 5px;
+  }
+  .distance-readout {
+    gap: 5px;
+    padding-inline: 7px;
+  }
+  .overlay {
+    padding-bottom: 16px;
+  }
+  .controls button {
+    font-size: clamp(0.73rem, 3.2vw, 1.05rem);
+  }
+  .controls kbd {
+    display: none;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .stage {
+    height: max(156px, calc(100dvh - 116px - env(safe-area-inset-bottom)));
+  }
+}

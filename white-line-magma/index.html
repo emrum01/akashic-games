@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>白線の上だけ</title>
+    <meta name="description" content="夕暮れの通学路。白線の外はマグマ。落ちずにどこまで走れる？" />
+    <link rel="canonical" href="https://games.escape-safari.com/white-line-magma/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="白線の上だけ" />
+    <meta property="og:description" content="夕暮れの通学路。白線の外はマグマ。落ちずにどこまで走れる？" />
+    <meta property="og:url" content="https://games.escape-safari.com/white-line-magma/" />
+    <meta property="og:image" content="https://games.escape-safari.com/white-line-magma/assets/ogp.webp" />
+    <meta property="og:image:type" content="image/webp" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="白線の上だけ。マグマの通学路を走るランドセルの子とトラック。" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./game.js"></script>
+  </head>
+  <body>
+    <main class="notebook" aria-label="白線の上だけ">
+      <p id="cue" class="cue" role="status"></p>
+      <section class="stage" aria-label="ゲーム画面">
+        <canvas id="world" aria-hidden="true"></canvas>
+        <div class="stage-hud">
+          <div class="run-hud">
+            <span id="mode" class="mode">3D</span>
+            <dl class="distance-readout">
+              <dt>距離</dt>
+              <dd><span id="distance">000</span><small> m</small></dd>
+            </dl>
+          </div>
+          <button id="pause" type="button" aria-label="一時停止" hidden>Ⅱ</button>
+        </div>
+        <div id="overlay" class="overlay" aria-labelledby="overlay-detail">
+          <div class="overlay-content">
+            <p id="overlay-detail">白線から落ちずに、どこまで行ける？</p>
+            <dl id="result-scores" class="result-scores" hidden>
+              <dt>今回</dt>
+              <dd><span id="result-distance">000</span><small> m</small></dd>
+              <dt>ベスト</dt>
+              <dd><span id="best">000</span><small> m</small></dd>
+            </dl>
+            <div class="overlay-actions">
+              <button id="primary" class="primary" type="button">
+                走りはじめる <span aria-hidden="true">→</span>
+              </button>
+              <a id="share-result" class="share-result" target="_blank" rel="noopener noreferrer" hidden>Xにポスト</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="controls" aria-label="ゲーム操作">
+        <button id="jump" type="button" aria-keyshortcuts="Space ArrowUp" disabled>
+          ジャンプ <kbd>Space</kbd>
+        </button>
+        <button id="parry" type="button" aria-keyshortcuts="F" disabled>
+          受け流す <kbd>F</kbd>
+        </button>
+        <button id="switch-view" type="button" aria-keyshortcuts="V" disabled>
+          <span id="view-action">2Dへ</span> <kbd>V</kbd>
+        </button>
+      </div>
+    </main>
+  </body>
+</html>
