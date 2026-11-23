@@ -224,7 +224,7 @@ function childHeight(unit, rear, ahead = 0) {
   return rear ? 1.43 * rear.vertical * rearScaleFor(ahead) : 111 * unit;
 }
 
-function rearViewFor(width, height) {
+function rearViewFor(width, height, playBottom) {
   const imageWidth = Math.max(width, height * (1672 / 941));
   const imageHeight = imageWidth * (941 / 1672);
   const left = (width - imageWidth) * 0.53;
@@ -232,7 +232,7 @@ function rearViewFor(width, height) {
   const top = horizon - imageHeight * 0.34;
   const vanishingX = left + imageWidth * 0.624;
   const playerX = left + imageWidth * 0.513;
-  const playerY = height * 0.932;
+  const playerY = Math.max(horizon + 1, Math.min(height * 0.932, playBottom));
   const vertical = Math.min((playerY - horizon) / 2.08, width * 0.365);
   const lateral = Math.min(vertical, width * 0.273);
   const project = (ahead, depth = 0, lift = 0) => {
@@ -336,9 +336,9 @@ function drawRearScenery(ctx, image, roadside, view, time, distance, ratio) {
   }
 }
 
-function sideProject(width, height, unit) {
+function sideProject(width, height, unit, playBottom) {
   const x0 = width * (width < 580 ? 0.235 : 0.287);
-  const y0 = height * 0.665;
+  const y0 = Math.min(height * 0.665, playBottom);
   return (x, z = 0, y = 0) => [x0 + x * 45 * unit, y0 - y * 41 * unit];
 }
 
@@ -1187,7 +1187,7 @@ function drawPlayer(ctx, project, run, unit, screen, reduced, models, rear) {
   }
 }
 
-export function createRenderer(canvas) {
+export function createRenderer(canvas, controls) {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return () => {};
@@ -1217,14 +1217,22 @@ export function createRenderer(canvas) {
   let width = 0;
   let height = 0;
   let ratio = 1;
+  let playBottom = 0;
   function resize() {
     width = canvas.clientWidth;
     height = canvas.clientHeight;
+    playBottom = Math.max(0, controls.offsetTop - 12);
     ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round(height * ratio);
+    const pixelsWide = Math.round(width * ratio);
+    const pixelsHigh = Math.round(height * ratio);
+    if (canvas.width !== pixelsWide || canvas.height !== pixelsHigh) {
+      canvas.width = pixelsWide;
+      canvas.height = pixelsHigh;
+    }
   }
-  new ResizeObserver(resize).observe(canvas);
+  const layout = new ResizeObserver(resize);
+  layout.observe(canvas);
+  layout.observe(controls);
   resize();
 
   return (run, now, screen) => {
@@ -1239,8 +1247,8 @@ export function createRenderer(canvas) {
         : screen === "ready"
           ? now / 1100
           : run.distance / 6;
-    const rear = run.mode === 3 ? rearViewFor(width, height) : null;
-    const project = rear?.project ?? sideProject(width, height, unit);
+    const rear = run.mode === 3 ? rearViewFor(width, height, playBottom) : null;
+    const project = rear?.project ?? sideProject(width, height, unit, playBottom);
     const events = visibleEvents(run);
     const actors = events.filter((event) => event.length === 0);
     const deflected = events.find((event) => event.index === run.deflected);

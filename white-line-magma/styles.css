@@ -24,9 +24,16 @@ body {
 }
 
 .notebook {
+  --notebook-gutter: clamp(12px, 2.3vw, 36px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   width: min(100%, 1600px);
+  height: var(--vvh, 100dvh);
+  max-height: 936px;
   margin: 0 auto;
-  padding: max(10px, env(safe-area-inset-top)) clamp(12px, 2.3vw, 36px) max(10px, env(safe-area-inset-bottom));
+  padding-block: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-bottom));
+  padding-inline: max(var(--notebook-gutter), env(safe-area-inset-left))
+    max(var(--notebook-gutter), env(safe-area-inset-right));
 }
 
 .distance-readout,
@@ -70,7 +77,6 @@ body {
 .stage {
   position: relative;
   isolation: isolate;
-  height: clamp(250px, calc(100dvh - 128px - env(safe-area-inset-bottom)), 880px);
   border: 1px solid #dedede;
   background: #0a0a0a;
   box-shadow:
@@ -265,20 +271,34 @@ button:disabled {
 }
 
 .controls {
+  position: absolute;
+  z-index: 2;
+  inset-inline: clamp(10px, 2.8vw, 32px);
+  bottom: clamp(10px, 1.35vw, 18px);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(7px, 2.3vw, 25px);
-  max-width: 1140px;
-  margin: clamp(8px, 1.2vw, 14px) auto 0;
+  gap: clamp(6px, 1.2vw, 14px);
+  width: auto;
+  max-width: 720px;
+  margin-inline: auto;
+}
+.overlay:not([hidden]) + .controls {
+  visibility: hidden;
 }
 .controls button {
   -webkit-tap-highlight-color: transparent;
   min-height: 48px;
   padding: 9px 6px;
-  font-size: clamp(0.72rem, 2.15vw, 1.48rem);
-  box-shadow:
-    1px 1px #a2a2a2,
-    inset 1px 1px #454545;
+  background: #130e16c9;
+  border-color: #e8d7cfba;
+  font-size: clamp(0.78rem, 1.8vw, 1.1rem);
+  box-shadow: 1px 2px #1b071d7a;
+}
+.controls button:not(:disabled):hover {
+  background: #241722dd;
+}
+.controls button:not(:disabled):active {
+  background: #41242cf2;
 }
 .controls kbd {
   margin-left: 0.45em;
@@ -293,8 +313,8 @@ button:disabled {
 }
 
 @media (max-width: 620px) {
-  .stage {
-    height: clamp(225px, calc(100dvh - 122px - env(safe-area-inset-bottom)), 690px);
+  .notebook {
+    max-height: 756px;
   }
   .stage-hud {
     inset: 9px 9px auto;
@@ -317,8 +337,9 @@ button:disabled {
   }
 }
 
-@media (max-height: 500px) and (orientation: landscape) {
-  .stage {
-    height: max(156px, calc(100dvh - 116px - env(safe-area-inset-bottom)));
-  }
+.vvh-tiny .overlay-content {
+  gap: 7px;
+}
+.vvh-tiny .overlay[data-state="ended"] .overlay-content {
+  padding-block: 10px;
 }

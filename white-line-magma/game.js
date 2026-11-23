@@ -29,7 +29,22 @@ const modeLabel = element("mode");
 const viewAction = element("view-action");
 const cue = element("cue");
 const buttons = { jump: element("jump"), parry: element("parry"), switch: element("switch-view") };
-const draw = createRenderer(element("world"));
+const viewport = window.visualViewport;
+
+function applyViewport() {
+  if (viewport && viewport.scale !== 1) {
+    return;
+  }
+  const height = Math.floor(viewport?.height ?? window.innerHeight);
+  const root = document.documentElement;
+  root.style.setProperty("--vvh", height + "px");
+  root.classList.toggle("vvh-tiny", height < 520);
+}
+
+window.addEventListener("resize", applyViewport);
+viewport?.addEventListener("resize", applyViewport);
+applyViewport();
+const draw = createRenderer(element("world"), element("controls"));
 
 function readSave() {
   try {
