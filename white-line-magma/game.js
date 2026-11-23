@@ -5,8 +5,6 @@ import { createRenderer } from "./render.js?v=asset-loading";
 
 const GAME_ID = "white-line-magma";
 const QUOTE_POST = "https://x.com/nazotoki_cafe/status/2124790312040313320";
-const QUOTE_END = Date.parse("2026-11-24T00:00:00+09:00");
-const SHARE_HASHTAG = "#白線外はマグマ";
 const qa = new URLSearchParams(location.search).has("qa");
 const SAVE_KEY = qa ? "akashic:white-line-magma:qa" : "akashic:white-line-magma";
 const STEP = 1 / 120;
@@ -105,17 +103,6 @@ function updateHud() {
   cue.toggleAttribute("data-now", Boolean(signal?.now));
 }
 
-function updateShareLink() {
-  const score = `『白線外はマグマ』で ${Math.floor(run.distance)} m 走った！`;
-  const { createShareIntent } = globalThis.AkashicCompletion;
-  if (QUOTE_POST && Date.now() < QUOTE_END) {
-    shareResult.href = createShareIntent(`${score}\n\n${SHARE_HASHTAG}`, QUOTE_POST, "");
-    return;
-  }
-  const gameUrl = document.querySelector('link[rel="canonical"]').href;
-  shareResult.href = createShareIntent(score, gameUrl, SHARE_HASHTAG);
-}
-
 function setScreen(next, focus = false) {
   screen = next;
   overlay.dataset.state = screen;
@@ -141,7 +128,8 @@ function setScreen(next, focus = false) {
     primary.textContent = "もう一度走る →";
     resultDistance.textContent = meters(run.distance);
     bestLabel.textContent = meters(Math.max(best, run.distance));
-    updateShareLink();
+    const text = `『白線外はマグマ』で ${Math.floor(run.distance)} m 走った！\n\n#白線外はマグマ`;
+    shareResult.href = globalThis.AkashicCompletion.createShareIntent(text, QUOTE_POST, "");
   }
   if (focus) {
     const target = screen === "playing" ? pauseButton : primary;
@@ -188,18 +176,6 @@ function handleAction(action) {
 
 primary.addEventListener("click", activate);
 pauseButton.addEventListener("click", pause);
-shareResult.addEventListener("click", () => {
-  if (screen === "ended") {
-    updateShareLink();
-  }
-});
-if (QUOTE_POST && Date.now() < QUOTE_END) {
-  window.setTimeout(() => {
-    if (screen === "ended") {
-      updateShareLink();
-    }
-  }, QUOTE_END - Date.now());
-}
 for (const [name, button] of Object.entries(buttons)) {
   button.addEventListener("click", () => handleAction(name));
 }
