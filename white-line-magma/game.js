@@ -127,9 +127,9 @@ function setScreen(next, focus = false) {
     bestLabel.textContent = meters(Math.max(best, run.distance));
     const gameUrl = document.querySelector('link[rel="canonical"]').href;
     shareResult.href = globalThis.AkashicCompletion.createShareIntent(
-      `『白線の上だけ』で ${Math.floor(run.distance)} m 走った！`,
+      `『白線外はマグマ』で ${Math.floor(run.distance)} m 走った！`,
       gameUrl,
-      "#白線の上だけ",
+      "#白線外はマグマ",
     );
   }
   if (focus) {
