@@ -100,15 +100,74 @@ globalThis.AkashicProgress = {
 };
 const akashicCompletionFormatShareText = (text, publicUrl, hashtags = "") =>
   [text, publicUrl, hashtags].filter(Boolean).join("\n");
+// Public projection only: game URLs and verified official X posts, never draft IDs.
+const akashicCompletionSharePosts = /* BEGIN VERIFIED X POSTS */ {
+  "https://games.escape-safari.com/games/nazo-20261104-open-interval/":
+    "https://x.com/nazotoki_cafe/status/2125137348518420569",
+  "https://games.escape-safari.com/kobako/":
+    "https://x.com/nazotoki_cafe/status/2117889641483489451",
+  "https://games.escape-safari.com/last-bridge/":
+    "https://x.com/nazotoki_cafe/status/2118251997342437577",
+  "https://games.escape-safari.com/long-way/":
+    "https://x.com/nazotoki_cafe/status/2121513467517759511",
+  "https://games.escape-safari.com/moving-editor/":
+    "https://x.com/nazotoki_cafe/status/2124412569364611292",
+  "https://games.escape-safari.com/mukaiau/":
+    "https://x.com/nazotoki_cafe/status/2124050183252234308",
+  "https://games.escape-safari.com/nine-minutes/":
+    "https://x.com/nazotoki_cafe/status/2121875855404351883",
+  "https://games.escape-safari.com/one-heavy/":
+    "https://x.com/nazotoki_cafe/status/2120449994834797044",
+  "https://games.escape-safari.com/press-all-buttons/":
+    "https://x.com/nazotoki_cafe/status/2123325411086213575",
+  "https://games.escape-safari.com/symbol-rule/":
+    "https://x.com/nazotoki_cafe/status/2119701536263807206",
+  "https://games.escape-safari.com/three-cuts/":
+    "https://x.com/nazotoki_cafe/status/2120788699990597901",
+  "https://games.escape-safari.com/three-forward-two-back/":
+    "https://x.com/nazotoki_cafe/status/2122238275972952462",
+  "https://games.escape-safari.com/three-pictures/":
+    "https://x.com/nazotoki_cafe/status/2118614376290930847",
+  "https://games.escape-safari.com/turtle-soup/play/empty-music-room/":
+    "https://x.com/nazotoki_cafe/status/2120063925060510010",
+  "https://games.escape-safari.com/turtle-soup/play/missing-portrait/":
+    "https://x.com/nazotoki_cafe/status/2121151085696160185",
+  "https://games.escape-safari.com/turtle-soup/play/nazo-20261101-bedtime-story/":
+    "https://x.com/nazotoki_cafe/status/2118976777016180885",
+  "https://games.escape-safari.com/turtle-soup/play/nazo-20261103-doorway-load/":
+    "https://x.com/nazotoki_cafe/status/2122600635204022348",
+  "https://games.escape-safari.com/turtle-soup/play/nazo-20261104-no-sale/":
+    "https://x.com/nazotoki_cafe/status/2123687796586226142",
+  "https://games.escape-safari.com/two-exits/":
+    "https://x.com/nazotoki_cafe/status/2119339142056415708",
+  "https://games.escape-safari.com/waterway-inspection/":
+    "https://x.com/nazotoki_cafe/status/2122963020561474044",
+}; /* END VERIFIED X POSTS */
+const akashicCompletionShareUrl = (publicUrl) => {
+  if (typeof publicUrl !== "string") {
+    return publicUrl;
+  }
+  const canonical = publicUrl
+    .replace(/[?#].*$/, "")
+    .replace(/\/index\.html$/, "/")
+    .replace(/\/?$/, "/");
+  return Object.hasOwn(akashicCompletionSharePosts, canonical)
+    ? akashicCompletionSharePosts[canonical]
+    : publicUrl;
+};
 globalThis.AkashicCompletion = {
   createCompletionAttempt: akashicCompletionCreateCompletionAttempt,
   readNoHintCleared: akashicCompletionReadNoHintCleared,
   formatShareText: akashicCompletionFormatShareText,
-  createShareIntent(text, publicUrl, hashtags = "") {
+  shareUrl: akashicCompletionShareUrl,
+  createShareIntent(text, publicUrl, hashtags = "#Web謎") {
+    const postUrl = akashicCompletionShareUrl(publicUrl);
     return (
       "https://twitter.com/intent/tweet?" +
       new URLSearchParams({
-        text: akashicCompletionFormatShareText(text, publicUrl, hashtags),
+        text: [text, publicUrl, postUrl !== publicUrl ? postUrl : "", hashtags]
+          .filter(Boolean)
+          .join("\n\n"),
       })
     );
   },
